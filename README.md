@@ -53,4 +53,4 @@ Design and implement a streaming video player with an integrated local AI recomm
 - Low-cost implementation using open-source tools and free/public datasets (e.g., MovieLens)
 - Optional metadata API usage (e.g., TMDB free tier)
 - Team structure suitable for 3-4 contributors with roles across AI, frontend, and testing
-- Academic supervision under Prof. Huang
+- Academic supervision under Dr. Huang
