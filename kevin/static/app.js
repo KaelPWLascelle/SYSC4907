@@ -1,4 +1,5 @@
 'use strict';
+import { initVoice } from '/voice.js';
 const $ = id => document.getElementById(id);
 let catalog = [], feedback = {}, requestVersion = 0, busy = false;
 async function api(path, data) {
@@ -51,16 +52,24 @@ function renderLibrary() {
   }
   if (!matches.length) $('catalog').textContent = 'No titles match that search.';
 }
+function readSession() {
+  return {mood: $('mood').value, minutes: Number($('minutes').value), intensity: Number($('intensity').value)/100, novelty: Number($('novelty').value)/100, excluded_genres: [...$('excluded-genres').selectedOptions].map(option => option.value)};
+}
+function setSession(session) {
+  $('mood').value = session.mood; $('minutes').value = session.minutes;
+  for (const key of ['intensity', 'novelty']) { $(key).value = Math.round(session[key]*100); $(`${key}-value`).textContent = `${Math.round(session[key]*100)}%`; }
+  for (const option of $('excluded-genres').options) option.selected = session.excluded_genres.includes(option.value);
+}
 async function recommend() {
   const version = ++requestVersion;
   status('Finding your next watch…');
-  const session = {mood: $('mood').value, minutes: Number($('minutes').value), intensity: Number($('intensity').value)/100, novelty: Number($('novelty').value)/100};
+  const session = readSession();
   try {
     const result = await api('/api/recommend', {session, mode: $('mode').value});
     if (version !== requestVersion) return;
     $('recommendations').replaceChildren();
     $('count').textContent = `${result.recommendations.length} picks`;
-    status(result.recommendations.length ? (result.cold_start ? 'Like a few films to teach Kevin your taste. Discovery stays neutral until your first like.' : 'Your ratings shape taste. Open “Why this pick?” to inspect each score.') : 'Nothing fits yet. Increase your available time or clear a rating in the catalogue.');
+    status(result.recommendations.length ? (result.cold_start ? 'Like a few films to teach Kevin your taste. Discovery stays neutral until your first like.' : 'Your ratings shape taste. Open “Why this pick?” to inspect each score.') : 'Nothing fits yet. Increase your time, remove a genre exclusion, or clear a rating in the catalogue.');
     for (const row of result.recommendations) {
       const item = row.content;
       const card = $('card').content.firstElementChild.cloneNode(true);
@@ -89,6 +98,9 @@ $('session').addEventListener('submit', event => { event.preventDefault(); recom
 $('search').addEventListener('input', renderLibrary);
 for (const key of ['intensity', 'novelty']) $(key).addEventListener('input', () => $(`${key}-value`).textContent = `${$(key).value}%`);
 (async () => {
-  try { const data = await api('/api/state'); catalog = data.catalog; feedback = data.feedback; $('catalog-size').textContent = catalog.length; renderLibrary(); await recommend(); }
+  try { const data = await api('/api/state'); catalog = data.catalog; feedback = data.feedback;
+    for (const genre of [...new Set(catalog.flatMap(item => item.genres))].sort()) { const option = document.createElement('option'); option.value = genre; option.textContent = genre; $('excluded-genres').append(option); }
+    initVoice({api, readSession, voice: data.voice, applyResult: async result => { feedback = result.feedback; setSession(result.session); renderLibrary(); await recommend(); }});
+    $('catalog-size').textContent = catalog.length; renderLibrary(); await recommend(); }
   catch (error) { status(`Could not load Kevin: ${error.message}. Reload to retry.`); }
 })();

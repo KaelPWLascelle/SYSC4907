@@ -8,14 +8,18 @@ import sqlite3
 from urllib.parse import urlsplit
 from .core import load_catalog, Recommender, Session
 from .store import FeedbackStore
+from .commands import CommandInterpreter
+from .voice import AUDIO_TYPES, MAX_AUDIO_BYTES, LocalWhisper, VoiceBusy, VoiceUnavailable
 
 ROOT = Path(__file__).parent
 
 
-def make_server(catalog_path, db_path, port=8765):
+def make_server(catalog_path, db_path, port=8765, voice=None):
     catalog = load_catalog(catalog_path)
     engine, store = Recommender(catalog), FeedbackStore(db_path)
     ids = {item.id for item in catalog}
+    interpreter = CommandInterpreter(catalog)
+    speech = voice if voice is not None else LocalWhisper()
 
     class Handler(BaseHTTPRequestHandler):
         def setup(self):
@@ -51,11 +55,11 @@ def make_server(catalog_path, db_path, port=8765):
             path = urlsplit(self.path).path
             if path == '/api/state':
                 try:
-                    self.respond(200, dict(catalog=[asdict(i) for i in catalog], feedback=store.all()))
+                    self.respond(200, dict(catalog=[asdict(i) for i in catalog], feedback=store.all(), voice=speech.status()))
                 except sqlite3.Error:
                     self.respond(503, {'error': 'Local storage is unavailable; check the database path'})
-            elif path in ('/', '/app.js', '/style.css'):
-                name, mime = {'/': ('index.html', 'text/html; charset=utf-8'), '/app.js': ('app.js', 'text/javascript; charset=utf-8'), '/style.css': ('style.css', 'text/css; charset=utf-8')}[path]
+            elif path in ('/', '/app.js', '/voice.js', '/style.css'):
+                name, mime = {'/': ('index.html', 'text/html; charset=utf-8'), '/app.js': ('app.js', 'text/javascript; charset=utf-8'), '/voice.js': ('voice.js', 'text/javascript; charset=utf-8'), '/style.css': ('style.css', 'text/css; charset=utf-8')}[path]
                 self.respond(200, (ROOT/'static'/name).read_bytes(), mime)
             else:
                 self.respond(404, {'error': 'Not found'})
@@ -64,6 +68,15 @@ def make_server(catalog_path, db_path, port=8765):
             if not self.allowed():
                 return
             try:
+                if self.path == '/api/transcribe':
+                    if self.headers.get('Content-Type', '').split(';')[0] not in AUDIO_TYPES:
+                        raise ValueError('Expected an audio recording')
+                    length = int(self.headers.get('Content-Length', '0'))
+                    if not 0 < length <= MAX_AUDIO_BYTES:
+                        raise ValueError('Audio must contain 1 byte to 5 MiB')
+                    result = speech.transcribe(self.rfile.read(length))
+                    self.respond(200, result)
+                    return
                 if self.headers.get('Content-Type', '').split(';')[0] != 'application/json':
                     raise ValueError('Expected application/json')
                 length = int(self.headers.get('Content-Length', '0'))
@@ -77,6 +90,19 @@ def make_server(catalog_path, db_path, port=8765):
                         raise ValueError('Unknown content ID or feedback fields')
                     store.set(data['id'], data['value'])
                     self.respond(200, {'feedback': store.all()})
+                elif self.path in ('/api/command/preview', '/api/command/apply'):
+                    if set(data) - {'text', 'session'} or 'text' not in data:
+                        raise ValueError('Expected command text and optional session')
+                    session = Session(**data.get('session', {}))
+                    command = interpreter.parse(data['text'])
+                    if self.path.endswith('/apply'):
+                        if command['intent'] == 'unknown':
+                            raise ValueError(command['summary'])
+                        if command['intent'] == 'feedback':
+                            store.set(command['id'], command['value'])
+                        else:
+                            session = Session(**{**asdict(session), **command['patch']})
+                    self.respond(200, {'command': command, 'session': asdict(session), 'feedback': store.all()})
                 elif self.path == '/api/recommend':
                     if set(data) - {'session', 'mode'}:
                         raise ValueError('Unknown request fields')
@@ -90,6 +116,10 @@ def make_server(catalog_path, db_path, port=8765):
                 self.respond(400, {'error': str(error)})
             except sqlite3.Error:
                 self.respond(503, {'error': 'Local storage is unavailable; retry or check the database path'})
+            except VoiceUnavailable as error:
+                self.respond(503, {'error': str(error)})
+            except VoiceBusy as error:
+                self.respond(409, {'error': str(error)})
 
     return ThreadingHTTPServer(('127.0.0.1', port), Handler)
 
@@ -99,8 +129,9 @@ def main():
     parser.add_argument('--catalog', type=Path, default=ROOT/'data'/'movies.json')
     parser.add_argument('--db', type=Path, default=Path.home()/'.kevin'/'feedback.sqlite3')
     parser.add_argument('--port', type=int, default=8765)
+    parser.add_argument('--voice-model', type=Path, help='Local faster-whisper model directory; no runtime downloads')
     args = parser.parse_args()
-    server = make_server(args.catalog, args.db, args.port)
+    server = make_server(args.catalog, args.db, args.port, LocalWhisper(args.voice_model))
     print(f'Kevin: http://127.0.0.1:{server.server_port} — feedback: {args.db}', flush=True)
     try:
         server.serve_forever()

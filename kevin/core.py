@@ -56,8 +56,12 @@ class Session:
     minutes: int = 120
     intensity: float = 0.5
     novelty: float = 0.3
+    excluded_genres: tuple[str, ...] = ()
 
     def __post_init__(self):
+        if not isinstance(self.excluded_genres, (list, tuple)) or len(self.excluded_genres) > 20 or any(not isinstance(g, str) or not g.strip() or len(g) > 50 for g in self.excluded_genres):
+            raise ValueError('Excluded genres must be a list of at most 20 genre names')
+        object.__setattr__(self, 'excluded_genres', tuple(sorted(set(self.excluded_genres))))
         if self.mood not in MOODS:
             raise ValueError('Unknown mood')
         if type(self.minutes) is not int or not 1 <= self.minutes <= 600:
@@ -136,11 +140,14 @@ class Recommender:
     def recommend(self, feedback, session, mode='session', limit=12):
         if mode not in ('session', 'baseline'):
             raise ValueError('Unknown ranking mode')
+        genres = {g for item in self.catalog for g in item.genres}
+        if set(session.excluded_genres) - genres:
+            raise ValueError('Unknown excluded genre for this catalogue')
         scores = self.taste.scores(feedback)
         result = []
         for item in self.catalog:
             # Hard constraints belong to the application, never to a future model.
-            if item.id in feedback or item.minutes > session.minutes:
+            if item.id in feedback or item.minutes > session.minutes or set(item.genres).intersection(session.excluded_genres):
                 continue
             taste = scores[item.id]
             factors = self.decision.factors(item, taste, session) if mode == 'session' else {'taste': taste['taste']}

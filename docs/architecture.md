@@ -1,4 +1,4 @@
-# Kevin v0.1 architecture
+# Kevin v0.2 architecture
 
 The browser sends feedback and explicitly selected session context to a loopback
 Python server. The server loads the catalogue once, computes TF-IDF once, reads
@@ -17,6 +17,11 @@ requests, telemetry, CDN dependencies, remote models, or cloud accounts.
 - `static/`: accessible native browser controls, text-only rendering of catalogue
   data, explicit loading/error/empty states, request sequencing against stale results.
 - `data/`: offline demo fixture and replacement schema.
+- `voice.py`: optional local Whisper speech adapter with bounded in-memory decoding.
+- `commands.py`: side-effect-free interpretation of supported session/rating commands.
+- `static/voice.js`: microphone/file capture, transcript editing, preview and apply.
+
+See [voice architecture and setup](voice.md) for the optional speech dependencies.
 
 The HTTP server is a development/demo server, not a deployment or authentication
 solution. All local OS users who can access the database or service can access the
@@ -47,7 +52,7 @@ No popularity or collaborative signals are available in this fixture.
 
 ## Separate session decision layer
 
-First, exclude every rated item and every item exceeding the available minutes.
+First, exclude every rated item and every item exceeding the available minutes, and every item matching an excluded genre.
 Both comparison modes use identical hard constraints. Equality fits the limit.
 The session layer scores every remaining candidate (no approximate retrieval yet):
 
@@ -84,12 +89,12 @@ A future Laya/Kev-like adapter should return bounded scores through that decisio
 contract. No availability, license, accuracy, or hardware compatibility of any
 specific model is assumed or verified in this MVP. Benchmark before adoption.
 
-Whisper/FunctionGemma can later translate speech into validated feedback/session
-commands through the same application boundary. Add explicit confirmation for
-ambiguous commands. Eye-tracking context should be an opt-in provider with timestamps,
+Whisper now transcribes speech locally; the bounded command interpreter maps
+transcripts to reviewed feedback/session operations. FunctionGemma could later
+replace this interpreter. Ambiguous titles currently produce no action. Eye-tracking context should be an opt-in provider with timestamps,
 confidence, expiry, and manual override; it must not silently replace user choices.
 Cross-domain content can reuse Content IDs/kind but needs domain-specific features,
-runtime conventions, and evaluation. Neither voice nor eye tracking is implemented.
+runtime conventions, and evaluation. Voice input is implemented; eye tracking is not.
 
 ## API
 
@@ -100,3 +105,8 @@ runtime conventions, and evaluation. Neither voice nor eye tracking is implement
 
 Session omissions use defaults; unknown fields/IDs and invalid values return 400.
 Requests must use JSON, at most 8192 bytes. Storage failures return 503.
+
+Voice endpoints: `POST /api/transcribe` accepts raw audio (maximum 5 MiB / 30 seconds).
+`POST /api/command/preview` and `/api/command/apply` accept `text` and the current
+`session`. Preview has no side effects. Apply reparses the text and updates only
+recognized settings or a validated title rating. See docs/voice.md for examples.

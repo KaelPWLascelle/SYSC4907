@@ -57,11 +57,11 @@ Design and implement a streaming video player with an integrated local AI recomm
 
 ## Kevin recommendation MVP
 
-Kevin v0.1 is a working, local-first experiment for the recommendation concept.
+Kevin v0.2 is a working, local-first experiment for the recommendation concept.
 It includes a browser UI, 36 bundled movie/short-film records, like/dislike/clear
 controls, SQLite feedback persistence, a TF-IDF taste profile, and a separate
 explainable session reranker. No API keys, model downloads, or third-party Python
-packages are required. Playback, voice, and eye tracking are future work.
+packages are required. Optional local Whisper voice commands are available; playback and eye tracking remain future work.
 
 ### Run
 
@@ -96,11 +96,24 @@ repository and Python are present, the demo works without internet access.
 To start completely fresh without deleting anything, supply a new `--db` path.
 Session controls are intentionally temporary and return to defaults on reload.
 
+### Voice commands and typed assistant
+
+The **Just ask Kevin** panel accepts typed requests such as “relaxing, 90 minutes,
+no horror” and “Like Arrival”. Preview the proposed changes, then Apply. Genre
+exclusions are hard constraints in both ranking modes.
+
+For local microphone transcription and audio-file uploads, follow
+[the voice setup and command guide](docs/voice.md). This adds optional
+faster-whisper dependencies and an explicitly downloaded model. Recordings stay
+on-device and are not saved by Kevin. No cloud speech API or wake word is used.
+
 ### Verify
 
 ```sh
 python3 -m unittest discover -s tests -v
 python3 -m kevin.evaluate
+# Optional frontend state tests (Node 24):
+node --test tests/voice-ui.test.mjs
 ```
 
 Tests exercise ranking behavior, time constraints, negative feedback, cold start,
