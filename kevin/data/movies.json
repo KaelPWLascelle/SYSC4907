@@ -1,0 +1,826 @@
+[
+  {
+    "id": "m001",
+    "title": "Arrival",
+    "year": 2016,
+    "kind": "movie",
+    "minutes": 116,
+    "genres": [
+      "science-fiction",
+      "drama"
+    ],
+    "tags": [
+      "language",
+      "aliens",
+      "communication",
+      "discovery"
+    ],
+    "moods": [
+      "curious",
+      "reflective"
+    ],
+    "intensity": 0.5,
+    "description": "A linguist searches for common ground with visitors from another world."
+  },
+  {
+    "id": "m002",
+    "title": "Contact",
+    "year": 1997,
+    "kind": "movie",
+    "minutes": 150,
+    "genres": [
+      "science-fiction",
+      "drama"
+    ],
+    "tags": [
+      "space",
+      "science",
+      "communication",
+      "discovery"
+    ],
+    "moods": [
+      "curious",
+      "reflective"
+    ],
+    "intensity": 0.4,
+    "description": "A radio astronomer investigates a signal that could change humanity’s place in the universe."
+  },
+  {
+    "id": "m003",
+    "title": "The Martian",
+    "year": 2015,
+    "kind": "movie",
+    "minutes": 144,
+    "genres": [
+      "science-fiction",
+      "adventure"
+    ],
+    "tags": [
+      "space",
+      "survival",
+      "science",
+      "ingenuity"
+    ],
+    "moods": [
+      "uplifting",
+      "curious"
+    ],
+    "intensity": 0.6,
+    "description": "An astronaut uses experiments and ingenuity to survive alone on Mars."
+  },
+  {
+    "id": "m004",
+    "title": "Moon",
+    "year": 2009,
+    "kind": "movie",
+    "minutes": 97,
+    "genres": [
+      "science-fiction",
+      "mystery"
+    ],
+    "tags": [
+      "space",
+      "identity",
+      "isolation",
+      "discovery"
+    ],
+    "moods": [
+      "reflective",
+      "curious"
+    ],
+    "intensity": 0.5,
+    "description": "A lunar worker nearing the end of his assignment questions his surroundings and identity."
+  },
+  {
+    "id": "m005",
+    "title": "WALL-E",
+    "year": 2008,
+    "kind": "movie",
+    "minutes": 98,
+    "genres": [
+      "animation",
+      "science-fiction"
+    ],
+    "tags": [
+      "robots",
+      "space",
+      "environment",
+      "friendship"
+    ],
+    "moods": [
+      "uplifting",
+      "relaxing"
+    ],
+    "intensity": 0.3,
+    "description": "A small cleanup robot follows a visitor into space and discovers a new purpose."
+  },
+  {
+    "id": "m006",
+    "title": "Interstellar",
+    "year": 2014,
+    "kind": "movie",
+    "minutes": 169,
+    "genres": [
+      "science-fiction",
+      "adventure"
+    ],
+    "tags": [
+      "space",
+      "family",
+      "exploration",
+      "time"
+    ],
+    "moods": [
+      "curious",
+      "tense"
+    ],
+    "intensity": 0.8,
+    "description": "Explorers travel beyond the solar system in search of a future for their families."
+  },
+  {
+    "id": "m007",
+    "title": "Blade Runner",
+    "year": 1982,
+    "kind": "movie",
+    "minutes": 117,
+    "genres": [
+      "science-fiction",
+      "thriller"
+    ],
+    "tags": [
+      "robots",
+      "identity",
+      "city",
+      "mystery"
+    ],
+    "moods": [
+      "reflective",
+      "tense"
+    ],
+    "intensity": 0.8,
+    "description": "An investigator pursues artificial humans through a rain-soaked future city."
+  },
+  {
+    "id": "m008",
+    "title": "Alien",
+    "year": 1979,
+    "kind": "movie",
+    "minutes": 117,
+    "genres": [
+      "science-fiction",
+      "horror"
+    ],
+    "tags": [
+      "space",
+      "survival",
+      "creature",
+      "isolation"
+    ],
+    "moods": [
+      "tense"
+    ],
+    "intensity": 1.0,
+    "description": "A commercial spacecraft brings an unknown organism aboard during a remote mission."
+  },
+  {
+    "id": "m009",
+    "title": "The Thing",
+    "year": 1982,
+    "kind": "movie",
+    "minutes": 109,
+    "genres": [
+      "horror",
+      "mystery"
+    ],
+    "tags": [
+      "isolation",
+      "creature",
+      "survival",
+      "trust"
+    ],
+    "moods": [
+      "tense"
+    ],
+    "intensity": 1.0,
+    "description": "An Antarctic research team faces a creature that makes trust almost impossible."
+  },
+  {
+    "id": "m010",
+    "title": "A Quiet Place",
+    "year": 2018,
+    "kind": "movie",
+    "minutes": 90,
+    "genres": [
+      "horror",
+      "thriller"
+    ],
+    "tags": [
+      "family",
+      "survival",
+      "creature",
+      "silence"
+    ],
+    "moods": [
+      "tense"
+    ],
+    "intensity": 0.9,
+    "description": "A family must navigate everyday life without making a sound."
+  },
+  {
+    "id": "m011",
+    "title": "Paddington",
+    "year": 2014,
+    "kind": "movie",
+    "minutes": 95,
+    "genres": [
+      "comedy",
+      "family"
+    ],
+    "tags": [
+      "friendship",
+      "city",
+      "kindness",
+      "adventure"
+    ],
+    "moods": [
+      "uplifting",
+      "relaxing"
+    ],
+    "intensity": 0.2,
+    "description": "A bear seeking a home in London finds a family and a series of unexpected adventures."
+  },
+  {
+    "id": "m012",
+    "title": "Paddington 2",
+    "year": 2017,
+    "kind": "movie",
+    "minutes": 103,
+    "genres": [
+      "comedy",
+      "family"
+    ],
+    "tags": [
+      "friendship",
+      "kindness",
+      "community",
+      "adventure"
+    ],
+    "moods": [
+      "uplifting",
+      "relaxing"
+    ],
+    "intensity": 0.2,
+    "description": "A thoughtful gift draws a gentle bear into a mystery involving his whole community."
+  },
+  {
+    "id": "m013",
+    "title": "Kiki’s Delivery Service",
+    "year": 1989,
+    "kind": "movie",
+    "minutes": 103,
+    "genres": [
+      "animation",
+      "fantasy"
+    ],
+    "tags": [
+      "friendship",
+      "independence",
+      "flying",
+      "community"
+    ],
+    "moods": [
+      "relaxing",
+      "uplifting"
+    ],
+    "intensity": 0.2,
+    "description": "A young witch builds confidence while starting a delivery service in a seaside town."
+  },
+  {
+    "id": "m014",
+    "title": "My Neighbor Totoro",
+    "year": 1988,
+    "kind": "movie",
+    "minutes": 86,
+    "genres": [
+      "animation",
+      "fantasy"
+    ],
+    "tags": [
+      "nature",
+      "family",
+      "childhood",
+      "friendship"
+    ],
+    "moods": [
+      "relaxing",
+      "uplifting"
+    ],
+    "intensity": 0.2,
+    "description": "Two sisters discover extraordinary neighbours near their new country home."
+  },
+  {
+    "id": "m015",
+    "title": "Spirited Away",
+    "year": 2001,
+    "kind": "movie",
+    "minutes": 125,
+    "genres": [
+      "animation",
+      "fantasy"
+    ],
+    "tags": [
+      "identity",
+      "courage",
+      "magic",
+      "adventure"
+    ],
+    "moods": [
+      "curious",
+      "uplifting"
+    ],
+    "intensity": 0.5,
+    "description": "A child learns the rules of a spirit world while trying to reunite her family."
+  },
+  {
+    "id": "m016",
+    "title": "The Iron Giant",
+    "year": 1999,
+    "kind": "movie",
+    "minutes": 86,
+    "genres": [
+      "animation",
+      "science-fiction"
+    ],
+    "tags": [
+      "robots",
+      "friendship",
+      "kindness",
+      "identity"
+    ],
+    "moods": [
+      "uplifting",
+      "reflective"
+    ],
+    "intensity": 0.5,
+    "description": "A boy befriends a giant machine and helps it choose who it wants to become."
+  },
+  {
+    "id": "m017",
+    "title": "Toy Story",
+    "year": 1995,
+    "kind": "movie",
+    "minutes": 81,
+    "genres": [
+      "animation",
+      "comedy"
+    ],
+    "tags": [
+      "friendship",
+      "toys",
+      "adventure",
+      "trust"
+    ],
+    "moods": [
+      "uplifting",
+      "relaxing"
+    ],
+    "intensity": 0.3,
+    "description": "Two rival toys must cooperate to return to the child who cares for them."
+  },
+  {
+    "id": "m018",
+    "title": "Fantastic Mr. Fox",
+    "year": 2009,
+    "kind": "movie",
+    "minutes": 87,
+    "genres": [
+      "animation",
+      "comedy"
+    ],
+    "tags": [
+      "family",
+      "animals",
+      "ingenuity",
+      "community"
+    ],
+    "moods": [
+      "uplifting",
+      "curious"
+    ],
+    "intensity": 0.4,
+    "description": "A resourceful fox’s schemes put his family and underground neighbours in danger."
+  },
+  {
+    "id": "m019",
+    "title": "The Grand Budapest Hotel",
+    "year": 2014,
+    "kind": "movie",
+    "minutes": 99,
+    "genres": [
+      "comedy",
+      "adventure"
+    ],
+    "tags": [
+      "friendship",
+      "mystery",
+      "hotel",
+      "loyalty"
+    ],
+    "moods": [
+      "curious",
+      "uplifting"
+    ],
+    "intensity": 0.5,
+    "description": "A hotel concierge and his young colleague become entangled in an inheritance dispute."
+  },
+  {
+    "id": "m020",
+    "title": "Amélie",
+    "year": 2001,
+    "kind": "movie",
+    "minutes": 122,
+    "genres": [
+      "comedy",
+      "romance"
+    ],
+    "tags": [
+      "kindness",
+      "city",
+      "connection",
+      "imagination"
+    ],
+    "moods": [
+      "relaxing",
+      "uplifting"
+    ],
+    "intensity": 0.2,
+    "description": "A shy Parisian invents small acts of kindness while learning to pursue her own happiness."
+  },
+  {
+    "id": "m021",
+    "title": "Before Sunrise",
+    "year": 1995,
+    "kind": "movie",
+    "minutes": 101,
+    "genres": [
+      "romance",
+      "drama"
+    ],
+    "tags": [
+      "conversation",
+      "city",
+      "connection",
+      "travel"
+    ],
+    "moods": [
+      "relaxing",
+      "reflective"
+    ],
+    "intensity": 0.1,
+    "description": "Two travellers spend a night walking and talking in Vienna."
+  },
+  {
+    "id": "m022",
+    "title": "Singin’ in the Rain",
+    "year": 1952,
+    "kind": "movie",
+    "minutes": 103,
+    "genres": [
+      "musical",
+      "comedy"
+    ],
+    "tags": [
+      "cinema",
+      "performance",
+      "romance",
+      "friendship"
+    ],
+    "moods": [
+      "uplifting",
+      "relaxing"
+    ],
+    "intensity": 0.2,
+    "description": "Silent-film performers navigate the arrival of sound with music and comic mishaps."
+  },
+  {
+    "id": "m023",
+    "title": "12 Angry Men",
+    "year": 1957,
+    "kind": "movie",
+    "minutes": 96,
+    "genres": [
+      "drama",
+      "mystery"
+    ],
+    "tags": [
+      "justice",
+      "conversation",
+      "evidence",
+      "trust"
+    ],
+    "moods": [
+      "reflective",
+      "tense"
+    ],
+    "intensity": 0.6,
+    "description": "Jurors examine the evidence in a case where their decision carries irreversible consequences."
+  },
+  {
+    "id": "m024",
+    "title": "The Truman Show",
+    "year": 1998,
+    "kind": "movie",
+    "minutes": 103,
+    "genres": [
+      "drama",
+      "comedy"
+    ],
+    "tags": [
+      "identity",
+      "media",
+      "freedom",
+      "discovery"
+    ],
+    "moods": [
+      "reflective",
+      "curious"
+    ],
+    "intensity": 0.5,
+    "description": "A man notices unusual patterns in the apparently ordinary world around him."
+  },
+  {
+    "id": "m025",
+    "title": "Rear Window",
+    "year": 1954,
+    "kind": "movie",
+    "minutes": 112,
+    "genres": [
+      "mystery",
+      "thriller"
+    ],
+    "tags": [
+      "city",
+      "observation",
+      "evidence",
+      "investigation"
+    ],
+    "moods": [
+      "tense",
+      "curious"
+    ],
+    "intensity": 0.7,
+    "description": "A photographer confined to his apartment begins investigating his neighbours from afar."
+  },
+  {
+    "id": "m026",
+    "title": "Knives Out",
+    "year": 2019,
+    "kind": "movie",
+    "minutes": 130,
+    "genres": [
+      "mystery",
+      "comedy"
+    ],
+    "tags": [
+      "family",
+      "evidence",
+      "investigation",
+      "inheritance"
+    ],
+    "moods": [
+      "curious",
+      "tense"
+    ],
+    "intensity": 0.6,
+    "description": "A detective untangles conflicting accounts after a wealthy writer dies."
+  },
+  {
+    "id": "m027",
+    "title": "Mad Max: Fury Road",
+    "year": 2015,
+    "kind": "movie",
+    "minutes": 120,
+    "genres": [
+      "action",
+      "adventure"
+    ],
+    "tags": [
+      "survival",
+      "escape",
+      "desert",
+      "freedom"
+    ],
+    "moods": [
+      "tense"
+    ],
+    "intensity": 1.0,
+    "description": "Travellers fleeing a tyrant cross a desert in a relentless vehicle pursuit."
+  },
+  {
+    "id": "m028",
+    "title": "Jurassic Park",
+    "year": 1993,
+    "kind": "movie",
+    "minutes": 127,
+    "genres": [
+      "adventure",
+      "science-fiction"
+    ],
+    "tags": [
+      "science",
+      "creature",
+      "survival",
+      "island"
+    ],
+    "moods": [
+      "tense",
+      "curious"
+    ],
+    "intensity": 0.8,
+    "description": "Visitors discover the risks of a theme park populated by recreated dinosaurs."
+  },
+  {
+    "id": "m029",
+    "title": "Free Solo",
+    "year": 2018,
+    "kind": "movie",
+    "minutes": 100,
+    "genres": [
+      "documentary",
+      "adventure"
+    ],
+    "tags": [
+      "climbing",
+      "nature",
+      "preparation",
+      "risk"
+    ],
+    "moods": [
+      "tense",
+      "reflective"
+    ],
+    "intensity": 0.9,
+    "description": "A climber prepares for a demanding ascent without ropes."
+  },
+  {
+    "id": "m030",
+    "title": "March of the Penguins",
+    "year": 2005,
+    "kind": "movie",
+    "minutes": 80,
+    "genres": [
+      "documentary",
+      "nature"
+    ],
+    "tags": [
+      "animals",
+      "family",
+      "survival",
+      "environment"
+    ],
+    "moods": [
+      "relaxing",
+      "curious"
+    ],
+    "intensity": 0.3,
+    "description": "Emperor penguins endure Antarctic conditions through a demanding breeding season."
+  },
+  {
+    "id": "m031",
+    "title": "Man on Wire",
+    "year": 2008,
+    "kind": "movie",
+    "minutes": 94,
+    "genres": [
+      "documentary",
+      "biography"
+    ],
+    "tags": [
+      "performance",
+      "preparation",
+      "city",
+      "risk"
+    ],
+    "moods": [
+      "curious",
+      "uplifting"
+    ],
+    "intensity": 0.6,
+    "description": "A high-wire artist and his collaborators plan an extraordinary urban performance."
+  },
+  {
+    "id": "m032",
+    "title": "Apollo 11",
+    "year": 2019,
+    "kind": "movie",
+    "minutes": 93,
+    "genres": [
+      "documentary",
+      "history"
+    ],
+    "tags": [
+      "space",
+      "science",
+      "exploration",
+      "teamwork"
+    ],
+    "moods": [
+      "curious",
+      "uplifting"
+    ],
+    "intensity": 0.4,
+    "description": "Archival images follow the people and machinery behind the first crewed lunar landing."
+  },
+  {
+    "id": "m033",
+    "title": "A Trip to the Moon",
+    "year": 1902,
+    "kind": "short",
+    "minutes": 14,
+    "genres": [
+      "short",
+      "science-fiction"
+    ],
+    "tags": [
+      "space",
+      "exploration",
+      "imagination",
+      "adventure"
+    ],
+    "moods": [
+      "curious",
+      "uplifting"
+    ],
+    "intensity": 0.2,
+    "description": "An imaginative expedition takes a group of astronomers to the Moon."
+  },
+  {
+    "id": "m034",
+    "title": "Sherlock Jr.",
+    "year": 1924,
+    "kind": "short",
+    "minutes": 45,
+    "genres": [
+      "short",
+      "comedy"
+    ],
+    "tags": [
+      "cinema",
+      "mystery",
+      "imagination",
+      "investigation"
+    ],
+    "moods": [
+      "uplifting",
+      "relaxing"
+    ],
+    "intensity": 0.3,
+    "description": "A projectionist dreams of becoming a detective inside the movie he is showing."
+  },
+  {
+    "id": "m035",
+    "title": "The Red Balloon",
+    "year": 1956,
+    "kind": "short",
+    "minutes": 34,
+    "genres": [
+      "short",
+      "fantasy"
+    ],
+    "tags": [
+      "friendship",
+      "city",
+      "childhood",
+      "imagination"
+    ],
+    "moods": [
+      "reflective",
+      "relaxing"
+    ],
+    "intensity": 0.2,
+    "description": "A child forms an unusual friendship with a balloon on the streets of Paris."
+  },
+  {
+    "id": "m036",
+    "title": "The General",
+    "year": 1926,
+    "kind": "movie",
+    "minutes": 78,
+    "genres": [
+      "comedy",
+      "action"
+    ],
+    "tags": [
+      "trains",
+      "pursuit",
+      "ingenuity",
+      "adventure"
+    ],
+    "moods": [
+      "uplifting",
+      "tense"
+    ],
+    "intensity": 0.5,
+    "description": "A railway engineer embarks on a perilous pursuit when his locomotive is stolen."
+  }
+]

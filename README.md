@@ -54,3 +54,59 @@ Design and implement a streaming video player with an integrated local AI recomm
 - Optional metadata API usage (e.g., TMDB free tier)
 - Team structure suitable for 3-4 contributors with roles across AI, frontend, and testing
 - Academic supervision under Dr. Huang
+
+## Kevin recommendation MVP
+
+Kevin v0.1 is a working, local-first experiment for the recommendation concept.
+It includes a browser UI, 36 bundled movie/short-film records, like/dislike/clear
+controls, SQLite feedback persistence, a TF-IDF taste profile, and a separate
+explainable session reranker. No API keys, model downloads, or third-party Python
+packages are required. Playback, voice, and eye tracking are future work.
+
+### Run
+
+Requires Python 3.10+ and a modern browser. From the repository root:
+
+```sh
+python3 -m kevin
+```
+
+On Windows, use `py -3 -m kevin`. Open <http://127.0.0.1:8765>.
+Stop with Ctrl+C. Feedback survives restarts in `~/.kevin/feedback.sqlite3`.
+For a separate demo profile or a different port:
+
+```sh
+python3 -m kevin --db .local/demo.sqlite3 --port 8766
+```
+
+All computation and data stay on the machine running Python. Open the browser
+on that same machine; the server deliberately binds only to loopback. Once the
+repository and Python are present, the demo works without internet access.
+
+### Try the concept
+
+1. Like **Arrival** and **Moon**, then dislike **Alien** in the catalogue.
+2. Set 120 minutes, Curious, medium intensity, and low Discovery. Generate picks.
+3. Change to Relaxing and low intensity, then generate again.
+4. Switch between **Taste only · baseline** and **Taste + this session** to compare.
+5. Open **Why this pick?** for weighted contributions and matching profile terms.
+6. Try 45 minutes for short films or 10 minutes for the explicit empty state.
+7. Reload or restart: your ratings remain. Use **Clear** to undo an individual rating.
+
+To start completely fresh without deleting anything, supply a new `--db` path.
+Session controls are intentionally temporary and return to defaults on reload.
+
+### Verify
+
+```sh
+python3 -m unittest discover -s tests -v
+python3 -m kevin.evaluate
+```
+
+Tests exercise ranking behavior, time constraints, negative feedback, cold start,
+explanations, validation, persistence, adapter injection, and real HTTP requests.
+CI is configured for Python 3.10/3.12 on Linux, Windows, and macOS.
+
+See [architecture and scoring](docs/architecture.md),
+[data provenance and schema](kevin/data/README.md), and
+[validation, limitations, and next iteration](docs/validation.md).
