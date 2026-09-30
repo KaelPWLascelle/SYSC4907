@@ -10,15 +10,20 @@ from .core import load_catalog, Recommender, Session
 from .store import FeedbackStore
 from .commands import CommandInterpreter
 from .voice import AUDIO_TYPES, MAX_AUDIO_BYTES, LocalWhisper, VoiceBusy, VoiceUnavailable
+from .intent import SystemOneInterpreter
+from .systemone import DecisionClient, HttpBackend, LexicalBackend
+from .tagging import TaggedDecision, load_tags
 
 ROOT = Path(__file__).parent
 
 
-def make_server(catalog_path, db_path, port=8765, voice=None):
+def make_server(catalog_path, db_path, port=8765, voice=None, tags_path=None, system_one=None):
     catalog = load_catalog(catalog_path)
-    engine, store = Recommender(catalog), FeedbackStore(db_path)
+    decision = TaggedDecision(load_tags(tags_path, catalog)) if tags_path else None
+    engine, store = Recommender(catalog, decision=decision), FeedbackStore(db_path)
     ids = {item.id for item in catalog}
-    interpreter = CommandInterpreter(catalog)
+    # system_one: a DecisionClient whose backend must be local (SystemOneInterpreter enforces it).
+    interpreter = SystemOneInterpreter(catalog, system_one) if system_one else CommandInterpreter(catalog)
     speech = voice if voice is not None else LocalWhisper()
 
     class Handler(BaseHTTPRequestHandler):
@@ -55,7 +60,8 @@ def make_server(catalog_path, db_path, port=8765, voice=None):
             path = urlsplit(self.path).path
             if path == '/api/state':
                 try:
-                    self.respond(200, dict(catalog=[asdict(i) for i in catalog], feedback=store.all(), voice=speech.status()))
+                    self.respond(200, dict(catalog=[asdict(i) for i in catalog], feedback=store.all(), voice=speech.status(),
+                                           assistant=interpreter.name, tagged=decision is not None))
                 except sqlite3.Error:
                     self.respond(503, {'error': 'Local storage is unavailable; check the database path'})
             elif path in ('/', '/app.js', '/voice.js', '/style.css'):
@@ -130,8 +136,14 @@ def main():
     parser.add_argument('--db', type=Path, default=Path.home()/'.kevin'/'feedback.sqlite3')
     parser.add_argument('--port', type=int, default=8765)
     parser.add_argument('--voice-model', type=Path, help='Local faster-whisper model directory; no runtime downloads')
+    parser.add_argument('--tags', type=Path, help='System One tag file from python -m kevin.tagging (soft mood/intensity)')
+    parser.add_argument('--system-one-url', help='Local System One server for free-text commands, e.g. http://127.0.0.1:8000 (laya-serve), or "lexical" for the offline stand-in')
     args = parser.parse_args()
-    server = make_server(args.catalog, args.db, args.port, LocalWhisper(args.voice_model))
+    if args.system_one_url == 'lexical':  # offline demo of the fallback path; not a model
+        system_one = DecisionClient(LexicalBackend())
+    else:
+        system_one = DecisionClient(HttpBackend(args.system_one_url, timeout=5)) if args.system_one_url else None
+    server = make_server(args.catalog, args.db, args.port, LocalWhisper(args.voice_model), args.tags, system_one)
     print(f'Kevin: http://127.0.0.1:{server.server_port} — feedback: {args.db}', flush=True)
     try:
         server.serve_forever()

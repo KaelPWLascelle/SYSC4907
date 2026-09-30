@@ -20,7 +20,17 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - run: node --test tests/voice-ui.test.mjs
+      - run: node --test tests/voice-ui.test.mjs tests/student.test.mjs
+  system-one-pipeline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      # Offline smoke of the full teacher -> tags -> Laya export -> student path (lexical stand-in).
+      - run: python -m kevin.tagging --out work/tags.json
+      - run: python -m kevin.distill --tags work/tags.json --export-laya work/laya-data --student work/student.json
   audio-decoding:
     runs-on: ubuntu-latest
     steps:

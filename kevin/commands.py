@@ -34,8 +34,10 @@ class CommandInterpreter:
         self.genres = sorted({g for c in catalog for g in c.genres})
 
     @staticmethod
-    def unknown(message):
-        return {'intent': 'unknown', 'summary': message, 'parser': 'rules'}
+    def unknown(message, reason='refused'):
+        # reason 'refused': the rules recognised something and deliberately declined (negation,
+        # conflicts, ambiguity). 'unrecognized': nothing matched, so a model fallback may try.
+        return {'intent': 'unknown', 'summary': message, 'parser': 'rules', 'reason': reason}
 
     def parse(self, text):
         if not isinstance(text, str) or not text.strip() or len(text) > 500:
@@ -93,7 +95,7 @@ class CommandInterpreter:
         if not patch:
             if text in ('recommend something', 'find my next watch', 'show recommendations', 'recommendations'):
                 return {'intent': 'session', 'patch': {}, 'summary': 'Refresh recommendations with the current session.', 'parser': 'rules'}
-            return self.unknown('Try “relaxing, 90 minutes, low intensity”, “no horror”, or “Like Arrival”. I cannot play media or answer general questions yet.')
+            return self.unknown('Try “relaxing, 90 minutes, low intensity”, “no horror”, or “Like Arrival”. I cannot play media or answer general questions yet.', 'unrecognized')
         # Use the same domain validation as manual controls; no model can bypass it.
         Session(**patch)
         labels = []

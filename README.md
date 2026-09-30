@@ -107,13 +107,30 @@ For local microphone transcription and audio-file uploads, follow
 faster-whisper dependencies and an explicitly downloaded model. Recordings stay
 on-device and are not saved by Kevin. No cloud speech API or wake word is used.
 
+### System One models (experimental)
+
+Kevin can ask a System One decision model (Laya, Kev, or TypeSafe's Jev) typed questions:
+tag the catalogue at build time from public text only, fall back to a **local** model for free-text
+commands the rules do not understand, and distil the teacher into a small student that also runs
+in the browser. User text is never sent to a non-local backend; the code refuses it.
+
+```sh
+python3 -m kevin.tagging --out work/tags.json
+python3 -m kevin.distill --tags work/tags.json --export-laya work/laya-data --student work/student.json
+python3 -m kevin --tags work/tags.json --system-one-url lexical
+```
+
+These commands use an offline keyword stand-in (not a model). See
+[System One design, privacy rules, results and next steps](docs/system-one.md) for running Laya
+locally, Jev for catalogue-only tagging, and the fine-tuning path.
+
 ### Verify
 
 ```sh
 python3 -m unittest discover -s tests -v
 python3 -m kevin.evaluate
 # Optional frontend state tests (Node 24):
-node --test tests/voice-ui.test.mjs
+node --test tests/voice-ui.test.mjs tests/student.test.mjs
 ```
 
 Tests exercise ranking behavior, time constraints, negative feedback, cold start,
