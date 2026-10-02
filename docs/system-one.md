@@ -64,20 +64,47 @@ export TYPESAFE_API_KEY=...        # early-access key
 python3 -m kevin.tagging --url https://api.typesafe.ai --api-key-env TYPESAFE_API_KEY --out work/tags-jev.json
 ```
 
-## Results so far (lexical stand-in, 36 titles, 2026-09-30)
+## Results so far (36 titles, 2026-10-02)
 
-| Metric | Lexical stand-in | Trivial baseline |
-|---|---:|---:|
-| Mood hit@1 (top mood is one of the editorial moods) | 0.667 | 0.500 (always “uplifting”) |
-| Probability mass on editorial moods | 0.556 | — |
-| Mood ECE | 0.183 | — |
-| Intensity MAE (0–1 scale) | 0.201 | 0.214 (always the mean) |
+Both columns come from the same commit (`a2469a7`), catalogue and questions, via
+`python3 -m kevin.tagging [--url http://127.0.0.1:8000]`. Laya is zero-shot: no fine-tuning, no
+prompt changes.
 
-Honest reading: the stand-in barely beats a constant on intensity, and with its tags a
-relaxing/low-intensity session still ranks Mad Max: Fury Road fourth. That is the gap a real
-teacher has to close, and these same commands will measure it. No real model has been run yet:
-this environment could not reach Hugging Face. The student's teacher agreement on 36 titles
-(test top-1 0.458) says the pipeline works, not that the student is good.
+| Metric | Lexical stand-in | Laya `english`, zero-shot | Trivial baseline |
+|---|---:|---:|---:|
+| Titles tagged / failed | 36 / 0 | 36 / 0 | — |
+| Mood hit@1 (top mood is one of the editorial moods) | **0.667** | 0.583 | 0.500 (always “uplifting”) |
+| Probability mass on editorial moods | **0.556** | 0.439 | — |
+| Mood ECE | **0.183** | 0.273 | — |
+| Intensity MAE (0–1 scale) | 0.201 | **0.182** | 0.214 (always the mean) |
+| Per-title latency, median / p95 (client side, 4 questions) | < 1 ms | 279 / 289 ms | — |
+| Student teacher-agreement, test top-1 (24 decisions) | 0.458 | 0.875 | — |
+| Relaxing + intensity 0.2: Mad Max: Fury Road rank | 4th | not in the 12 results | — |
+
+Setup: Apple M2, 8 GB RAM, macOS 26.5.1. laya-serve on `127.0.0.1:8000`, torch device `mps`, no CPU
+fallbacks. laya 0.3.24, torch 2.14.1, transformers 5.18.0, Python 3.12.1, checkpoint `english` at
+revision `55cf4c4e`. The weights download (~0.8 GB) and model load took about 5 minutes on the first run.
+Latency is measured over all 36 titles after one warm-up request, one request per title.
+
+Honest reading: zero-shot Laya is **worse than the keyword stand-in on mood**. It has lower hit@1,
+less mass on the editorial moods and worse calibration. It is underconfident: mean top-mood
+confidence is 0.31 against 0.58 accuracy. It never picks “reflective” (Arrival, Moon and The Truman Show
+all come out “relaxing”), and it calls Toy Story and Sherlock Jr. “tense”. It beats both the stand-in
+and the constant on intensity, but partly by hugging the middle: its intensity range is 0.22–0.58,
+while the editorial range is 0.10–1.00. Its family answers are unreliable: it rates A Quiet Place among its four
+most family-friendly titles. This fixture has no editorial family labels, so that is not scored. The one place
+it clearly helps the product is ranking: its tags drop Mad Max from a relaxing/low-intensity session.
+The student's higher agreement says Laya's tags are easier to imitate (they are more uniform), not
+that they are better; on 36 titles it says the pipeline works, not that the student is good. With 36 titles and team-written labels, none of these gaps is statistically
+meaningful. Fine-tuning and a real gold set are what will tell.
+
+End-to-end (Kevin with Laya tags and Laya as the command fallback):
+
+- “something cozy and soothing tonight” → `mood: relaxing` (79%).
+- “not relaxing” is still refused by the rules, and the model is not consulted.
+- “I want something that makes me think” → no change: the model guessed relaxing at 58%, below the
+  0.60 gate. The gate stopped a wrong answer.
+- Every recommendation's factors sum to its score (12/12 with both tag files).
 
 ## What each file is for
 
@@ -92,8 +119,8 @@ this environment could not reach Hugging Face. The student's teacher agreement o
 
 ## Next steps (in order)
 
-1. Run Laya (`english`, zero-shot) and, if early access arrives, Jev as teachers on this catalogue;
-   commit both reports next to the lexical one. Expect weak zero-shot Laya (published 0.36).
+1. ~~Run Laya (`english`, zero-shot) as a teacher~~ (done 2026-10-02, see above). Run Jev if early
+   access arrives and add its column.
 2. Replace the fixture with a few thousand MovieLens titles joined to TMDB overviews, keeping
    the teacher's input to public text. Hand-label ~300 titles as a real gold set (not our tags).
 3. Fine-tune Laya on the teacher's soft labels with the exported JSONL on Kaggle's free 2×T4
