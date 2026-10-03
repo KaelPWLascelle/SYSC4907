@@ -1,4 +1,6 @@
-# SYSC4907
+# Flicks · SYSC 4907
+
+> **Flicks** is the project name going forward (formerly "Kevin"). The Python package, command and UI are all `flicks`; ratings saved under `~/.kevin/` are picked up automatically.
 
 ## Project Title
 Development of a Streaming Video Player Integrated with Local AI-Based Movie Recommendation Considering User Personal Interests
@@ -55,9 +57,9 @@ Design and implement a streaming video player with an integrated local AI recomm
 - Team structure suitable for 3-4 contributors with roles across AI, frontend, and testing
 - Academic supervision under Dr. Huang
 
-## Kevin recommendation MVP
+## Flicks recommendation MVP
 
-Kevin v0.3 is a working, local-first experiment for the recommendation concept.
+Flicks v0.3 is a working, local-first experiment for the recommendation concept.
 It includes a browser UI, 36 bundled movie/short-film records, like/dislike/clear
 controls, SQLite feedback persistence, a TF-IDF taste profile, and a separate
 explainable session reranker. No API keys, model downloads, or third-party Python
@@ -68,17 +70,17 @@ packages are required. Optional local Whisper voice commands are available; play
 Requires Python 3.10+ and a modern browser. From the repository root:
 
 ```sh
-python3 -m kevin
+python3 -m flicks
 ```
 
-On Windows, use `py -3 -m kevin`. Open <http://127.0.0.1:8765>.
-To install it as a `kevin` command instead (still no third-party dependencies), run
-`python3 -m pip install .` from the repository, then `kevin`.
-Stop with Ctrl+C. Feedback survives restarts in `~/.kevin/feedback.sqlite3`.
+On Windows, use `py -3 -m flicks`. Open <http://127.0.0.1:8765>.
+To install it as a `flicks` command instead (still no third-party dependencies), run
+`python3 -m pip install .` from the repository, then `flicks`.
+Stop with Ctrl+C. Feedback survives restarts in `~/.flicks/feedback.sqlite3`.
 For a separate demo profile or a different port:
 
 ```sh
-python3 -m kevin --db .local/demo.sqlite3 --port 8766
+python3 -m flicks --db .local/demo.sqlite3 --port 8766
 ```
 
 All computation and data stay on the machine running Python. Open the browser
@@ -102,18 +104,18 @@ Session controls are intentionally temporary and return to defaults on reload.
 
 ### Voice commands and typed assistant
 
-The **Just ask Kevin** panel accepts typed requests such as “relaxing, 90 minutes,
+The **Just ask Flicks** panel accepts typed requests such as “relaxing, 90 minutes,
 no horror” and “Like Arrival”. Preview the proposed changes, then Apply. Genre
 exclusions are hard constraints in both ranking modes.
 
 For local microphone transcription and audio-file uploads, follow
 [the voice setup and command guide](docs/voice.md). This adds optional
 faster-whisper dependencies and an explicitly downloaded model. Recordings stay
-on-device and are not saved by Kevin. No cloud speech API or wake word is used.
+on-device and are not saved by Flicks. No cloud speech API or wake word is used.
 
 ### Couch mode (prototype)
 
-Start Kevin with `--couch` and press **Start a couch session**. Phones on the same Wi-Fi scan the QR
+Start Flicks with `--couch` and press **Start a couch session**. Phones on the same Wi-Fi scan the QR
 code, vote on a shortlist with hidden votes, and act as a remote. Guests reach a separate
 local-network server that exposes only couch routes. Your ratings and history are never reachable
 from the network, and names and votes are forgotten when the session ends. See
@@ -121,15 +123,15 @@ from the network, and names and votes are forgotten when the session ends. See
 
 ### System One models (experimental)
 
-Kevin can ask a System One decision model (Laya, Kev, or TypeSafe's Jev) typed questions:
+Flicks can ask a System One decision model (Laya, Kev, or TypeSafe's Jev) typed questions:
 tag the catalogue at build time from public text only, fall back to a **local** model for free-text
 commands the rules do not understand, and distil the teacher into a small student that also runs
 in the browser. User text is never sent to a non-local backend; the code refuses it.
 
 ```sh
-python3 -m kevin.tagging --out work/tags.json
-python3 -m kevin.distill --tags work/tags.json --export-laya work/laya-data --student work/student.json
-python3 -m kevin --tags work/tags.json --system-one-url lexical
+python3 -m flicks.tagging --out work/tags.json
+python3 -m flicks.distill --tags work/tags.json --export-laya work/laya-data --student work/student.json
+python3 -m flicks --tags work/tags.json --system-one-url lexical
 ```
 
 These commands use an offline keyword stand-in (not a model). See
@@ -140,7 +142,7 @@ locally, Jev for catalogue-only tagging, and the fine-tuning path.
 
 ```sh
 python3 -m unittest discover -s tests -v
-python3 -m kevin.evaluate
+python3 -m flicks.evaluate
 # Optional frontend state tests (Node 24):
 node --test tests/voice-ui.test.mjs tests/student.test.mjs tests/couch-ui.test.mjs
 ```
@@ -150,5 +152,5 @@ explanations, validation, persistence, adapter injection, and real HTTP requests
 CI is configured for Python 3.10/3.12 on Linux, Windows, and macOS.
 
 See [architecture and scoring](docs/architecture.md),
-[data provenance and schema](kevin/data/README.md), and
+[data provenance and schema](flicks/data/README.md), and
 [validation, limitations, and next iteration](docs/validation.md).

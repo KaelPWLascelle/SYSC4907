@@ -3,8 +3,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-const guestSource = readFileSync(new URL('../kevin/static/couch.js', import.meta.url), 'utf8');
-const hostSource = readFileSync(new URL('../kevin/static/couch-host.js', import.meta.url), 'utf8');
+const guestSource = readFileSync(new URL('../flicks/static/couch.js', import.meta.url), 'utf8');
+const hostSource = readFileSync(new URL('../flicks/static/couch-host.js', import.meta.url), 'utf8');
 let loads = 0;  // a unique suffix gives each test a fresh module instance
 const load = source => import(`data:text/javascript;base64,${Buffer.from(`${source}\n// load ${++loads}`).toString('base64')}`);
 const tick = async () => { for (let i = 0; i < 10; i++) await new Promise(resolve => setImmediate(resolve)); };
@@ -23,7 +23,7 @@ function fakeDom({hash = '', hidden = false, token = null} = {}) {
   const make = () => ({hidden: false, textContent: '', value: '', disabled: false, dataset: {}, children: [], listeners: {}, src: '',
     addEventListener(type, listener) { this.listeners[type] = listener; }, setAttribute() {},
     focus() { dom.focused = this; }, append(...nodes) { this.children.push(...nodes); }, replaceChildren(...nodes) { this.children = nodes; }});
-  const dom = {focused: null, replaced: null, store: token ? {'kevin-guest': token} : {}};
+  const dom = {focused: null, replaced: null, store: token ? {'flicks-guest': token} : {}};
   globalThis.document = {hidden, getElementById: id => { if (!elements.has(id)) elements.set(id, make()); return elements.get(id); },
     createElement: make, addEventListener: (type, listener) => { listeners[type] = listener; }};
   globalThis.location = {hash, pathname: '/join'};
@@ -67,8 +67,8 @@ test('joining stores the token, sends it on every request and shows the first ti
   dom.el('name').value = 'Sam';
   await dom.fire('join-form', 'submit'); await tick();
   assert.deepEqual(calls[0].body, {code: 'ABCD2345', name: 'Sam'});
-  assert.equal(dom.store['kevin-guest'], 't1');
-  assert.equal(calls[1].headers['X-Kevin-Guest'], 't1');
+  assert.equal(dom.store['flicks-guest'], 't1');
+  assert.equal(calls[1].headers['X-Flicks-Guest'], 't1');
   assert.equal(dom.el('vote-screen').hidden, false);
   assert.equal(dom.el('vote-title').textContent, 'Alpha');
   assert.equal(dom.el('vote-progress').textContent, 'TITLE 1 OF 2');
@@ -95,12 +95,12 @@ test('an unknown or expired token goes back to the join screen', async () => {
   fakeServer({states: [[401, {error: 'Join the couch session first'}]]});
   await load(guestSource); await tick();
   assert.equal(dom.el('join-screen').hidden, false);
-  assert.equal(dom.store['kevin-guest'], undefined);
+  assert.equal(dom.store['flicks-guest'], undefined);
   assert.equal(dom.el('remote').hidden, true);
 });
 
 test('results show the match and the remote plays the chosen title', async () => {
-  const results = [{id: 'b', yes: 2, no: 0, kevin_rank: 2, match: true}, {id: 'a', yes: 1, no: 1, kevin_rank: 1, match: false}];
+  const results = [{id: 'b', yes: 2, no: 0, flicks_rank: 2, match: true}, {id: 'a', yes: 1, no: 1, flicks_rank: 1, match: false}];
   const revealed = view({revealed: true, results, progress: [{name: 'Sam', voted: 2, total: 2}, {name: 'Alex', voted: 2, total: 2}]});
   const dom = fakeDom({token: 't1'});
   const calls = fakeServer({states: [[200, revealed]],

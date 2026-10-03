@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-const source = readFileSync(new URL('../kevin/static/student.js', import.meta.url), 'utf8');
+const source = readFileSync(new URL('../flicks/static/student.js', import.meta.url), 'utf8');
 const {predict, crc32} = await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
 const fixture = JSON.parse(readFileSync(new URL('./fixtures/student-parity.json', import.meta.url), 'utf8'));
 

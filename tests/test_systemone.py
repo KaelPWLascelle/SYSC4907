@@ -7,13 +7,13 @@ from pathlib import Path
 import tempfile
 import threading
 import unittest
-from kevin.__main__ import ROOT, make_server
-from kevin.core import Recommender, Session, load_catalog
-from kevin.distill import Student, agreement, export_laya, split_of
-from kevin.intent import SystemOneInterpreter
-from kevin.systemone import (DecisionClient, HttpBackend, LexicalBackend, PrivacyError, SystemOneError, choice,
+from flicks.__main__ import ROOT, make_server
+from flicks.core import Recommender, Session, load_catalog
+from flicks.distill import Student, agreement, export_laya, split_of
+from flicks.intent import SystemOneInterpreter
+from flicks.systemone import (DecisionClient, HttpBackend, LexicalBackend, PrivacyError, SystemOneError, choice,
                              expected_calibration_error, noul, parse_answers, score, validate_questions)
-from kevin.tagging import FILM_QUESTIONS, TaggedDecision, evaluate, film_state, load_tags, tag_catalog
+from flicks.tagging import FILM_QUESTIONS, TaggedDecision, evaluate, film_state, load_tags, tag_catalog
 
 # The request/response pair documented in laya's docs/http-api.md (Jev-compatible wire format).
 QUESTIONS = {
@@ -244,8 +244,8 @@ class DistillTests(unittest.TestCase):
         with self.assertRaises(ValueError): student.raw(state, {'other': noul('x')})
 
     def test_browser_parity_fixture_matches_python(self):
-        from kevin.distill import features
-        from kevin.systemone import options
+        from flicks.distill import features
+        from flicks.systemone import options
         fixture = json.loads((Path(__file__).parent/'fixtures'/'student-parity.json').read_text())
         student = Student.from_json(fixture['model'])
         self.assertTrue(any(isinstance(c['state'], dict) for c in fixture['cases']))

@@ -76,7 +76,7 @@ class LocalWhisper:
         if not state['available']:
             raise VoiceUnavailable(state['message'])
         if not self._lock.acquire(blocking=False):
-            raise VoiceBusy('Kevin is already transcribing. Please retry when it finishes.')
+            raise VoiceBusy('Flicks is already transcribing. Please retry when it finishes.')
         try:
             start = perf_counter()
             try:

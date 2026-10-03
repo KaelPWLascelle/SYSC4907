@@ -1,5 +1,5 @@
-/** In-browser inference for a student distilled by `python -m kevin.distill`.
- * Mirrors kevin/distill.py exactly (tokens, crc32 feature hashing, softmax) so the same JSON
+/** In-browser inference for a student distilled by `python -m flicks.distill`.
+ * Mirrors flicks/distill.py exactly (tokens, crc32 feature hashing, softmax) so the same JSON
  * weights give the same answers in Python and in the browser. No network, no dependencies.
  * Returns the /v1/systemone wire format, so callers validate it like any other backend. */
 
@@ -62,5 +62,5 @@ export function predict(model, state) {
     const probs = Object.fromEntries(optionKeys(question).map((key, k) => [key, exp[k] / total]));
     answers[qid] = question.type === 'noul' ? {type: 'noul', noul: probs.true} : {type: question.type, probabilities: probs};
   }
-  return {model: 'kevin-student', answers};
+  return {model: 'flicks-student', answers};
 }

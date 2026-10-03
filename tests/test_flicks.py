@@ -6,9 +6,11 @@ import tempfile
 import threading
 import unittest
 from html.parser import HTMLParser
-from kevin.core import MOODS, Content, HeuristicDecision, Recommender, Session, TfidfTaste, load_catalog
-from kevin.store import FeedbackStore
-from kevin.__main__ import make_server, ROOT
+from flicks.core import MOODS, Content, HeuristicDecision, Recommender, Session, TfidfTaste, load_catalog
+from flicks.store import FeedbackStore
+from flicks.__main__ import default_db, make_server, ROOT
+from flicks.commands import CommandInterpreter
+from unittest import mock
 
 
 def item(key, tags, minutes=90, mood='curious', intensity=.5):
@@ -175,5 +177,22 @@ class ApiTests(unittest.TestCase):
         self.assertIn(b'Find my next watch', body)
         self.assertIn("default-src 'self'", headers['Content-Security-Policy'])
         for path in ('/app.js', '/style.css'): self.assertEqual(self.request(path)[0], 200)
+
+class RebrandTests(unittest.TestCase):
+    def test_former_name_still_works_as_a_spoken_prefix(self):
+        rules = CommandInterpreter(load_catalog(ROOT/'data'/'movies.json'))
+        for text in ('Hey Kevin like Arrival', 'Hey Flicks like Arrival', 'flicks like Arrival'):
+            with self.subTest(text=text):
+                self.assertEqual((rules.parse(text)['intent'], rules.parse(text)['id']), ('feedback', 'm001'))
+
+    def test_ratings_from_before_the_rebrand_are_kept(self):
+        with tempfile.TemporaryDirectory() as home, mock.patch.object(Path, 'home', return_value=Path(home)):
+            self.assertEqual(default_db(), Path(home)/'.flicks'/'feedback.sqlite3')
+            legacy = Path(home)/'.kevin'/'feedback.sqlite3'
+            legacy.parent.mkdir(); legacy.touch()
+            self.assertEqual(default_db(), legacy)
+            current = Path(home)/'.flicks'/'feedback.sqlite3'
+            current.parent.mkdir(); current.touch()
+            self.assertEqual(default_db(), current)
 
 if __name__ == '__main__': unittest.main()

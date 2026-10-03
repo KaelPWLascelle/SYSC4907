@@ -1,4 +1,4 @@
-# Kevin v0.2 architecture
+# Flicks v0.2 architecture
 
 The browser sends feedback and explicitly selected session context to a loopback
 Python server. The server loads the catalogue once, computes TF-IDF once, reads

@@ -1,14 +1,14 @@
-# System One models in Kevin (MVP)
+# System One models in Flicks (MVP)
 
 A System One model answers typed questions (`choice`, `score`, `noul` yes/no) about a piece of
-text in one forward pass, returning calibrated probabilities instead of generated prose. Kevin
-uses them in three places, all behind the same validated client (`kevin/systemone.py`):
+text in one forward pass, returning calibrated probabilities instead of generated prose. Flicks
+uses them in three places, all behind the same validated client (`flicks/systemone.py`):
 
 | Where | What is asked | Text sent | Allowed backends |
 |---|---|---|---|
-| Build-time catalogue tagging (`kevin/tagging.py`) | mood, intensity, pace, family-friendly per title | Public fields only: title, year, genres, description | Any: laya-serve, Kev, or hosted Jev |
-| Command fallback (`kevin/intent.py`) | requested mood, genres to avoid | What the user typed | **Loopback only**; enforced in code |
-| Distilled student (`kevin/distill.py`, `static/student.js`) | the same tagging questions | Any | Runs in-process / in the browser |
+| Build-time catalogue tagging (`flicks/tagging.py`) | mood, intensity, pace, family-friendly per title | Public fields only: title, year, genres, description | Any: laya-serve, Kev, or hosted Jev |
+| Command fallback (`flicks/intent.py`) | requested mood, genres to avoid | What the user typed | **Loopback only**; enforced in code |
+| Distilled student (`flicks/distill.py`, `static/student.js`) | the same tagging questions | Any | Runs in-process / in the browser |
 
 ```
 TMDB-style public text ──> teacher (Laya / Kev / Jev) ──> tags.json ──> TaggedDecision (soft mood + intensity)
@@ -42,9 +42,9 @@ Everything below works offline with the lexical stand-in, which is deterministic
 dressed in the wire format. It is **not a model**; it exists for CI and as a floor to beat.
 
 ```sh
-python3 -m kevin.tagging --out work/tags.json                    # tag + evaluate
-python3 -m kevin.distill --tags work/tags.json --export-laya work/laya-data --student work/student.json
-python3 -m kevin --tags work/tags.json --system-one-url lexical  # try “something cozy and soothing”
+python3 -m flicks.tagging --out work/tags.json                    # tag + evaluate
+python3 -m flicks.distill --tags work/tags.json --export-laya work/laya-data --student work/student.json
+python3 -m flicks --tags work/tags.json --system-one-url lexical  # try “something cozy and soothing”
 ```
 
 With a real local model (needs a machine that can download from Hugging Face; the Laya package
@@ -53,21 +53,21 @@ also installs torch):
 ```sh
 pip install "laya[serve]"
 LAYA_MODELS=english laya-serve                                   # http://0.0.0.0:8000; bind LAYA_HOST=127.0.0.1
-python3 -m kevin.tagging --url http://127.0.0.1:8000 --out work/tags-laya.json
-python3 -m kevin --tags work/tags-laya.json --system-one-url http://127.0.0.1:8000
+python3 -m flicks.tagging --url http://127.0.0.1:8000 --out work/tags-laya.json
+python3 -m flicks --tags work/tags-laya.json --system-one-url http://127.0.0.1:8000
 ```
 
 Hosted Jev is allowed for catalogue tagging only (public text). Keep the key out of shell history:
 
 ```sh
 export TYPESAFE_API_KEY=...        # early-access key
-python3 -m kevin.tagging --url https://api.typesafe.ai --api-key-env TYPESAFE_API_KEY --out work/tags-jev.json
+python3 -m flicks.tagging --url https://api.typesafe.ai --api-key-env TYPESAFE_API_KEY --out work/tags-jev.json
 ```
 
 ## Results so far (36 titles, 2026-10-02)
 
 Both columns come from the same commit (`a2469a7`), catalogue and questions, via
-`python3 -m kevin.tagging [--url http://127.0.0.1:8000]`. Laya is zero-shot: no fine-tuning, no
+`python3 -m flicks.tagging [--url http://127.0.0.1:8000]`. Laya is zero-shot: no fine-tuning, no
 prompt changes.
 
 | Metric | Lexical stand-in | Laya `english`, zero-shot | Trivial baseline |
@@ -98,7 +98,7 @@ The student's higher agreement says Laya's tags are easier to imitate (they are 
 that they are better; on 36 titles it says the pipeline works, not that the student is good. With 36 titles and team-written labels, none of these gaps is statistically
 meaningful. Fine-tuning and a real gold set are what will tell.
 
-End-to-end (Kevin with Laya tags and Laya as the command fallback):
+End-to-end (Flicks with Laya tags and Laya as the command fallback):
 
 - “something cozy and soothing tonight” → `mood: relaxing` (79%).
 - “not relaxing” is still refused by the rules, and the model is not consulted.
@@ -108,12 +108,12 @@ End-to-end (Kevin with Laya tags and Laya as the command fallback):
 
 ## What each file is for
 
-- `kevin/systemone.py`: question builders, validation, wire parsing, `HttpBackend` (`/v1/systemone`,
+- `flicks/systemone.py`: question builders, validation, wire parsing, `HttpBackend` (`/v1/systemone`,
   bearer auth, timeouts), `LexicalBackend`, `DecisionClient` with the privacy check, ECE.
-- `kevin/tagging.py`: `FILM_QUESTIONS`, `tag_catalog`, tag-file load/validate, `evaluate`, `TaggedDecision`.
-- `kevin/intent.py`: `SystemOneInterpreter`, rules-first fallback for free text.
-- `kevin/distill.py`: stable 70/10/20 split by ID hash, Laya fine-tune export, soft-label softmax student.
-- `kevin/static/student.js`: browser port of the student; `tests/student.test.mjs` checks parity
+- `flicks/tagging.py`: `FILM_QUESTIONS`, `tag_catalog`, tag-file load/validate, `evaluate`, `TaggedDecision`.
+- `flicks/intent.py`: `SystemOneInterpreter`, rules-first fallback for free text.
+- `flicks/distill.py`: stable 70/10/20 split by ID hash, Laya fine-tune export, soft-label softmax student.
+- `flicks/static/student.js`: browser port of the student; `tests/student.test.mjs` checks parity
   with Python to 1e-9 using `tests/fixtures/student-parity.json`, including non-ASCII film-state
   objects (both sides serialise objects as compact JSON with real characters).
 

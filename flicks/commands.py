@@ -45,7 +45,7 @@ class CommandInterpreter:
         if re.search(r'-\s*\d|\d[.,]\d|\bpoint\b', text.lower()):
             return self.unknown('Please use a positive whole-number time limit, such as 90 minutes.')
         text = normalize(text)
-        text = re.sub(r'^(?:hey )?kevin\b\s*', '', text)
+        text = re.sub(r'^(?:hey )?(?:flicks|kevin)\b\s*', '', text)  # kevin: the project's former name
         text = re.sub(r'^please\s+|\s+please$', '', text)
         feedback = re.fullmatch(r'(?:i )?(like|liked|love|loved|dislike|disliked|hate|hated|did not like|didnt like|clear(?: my)? rating for|clear(?: my)? rating of) (.+)', text)
         if feedback:

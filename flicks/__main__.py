@@ -1,4 +1,4 @@
-"""Loopback-only demo server; run with python -m kevin. Couch-mode guests use kevin.couch's separate LAN server."""
+"""Loopback-only demo server; run with python -m flicks. Couch-mode guests use flicks.couch's separate LAN server."""
 import argparse
 from dataclasses import asdict
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -48,7 +48,7 @@ def make_server(catalog_path, db_path, port=8765, voice=None, tags_path=None, sy
             expected = f'127.0.0.1:{self.server.server_port}'
             hosts = {expected, f'localhost:{self.server.server_port}'}
             if self.headers.get('Host') not in hosts:
-                self.respond(403, {'error': 'Use the local Kevin address'})
+                self.respond(403, {'error': 'Use the local Flicks address'})
                 return False
             origin = self.headers.get('Origin')
             if origin and origin not in {f'http://{host}' for host in hosts}:
@@ -157,13 +157,19 @@ def make_server(catalog_path, db_path, port=8765, voice=None, tags_path=None, sy
     return ThreadingHTTPServer(('127.0.0.1', port), Handler)
 
 
+def default_db():
+    """~/.flicks/feedback.sqlite3, or the pre-rebrand ~/.kevin file when only that exists, so ratings carry over."""
+    current, legacy = Path.home()/'.flicks'/'feedback.sqlite3', Path.home()/'.kevin'/'feedback.sqlite3'
+    return legacy if legacy.exists() and not current.exists() else current
+
+
 def main():
-    parser = argparse.ArgumentParser(description='Kevin local recommendation demo')
+    parser = argparse.ArgumentParser(description='Flicks local recommendation demo')
     parser.add_argument('--catalog', type=Path, default=ROOT/'data'/'movies.json')
-    parser.add_argument('--db', type=Path, default=Path.home()/'.kevin'/'feedback.sqlite3')
+    parser.add_argument('--db', type=Path, default=default_db(), help='Ratings database (default ~/.flicks/feedback.sqlite3)')
     parser.add_argument('--port', type=int, default=8765)
     parser.add_argument('--voice-model', type=Path, help='Local faster-whisper model directory; no runtime downloads')
-    parser.add_argument('--tags', type=Path, help='System One tag file from python -m kevin.tagging (soft mood/intensity)')
+    parser.add_argument('--tags', type=Path, help='System One tag file from python -m flicks.tagging (soft mood/intensity)')
     parser.add_argument('--couch', action='store_true', help='Allow couch sessions: phones on your Wi-Fi join by QR code to vote and use a remote')
     parser.add_argument('--couch-host', help='Home-network address guests connect to (default: detected)')
     parser.add_argument('--couch-port', type=int, default=8770, help='Port for the guest server while a couch session runs')
@@ -175,7 +181,7 @@ def main():
         system_one = DecisionClient(HttpBackend(args.system_one_url, timeout=5)) if args.system_one_url else None
     couch = CouchManager(args.couch_host, args.couch_port) if args.couch else None
     server = make_server(args.catalog, args.db, args.port, LocalWhisper(args.voice_model), args.tags, system_one, couch)
-    print(f'Kevin: http://127.0.0.1:{server.server_port} — feedback: {args.db}', flush=True)
+    print(f'Flicks: http://127.0.0.1:{server.server_port} — feedback: {args.db}', flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

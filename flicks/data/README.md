@@ -17,7 +17,7 @@ extracts are bundled. No rights to the underlying films are conveyed.
 
 ## Bring your own catalogue
 
-Run `python3 -m kevin --catalog path/to/catalog.json --db path/to/profile.sqlite3`.
+Run `python3 -m flicks --catalog path/to/catalog.json --db path/to/profile.sqlite3`.
 Use a nonempty JSON array; every object must have exactly these fields:
 
 ```json

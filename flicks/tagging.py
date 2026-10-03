@@ -3,9 +3,9 @@
 Only public catalogue fields (title, year, genres, description) are sent. Editorial moods and
 intensity are withheld from the model so they can serve as a small gold set.
 
-    python -m kevin.tagging --out work/tags.json                      # offline lexical stand-in
-    python -m kevin.tagging --url http://127.0.0.1:8000 --out work/tags.json   # laya-serve / Kev
-    python -m kevin.tagging --url https://api.typesafe.ai --api-key-env TYPESAFE_API_KEY --out ...
+    python -m flicks.tagging --out work/tags.json                      # offline lexical stand-in
+    python -m flicks.tagging --url http://127.0.0.1:8000 --out work/tags.json   # laya-serve / Kev
+    python -m flicks.tagging --url https://api.typesafe.ai --api-key-env TYPESAFE_API_KEY --out ...
 """
 import argparse
 from datetime import datetime, timezone

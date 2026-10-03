@@ -8,10 +8,10 @@ import tempfile
 import threading
 import unittest
 import wave
-from kevin.commands import CommandInterpreter, number_words
-from kevin.core import Recommender, Session, load_catalog
-from kevin.__main__ import ROOT, make_server
-from kevin.voice import LocalWhisper, MAX_AUDIO_BYTES, VoiceUnavailable
+from flicks.commands import CommandInterpreter, number_words
+from flicks.core import Recommender, Session, load_catalog
+from flicks.__main__ import ROOT, make_server
+from flicks.voice import LocalWhisper, MAX_AUDIO_BYTES, VoiceUnavailable
 
 
 class CommandTests(unittest.TestCase):
@@ -20,7 +20,7 @@ class CommandTests(unittest.TestCase):
         self.parser = CommandInterpreter(self.catalog)
 
     def test_spoken_session_request(self):
-        result = self.parser.parse('Hey Kevin, something relaxing under ninety minutes, low intensity, no horror.')
+        result = self.parser.parse('Hey Flicks, something relaxing under ninety minutes, low intensity, no horror.')
         self.assertEqual(result['intent'], 'session')
         self.assertEqual(result['patch'], {'mood': 'relaxing', 'minutes': 89, 'intensity': .2, 'excluded_genres': ['horror']})
 
@@ -29,7 +29,7 @@ class CommandTests(unittest.TestCase):
             with self.subTest(text=text): self.assertEqual(self.parser.parse(text)['patch']['minutes'], expected)
 
     def test_feedback_and_negation(self):
-        for text, value in [('I like Arrival', 1), ('Kevin, I disliked Arrival', -1), ("I didn't like Arrival", -1), ('Clear my rating for Arrival', 0)]:
+        for text, value in [('I like Arrival', 1), ('Flicks, I disliked Arrival', -1), ("I didn't like Arrival", -1), ('Clear my rating for Arrival', 0)]:
             with self.subTest(text=text):
                 result = self.parser.parse(text)
                 self.assertEqual((result['intent'], result['id'], result['value']), ('feedback', 'm001', value))
@@ -153,16 +153,16 @@ class AudioDecodeTests(unittest.TestCase):
         return output.getvalue()
 
     def test_invalid_audio(self):
-        from kevin.voice import decode_audio
+        from flicks.voice import decode_audio
         with self.assertRaises(ValueError): decode_audio(b'not audio')
 
     def test_silent_short_and_long_recordings(self):
-        from kevin.voice import decode_audio
+        from flicks.voice import decode_audio
         for data in (self.wav(1), self.wav(.01, 1000), self.wav(31, 1000)):
             with self.assertRaises(ValueError): decode_audio(data)
 
     def test_decodes_to_mono_16khz_float(self):
-        from kevin.voice import decode_audio
+        from flicks.voice import decode_audio
         audio = decode_audio(self.wav(1, 1000))
         self.assertEqual(audio.shape, (16000,))
         self.assertAlmostEqual(float(audio[0]), 1000/32768)

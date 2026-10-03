@@ -70,7 +70,7 @@ async function recommend() {
     if (version !== requestVersion) return;
     $('recommendations').replaceChildren();
     $('count').textContent = `${result.recommendations.length} picks`;
-    status(result.recommendations.length ? (result.cold_start ? 'Like a few films to teach Kevin your taste. Discovery stays neutral until your first like.' : 'Your ratings shape taste. Open “Why this pick?” to inspect each score.') : 'Nothing fits yet. Increase your time, remove a genre exclusion, or clear a rating in the catalogue.');
+    status(result.recommendations.length ? (result.cold_start ? 'Like a few films to teach Flicks your taste. Discovery stays neutral until your first like.' : 'Your ratings shape taste. Open “Why this pick?” to inspect each score.') : 'Nothing fits yet. Increase your time, remove a genre exclusion, or clear a rating in the catalogue.');
     for (const row of result.recommendations) {
       const item = row.content;
       const card = $('card').content.firstElementChild.cloneNode(true);
@@ -104,5 +104,5 @@ for (const key of ['intensity', 'novelty']) $(key).addEventListener('input', () 
     initVoice({api, readSession, voice: data.voice, applyResult: async result => { feedback = result.feedback; setSession(result.session); renderLibrary(); await recommend(); }});
     initCouchHost({api, readSession, enabled: data.couch});
     $('catalog-size').textContent = catalog.length; renderLibrary(); await recommend(); }
-  catch (error) { status(`Could not load Kevin: ${error.message}. Reload to retry.`); }
+  catch (error) { status(`Could not load Flicks: ${error.message}. Reload to retry.`); }
 })();

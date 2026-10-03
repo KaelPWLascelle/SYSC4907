@@ -5,10 +5,10 @@ import tempfile
 import threading
 import unittest
 from urllib.parse import urlsplit
-from kevin import qr
-from kevin.couch import (MAX_FAILED_JOINS, MAX_GUESTS, CouchAuthError, CouchError, CouchManager, CouchSession,
+from flicks import qr
+from flicks.couch import (MAX_FAILED_JOINS, MAX_GUESTS, CouchAuthError, CouchError, CouchManager, CouchSession,
                          check_host, make_guest_server)
-from kevin.__main__ import make_server, ROOT
+from flicks.__main__ import make_server, ROOT
 
 
 def row(key, title=None):
@@ -139,7 +139,7 @@ class CouchSessionTests(unittest.TestCase):
         self.assertTrue(results[0]['match'])
         self.assertEqual((results[1]['yes'], results[1]['no']), (1, 1))
 
-    def test_ties_fall_back_to_kevins_ranking_and_votes_can_be_cleared(self):
+    def test_ties_fall_back_to_flicks_ranking_and_votes_can_be_cleared(self):
         sam, _ = self.session.join(self.session.code, 'Sam')
         self.session.vote(sam, 'c', 1)
         self.session.vote(sam, 'c', 0)
@@ -181,7 +181,7 @@ class CouchSessionTests(unittest.TestCase):
     def test_only_private_or_loopback_ipv4_addresses(self):
         for good in ('192.168.1.23', '10.0.0.2', '172.20.10.2', '127.0.0.1'):
             self.assertEqual(check_host(good), good)
-        for bad in ('8.8.8.8', '0.0.0.0', '169.254.1.1', '::1', 'kevin.local', ''):
+        for bad in ('8.8.8.8', '0.0.0.0', '169.254.1.1', '::1', 'flicks.local', ''):
             with self.subTest(address=bad), self.assertRaises(CouchError):
                 check_host(bad)
 
@@ -223,13 +223,13 @@ class GuestServerTests(unittest.TestCase):
         self.assertEqual(status, 200)
         token = json.loads(body)['token']
         self.assertEqual(self.request('/api/couch/state')[0], 401)
-        self.assertEqual(self.request('/api/couch/vote', {'id': 'a', 'value': 1}, {'X-Kevin-Guest': 'forged'})[0], 401)
-        status, body, _ = self.request('/api/couch/vote', {'id': 'a', 'value': 1}, {'X-Kevin-Guest': token})
+        self.assertEqual(self.request('/api/couch/vote', {'id': 'a', 'value': 1}, {'X-Flicks-Guest': 'forged'})[0], 401)
+        status, body, _ = self.request('/api/couch/vote', {'id': 'a', 'value': 1}, {'X-Flicks-Guest': token})
         self.assertEqual((status, json.loads(body)['you']['votes']), (200, {'a': 1}))
-        self.assertEqual(self.request('/api/couch/remote', {'action': 'select', 'id': 'a'}, {'X-Kevin-Guest': token})[0], 200)
-        self.assertEqual(self.request('/api/couch/vote', {'id': 'zzz', 'value': 1}, {'X-Kevin-Guest': token})[0], 400)
+        self.assertEqual(self.request('/api/couch/remote', {'action': 'select', 'id': 'a'}, {'X-Flicks-Guest': token})[0], 200)
+        self.assertEqual(self.request('/api/couch/vote', {'id': 'zzz', 'value': 1}, {'X-Flicks-Guest': token})[0], 400)
         self.now[0] = 100
-        self.assertEqual(self.request('/api/couch/state', headers={'X-Kevin-Guest': token})[0], 410)
+        self.assertEqual(self.request('/api/couch/state', headers={'X-Flicks-Guest': token})[0], 410)
 
 
 class HostCouchApiTests(unittest.TestCase):
@@ -262,7 +262,7 @@ class HostCouchApiTests(unittest.TestCase):
         self.assertTrue(status == 200 and image.startswith(b'<svg'))
         url = urlsplit(view['url'])
         self.assertEqual(view['join_url'], f"{view['url']}#{view['code']}")
-        guest = lambda path, payload=None, token='': http_request(url.hostname, url.port, path, payload, {'X-Kevin-Guest': token})
+        guest = lambda path, payload=None, token='': http_request(url.hostname, url.port, path, payload, {'X-Flicks-Guest': token})
         token = json.loads(guest('/api/couch/join', {'code': view['code'], 'name': 'Sam'})[1])['token']
         self.assertEqual(guest('/api/feedback', {'id': 'm001', 'value': -1}, token)[0], 404)
         for item in view['items']:

@@ -9,7 +9,7 @@ Two outputs from one tag file:
    baseline and a working stand-in: it speaks the same wire format, is a few hundred KB of JSON,
    and its predict step is a sparse dot product that ports to TypeScript in ~30 lines.
 
-    python -m kevin.distill --tags work/tags.json --export-laya work/laya-data --student work/student.json
+    python -m flicks.distill --tags work/tags.json --export-laya work/laya-data --student work/student.json
 """
 import argparse
 import hashlib
@@ -124,7 +124,7 @@ class Student:
         for qid, q in questions.items():
             probs = dict(zip(options(q), (round(p, 6) for p in self.distribution(qid, x))))
             answers[qid] = {'type': 'noul', 'noul': probs['true']} if q['type'] == 'noul' else {'type': q['type'], 'probabilities': probs}
-        return {'model': 'kevin-student', 'answers': answers}
+        return {'model': 'flicks-student', 'answers': answers}
 
     def to_json(self):
         return {'format': FEATURES, 'dim': self.dim, 'meta': self.meta, 'questions': self.questions,

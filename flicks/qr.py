@@ -1,6 +1,6 @@
 """Minimal QR code encoder (byte mode, error-correction level M, versions 1-10) rendering to SVG.
 
-Stdlib only, so Kevin keeps no runtime dependencies. Enough for a join URL (up to 213 bytes).
+Stdlib only, so Flicks keeps no runtime dependencies. Enough for a join URL (up to 213 bytes).
 Follows ISO/IEC 18004; structure after Project Nayuki's reference encoder (MIT).
 """
 

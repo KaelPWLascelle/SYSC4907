@@ -1,7 +1,7 @@
 """Couch mode: phones on the same Wi-Fi join by QR code, vote on a shortlist and act as a remote.
 
 Privacy model:
-- Off unless Kevin starts with --couch. The host server stays on 127.0.0.1 and keeps every
+- Off unless Flicks starts with --couch. The host server stays on 127.0.0.1 and keeps every
   existing route (feedback, voice, commands). Guests reach a *separate* server that listens on the
   local network only while a session runs and exposes only join, vote, remote and its own page.
 - Only private-network (or loopback) addresses are accepted, never a public interface.
@@ -80,7 +80,7 @@ def lan_address():
                 return check_host(address)
         except (ValueError, CouchError):
             continue
-    raise CouchError('No home network found. Connect to Wi-Fi or start Kevin with --couch-host <address>')
+    raise CouchError('No home network found. Connect to Wi-Fi or start Flicks with --couch-host <address>')
 
 
 def normalize_name(name):
@@ -103,7 +103,7 @@ class CouchSession:
         if len(shortlist) < 2:
             raise CouchError('Couch mode needs at least two titles to vote on; widen the scene settings')
         self.items = [{k: row['content'][k] for k in PUBLIC_FIELDS} for row in shortlist]
-        self.order = {item['id']: rank for rank, item in enumerate(self.items)}  # Kevin's ranking
+        self.order = {item['id']: rank for rank, item in enumerate(self.items)}  # Flicks' ranking
         self.clock, self.expires = clock, clock() + seconds
         self.code, self.failed_joins = new_code(), 0
         self.guests = {}  # sha256(token) -> Guest
@@ -190,15 +190,15 @@ class CouchSession:
         self.control(action, content_id, by=name)
 
     def results(self):
-        """Approval voting: most yeses, then fewest nos, then Kevin's own ranking breaks ties."""
+        """Approval voting: most yeses, then fewest nos, then Flicks' own ranking breaks ties."""
         rows = []
         voters = list(self.guests.values())
         for item in self.items:
             yes = sum(g.votes.get(item['id']) == 1 for g in voters)
             no = sum(g.votes.get(item['id']) == -1 for g in voters)
-            rows.append({'id': item['id'], 'yes': yes, 'no': no, 'kevin_rank': self.order[item['id']] + 1,
+            rows.append({'id': item['id'], 'yes': yes, 'no': no, 'flicks_rank': self.order[item['id']] + 1,
                          'match': bool(voters) and yes == len(voters)})
-        return sorted(rows, key=lambda r: (-r['yes'], r['no'], r['kevin_rank']))
+        return sorted(rows, key=lambda r: (-r['yes'], r['no'], r['flicks_rank']))
 
     def _common(self):
         return {'active': True, 'version': self.version, 'items': self.items, 'revealed': self.revealed,
@@ -308,7 +308,7 @@ def make_guest_server(session, host, port):
             return True
 
         def token(self):
-            return self.headers.get('X-Kevin-Guest', '')
+            return self.headers.get('X-Flicks-Guest', '')
 
         def do_GET(self):
             if not self.allowed():

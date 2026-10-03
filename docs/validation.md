@@ -18,7 +18,7 @@ packages installed. The application was started with a separate demo SQLite file
 - Cross-platform CI is configured but was not executed locally. Only the local
   environment above is a completed platform verification.
 
-`python3 -m kevin.evaluate` reruns a deterministic demonstration with likes for
+`python3 -m flicks.evaluate` reruns a deterministic demonstration with likes for
 Arrival/Moon, a dislike for Alien, a Relaxing mood, 120 minutes, intensity 0.2,
 and novelty 0.3. One local run over 200 calls per mode measured:
 
@@ -109,9 +109,9 @@ beam size 3, and speech activity filtering. Base English model revision:
 
 | Spoken request | Duration | Base processing | Parsed outcome |
 |---|---:|---:|---|
-| Kevin, something relaxing under ninety minutes, low intensity, no horror | 4.73 s | 1.417 s (includes initial load) | Relaxing, 89-minute limit, intensity .2, exclude horror |
-| Kevin, I liked Arrival | 1.64 s | .469 s | Like Arrival |
-| Kevin, I did not like Alien | 2.12 s | .415 s | Dislike Alien |
+| Flicks, something relaxing under ninety minutes, low intensity, no horror | 4.73 s | 1.417 s (includes initial load) | Relaxing, 89-minute limit, intensity .2, exclude horror |
+| Flicks, I liked Arrival | 1.64 s | .469 s | Like Arrival |
+| Flicks, I did not like Alien | 2.12 s | .415 s | Dislike Alien |
 
 Tiny English recognized the session and dislike requests but misheard “I liked
 Arrival” as “I like to rival.” The parser rejected it without changing a rating.

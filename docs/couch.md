@@ -5,9 +5,9 @@ built from the host's current scene, votes stay hidden until everyone is done, a
 appears on the TV. Any guest's phone then works as a remote. No app, no accounts, no internet.
 
 ```sh
-python3 -m kevin --couch                                   # then press “Start a couch session”
-python3 -m kevin --couch --couch-host 192.168.1.23         # if the address is detected wrongly
-kevin --couch                                              # same, after pip install .
+python3 -m flicks --couch                                   # then press “Start a couch session”
+python3 -m flicks --couch --couch-host 192.168.1.23         # if the address is detected wrongly
+flicks --couch                                              # same, after pip install .
 ```
 
 Guests open the QR code's link (`http://<your-address>:8770/join#<code>`) or type the address and
@@ -23,7 +23,7 @@ phones on the Wi-Fi ── <LAN address>:8770 ── guest server (only while a 
                                               join · state · vote · remote · its own page
 ```
 
-The guest server is a separate `ThreadingHTTPServer` (`kevin/couch.py`) with its own routes. The
+The guest server is a separate `ThreadingHTTPServer` (`flicks/couch.py`) with its own routes. The
 host's ratings, history, voice and command routes do not exist on it, so they cannot be reached
 from the network at all. Clients poll every 1.5 s, and a poll that started before the client's own
 action is dropped, so a stale response cannot overwrite a newer state. A tab polls only while it is
@@ -37,7 +37,7 @@ visible, and it catches up when it becomes visible again.
   10 wrong guesses it rotates, and the TV shows the new QR code. The QR code puts the code in the URL
   fragment, which browsers never send to the server, and the page removes it from the address bar.
 - **Every request is authenticated.** Each guest gets a random 192-bit token, which the guest
-  server stores only as a SHA-256 hash. It travels in an `X-Kevin-Guest` header, so another web page
+  server stores only as a SHA-256 hash. It travels in an `X-Flicks-Guest` header, so another web page
   cannot replay it.
 - **Host and Origin checks on both servers.** These defeat DNS rebinding and cross-site requests.
   Cross-origin calls in either direction get 403.
@@ -49,7 +49,7 @@ visible, and it catches up when it becomes visible again.
 
 ## Voting rule
 
-Approval voting: the most yeses wins, then the fewest nos. Kevin's own ranking breaks remaining
+Approval voting: the most yeses wins, then the fewest nos. Flicks' own ranking breaks remaining
 ties. When every guest said yes, the title is flagged as a match. This is the simplest rule the group
 can understand at a glance. Least-misery (fewest nos first) and average-score rules are
 straightforward variants worth comparing in the evaluation.
@@ -65,6 +65,6 @@ straightforward variants worth comparing in the evaluation.
 - **Front-end tests use a fake DOM** (`tests/couch-ui.test.mjs`): join, token handling, stale-poll
   protection, results, and loading in a background tab. Real phones were tried by hand. There's no
   automated cross-browser run.
-- **The QR encoder (`kevin/qr.py`) is stdlib only.** It covers byte mode, level M and versions 1–10.
+- **The QR encoder (`flicks/qr.py`) is stdlib only.** It covers byte mode, level M and versions 1–10.
   It was checked against Apple's CoreImage QR detector on 24 payloads, including every version at full
   capacity and a screenshot of the live page.

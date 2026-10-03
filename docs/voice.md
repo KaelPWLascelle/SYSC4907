@@ -1,6 +1,6 @@
-# Kevin voice commands (v0.2)
+# Flicks voice commands (v0.2)
 
-Kevin now has an optional on-device speech pipeline:
+Flicks now has an optional on-device speech pipeline:
 
 ```
 Browser microphone or audio file
@@ -27,18 +27,18 @@ with Python 3.12 on Apple Silicon macOS. From the repository root:
 python3 -m venv .venv
 .venv/bin/python -m pip install -r requirements-voice.txt
 .venv/bin/python scripts/download_voice_model.py
-.venv/bin/python -m kevin --db .local/demo.sqlite3 --voice-model .local/models/whisper-base.en
+.venv/bin/python -m flicks --db .local/demo.sqlite3 --voice-model .local/models/whisper-base.en
 ```
 
 Windows equivalents use `.venv\Scripts\python.exe` in place of `.venv/bin/python`.
-Open <http://127.0.0.1:8765>. Stop the previous Kevin process first if that port is
+Open <http://127.0.0.1:8765>. Stop the previous Flicks process first if that port is
 occupied, or add `--port 8766`. No system FFmpeg installation is required; PyAV
 provides decoding. `requirements-voice-tested.txt` records the exact dependency
 versions from the tested macOS/Python 3.12 environment; it is not a claim that
 those versions support every Python/OS combination.
 
 The setup script downloads `Systran/faster-whisper-base.en` from a pinned upstream
-revision and records source revision plus file SHA-256 values in `kevin-model.json`.
+revision and records source revision plus file SHA-256 values in `flicks-model.json`.
 It needs internet once. Runtime loads only the explicitly supplied local directory
 with `local_files_only=True`. Missing/incomplete files produce setup guidance,
 not an automatic download. `.venv`, `.local`, recordings, and model weights are
@@ -48,11 +48,11 @@ For a smaller, less accurate option:
 
 ```sh
 .venv/bin/python scripts/download_voice_model.py --model tiny.en
-.venv/bin/python -m kevin --voice-model .local/models/whisper-tiny.en
+.venv/bin/python -m flicks --voice-model .local/models/whisper-tiny.en
 ```
 
 To verify runtime independence from Hugging Face, set `HF_HUB_OFFLINE=1` when
-starting Kevin. The application does not need the model hub after setup.
+starting Flicks. The application does not need the model hub after setup.
 
 ## Using voice
 
@@ -60,7 +60,7 @@ starting Kevin. The application does not need the model hub after setup.
 2. Speak a short English command. Press **Stop & transcribe** when finished.
    Capture stops just before 30 seconds to leave room for the final audio frame.
 3. Check the transcript. Correct any words, then press **Preview command** again.
-4. Read the exact settings/rating Kevin proposes. Press **Apply to Kevin**.
+4. Read the exact settings/rating Flicks proposes. Press **Apply to Flicks**.
 
 You can also choose an audio file or type directly. Microphone permission denial,
 missing hardware, unsupported browser capture, and unavailable models leave the
@@ -98,7 +98,7 @@ remain unchanged. A new exclusion command replaces the current exclusion list;
 the preview lists exactly what it will set. Exclusions apply in both ranking modes.
 
 Titles must match a unique catalogue title after punctuation/accent normalization.
-Kevin does not guess from “like it”, similar spellings, or multiple title matches.
+Flicks does not guess from “like it”, similar spellings, or multiple title matches.
 This is intentional: speech errors must not silently become ratings. General chat,
 compound rating commands, and unsupported negation may be rejected. Recognized
 session phrases are extracted and listed; other wording is not interpreted. Always
@@ -106,12 +106,12 @@ review the proposed action. Typing works identically to a speech transcript.
 
 ## Privacy and boundaries
 
-Audio is uploaded only to the local loopback Kevin process. It is decoded and
-transcribed in memory, not written to an audio file by Kevin. Transcripts are not
+Audio is uploaded only to the local loopback Flicks process. It is decoded and
+transcribed in memory, not written to an audio file by Flicks. Transcripts are not
 stored in SQLite or server request logs. They remain visible in the current page
 until edited/reloaded. Only applied ratings persist; session controls still reset
 on reload. A recording file you upload already exists on disk and is not deleted.
-The explicit model download is the only network setup step; Kevin does not use
+The explicit model download is the only network setup step; Flicks does not use
 browser SpeechRecognition, which may rely on a remote speech service.
 
 Preview endpoints never alter ratings. Apply reparses the text server-side and
@@ -129,7 +129,7 @@ node --test tests/voice-ui.test.mjs
 
 The first command skips optional audio-decoding tests when voice dependencies are
 absent. The second includes them. Node 24 runs the isolated browser-state tests;
-it is needed for those tests only, not to run Kevin. The UI tests use fake audio
+it is needed for those tests only, not to run Flicks. The UI tests use fake audio
 and permissions, never the machine's microphone. Model weights are not downloaded
 by CI. Actual inference is validated separately with generated speech samples.
 

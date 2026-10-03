@@ -1,18 +1,18 @@
 <!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Kevin · Find your next watch</title><link rel="stylesheet" href="/style.css"><script type="module" src="/app.js"></script></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Flicks · Find your next watch</title><link rel="stylesheet" href="/style.css"><script type="module" src="/app.js"></script></head>
 <body>
 <header><a class="brand" href="/">k<span>evin</span><i>●</i></a><span class="privacy">● On your device · No cloud</span></header>
 <main>
-<section class="intro"><div class="eyebrow">YOUR EVENING, YOUR CALL</div><h1>Something good.<br>For <em>right now.</em></h1><p>Teach Kevin your taste. Then tell him what kind of watch fits today.</p></section>
+<section class="intro"><div class="eyebrow">YOUR EVENING, YOUR CALL</div><h1>Something good.<br>For <em>right now.</em></h1><p>Teach Flicks your taste. Then tell him what kind of watch fits today.</p></section>
 <section class="assistant-panel" aria-labelledby="assistant-heading">
-  <div class="section-head"><div><div class="eyebrow">YOUR LOCAL WATCHING ASSISTANT</div><h2 id="assistant-heading">Just ask Kevin.</h2></div><span id="voice-badge" class="pill">Checking voice…</span></div>
-  <p>Speak or type a short request. Review what Kevin understood, then apply it.</p>
+  <div class="section-head"><div><div class="eyebrow">YOUR LOCAL WATCHING ASSISTANT</div><h2 id="assistant-heading">Just ask Flicks.</h2></div><span id="voice-badge" class="pill">Checking voice…</span></div>
+  <p>Speak or type a short request. Review what Flicks understood, then apply it.</p>
   <div class="voice-controls"><button id="record" type="button" disabled>● Record command</button><button id="cancel-recording" type="button" hidden>Cancel recording</button><label class="file-label" for="audio-file">Or choose a recording<input id="audio-file" type="file" accept="audio/*" disabled></label></div>
   <p id="voice-status" class="small" role="status" aria-live="polite">Voice setup is optional. Typed commands work offline.</p>
-  <form id="command-form"><label for="command-text">Your command / editable transcript</label><textarea id="command-text" rows="2" maxlength="500" placeholder="Something relaxing under ninety minutes, low intensity, no horror" required></textarea><div class="command-buttons"><button type="submit" id="preview-command">Preview command</button><button id="apply-command" type="button" class="primary" disabled>Apply to Kevin ↗</button></div></form>
+  <form id="command-form"><label for="command-text">Your command / editable transcript</label><textarea id="command-text" rows="2" maxlength="500" placeholder="Something relaxing under ninety minutes, low intensity, no horror" required></textarea><div class="command-buttons"><button type="submit" id="preview-command">Preview command</button><button id="apply-command" type="button" class="primary" disabled>Apply to Flicks ↗</button></div></form>
   <p id="command-preview" role="status" aria-live="polite">Try “Like Arrival”, “Dislike Alien”, or “Clear my rating for Arrival”.</p>
-  <p class="small">Microphone access starts only when you press Record. Recordings are limited to 30 seconds, processed locally, and not saved by Kevin. No wake word or background listening.</p>
+  <p class="small">Microphone access starts only when you press Record. Recordings are limited to 30 seconds, processed locally, and not saved by Flicks. No wake word or background listening.</p>
 </section>
 <section id="couch-panel" class="couch-panel" aria-labelledby="couch-heading" hidden>
   <div class="section-head"><div><div class="eyebrow">WATCHING WITH OTHERS</div><h2 id="couch-heading">Couch mode</h2></div><span class="pill">Same Wi-Fi only · no accounts</span></div>
@@ -38,7 +38,7 @@
 <section class="results"><div class="section-head"><div><div class="eyebrow">THE SHORTLIST</div><h2>Picked for your moment</h2></div><span id="count" class="pill"></span></div><p id="status" role="status" aria-live="polite">Getting your catalogue ready…</p><div id="recommendations" class="cards"></div></section>
 </div>
 <section class="library"><div class="section-head"><div><div class="eyebrow">MAKE IT PERSONAL</div><h2>What do you like?</h2><p>Like a few favourites, pass on what isn’t for you. Clear a rating to bring it back.</p></div><label class="search-label" for="search">Search the catalogue<input id="search" type="search" placeholder="Title, genre, theme…"></label></div><p id="profile" class="muted"></p><div id="catalog" class="catalog"></div></section>
-<footer>KEVIN / SYSC 4907 <span>Local recommendation lab · v0.3</span></footer>
+<footer>FLICKS / SYSC 4907 <span>Local recommendation lab · v0.3</span></footer>
 </main>
 <template id="card"><article class="card"><div class="meta"></div><h3></h3><p class="description"></p><div class="tags"></div><details><summary>Why this pick?</summary><div class="explanation"></div></details><div class="actions"></div></article></template>
 </body></html>

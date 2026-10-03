@@ -2,13 +2,13 @@
 // Guest page for couch mode, served by the LAN guest server. Talks only to that server.
 const $ = id => document.getElementById(id);
 const saved = {
-  get() { try { return sessionStorage.getItem('kevin-guest'); } catch { return null; } },
-  set(value) { try { value ? sessionStorage.setItem('kevin-guest', value) : sessionStorage.removeItem('kevin-guest'); } catch {} },
+  get() { try { return sessionStorage.getItem('flicks-guest'); } catch { return null; } },
+  set(value) { try { value ? sessionStorage.setItem('flicks-guest', value) : sessionStorage.removeItem('flicks-guest'); } catch {} },
 };
 let token = saved.get(), state = null, busy = false, epoch = 0;  // epoch: drop polls that started before an action
 
 async function api(path, data) {
-  const headers = token ? {'X-Kevin-Guest': token} : {};
+  const headers = token ? {'X-Flicks-Guest': token} : {};
   const options = data === undefined ? {headers} : {method: 'POST', headers: {...headers, 'Content-Type': 'application/json'}, body: JSON.stringify(data)};
   const response = await fetch(path, options);
   const result = await response.json().catch(() => ({}));
@@ -36,7 +36,7 @@ function render() {
     const people = state.progress.length;
     $('results-eyebrow').textContent = top.match ? 'IT’S A MATCH' : 'THE COUCH HAS SPOKEN';
     $('winner').textContent = best.title;
-    $('winner-why').textContent = `${top.yes} of ${people} said yes${top.no ? `, ${top.no} said no` : ''}. ${best.minutes} min · ${best.genres.join(' / ')}. Ties go to Kevin’s own ranking (#${top.kevin_rank}).`;
+    $('winner-why').textContent = `${top.yes} of ${people} said yes${top.no ? `, ${top.no} said no` : ''}. ${best.minutes} min · ${best.genres.join(' / ')}. Ties go to Flicks’ own ranking (#${top.flicks_rank}).`;
     $('results').replaceChildren(...state.results.map(row => {
       const li = document.createElement('li');
       const label = document.createElement('span');

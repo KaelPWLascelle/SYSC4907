@@ -3,7 +3,7 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "kevin-recommender"
+name = "flicks"
 version = "0.3.0"
 description = "Local-first recommendation experiment for SYSC 4907"
 readme = "README.md"
@@ -14,13 +14,13 @@ dependencies = []
 voice = ["faster-whisper==1.2.1"]
 
 [project.scripts]
-kevin = "kevin.__main__:main"
+flicks = "flicks.__main__:main"
 
 [tool.setuptools]
-packages = ["kevin"]
+packages = ["flicks"]
 
 [tool.setuptools.package-data]
-kevin = ["data/*.json", "static/*.html", "static/*.js", "static/*.css"]
+flicks = ["data/*.json", "static/*.html", "static/*.js", "static/*.css"]
 
 [tool.ruff]
 line-length = 120
