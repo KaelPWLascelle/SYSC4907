@@ -57,7 +57,7 @@ Design and implement a streaming video player with an integrated local AI recomm
 
 ## Kevin recommendation MVP
 
-Kevin v0.2 is a working, local-first experiment for the recommendation concept.
+Kevin v0.3 is a working, local-first experiment for the recommendation concept.
 It includes a browser UI, 36 bundled movie/short-film records, like/dislike/clear
 controls, SQLite feedback persistence, a TF-IDF taste profile, and a separate
 explainable session reranker. No API keys, model downloads, or third-party Python
@@ -72,6 +72,8 @@ python3 -m kevin
 ```
 
 On Windows, use `py -3 -m kevin`. Open <http://127.0.0.1:8765>.
+To install it as a `kevin` command instead (still no third-party dependencies), run
+`python3 -m pip install .` from the repository, then `kevin`.
 Stop with Ctrl+C. Feedback survives restarts in `~/.kevin/feedback.sqlite3`.
 For a separate demo profile or a different port:
 

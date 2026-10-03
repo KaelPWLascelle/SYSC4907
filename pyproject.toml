@@ -1,12 +1,26 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "kevin-recommender"
-version = "0.2.0"
+version = "0.3.0"
 description = "Local-first recommendation experiment for SYSC 4907"
+readme = "README.md"
 requires-python = ">=3.10"
 dependencies = []
 
-[tool.ruff]
-line-length = 120
-
 [project.optional-dependencies]
 voice = ["faster-whisper==1.2.1"]
+
+[project.scripts]
+kevin = "kevin.__main__:main"
+
+[tool.setuptools]
+packages = ["kevin"]
+
+[tool.setuptools.package-data]
+kevin = ["data/*.json", "static/*.html", "static/*.js", "static/*.css"]
+
+[tool.ruff]
+line-length = 120

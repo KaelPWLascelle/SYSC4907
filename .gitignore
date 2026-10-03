@@ -6,3 +6,6 @@ __pycache__/
 .coverage
 .local/
 work/
+build/
+dist/
+*.egg-info/
