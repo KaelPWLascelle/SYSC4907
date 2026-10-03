@@ -20,7 +20,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - run: node --test tests/voice-ui.test.mjs tests/student.test.mjs
+      - run: node --test tests/voice-ui.test.mjs tests/student.test.mjs tests/couch-ui.test.mjs
   system-one-pipeline:
     runs-on: ubuntu-latest
     steps:

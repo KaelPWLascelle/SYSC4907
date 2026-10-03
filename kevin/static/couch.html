@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Kevin · Couch</title><link rel="stylesheet" href="/style.css"><script type="module" src="/couch.js"></script></head>
+<body class="couch-guest">
+<header><span class="brand">k<span>evin</span><i>●</i></span><span class="privacy">● Stays in this room</span></header>
+<main>
+<section id="join-screen"><div class="eyebrow">COUCH MODE</div><h1>Pick <em>together.</em></h1><p>Swipe through the shortlist on the TV. Votes stay hidden until everyone is done.</p>
+  <form id="join-form"><label for="name">Your name</label><input id="name" maxlength="24" autocomplete="nickname" required>
+  <label for="code">Code on the TV</label><input id="code" maxlength="8" autocapitalize="characters" autocomplete="off" spellcheck="false" required>
+  <button class="primary" type="submit">Join the couch</button></form>
+  <p class="small">No account, no app. Kevin keeps your name and votes in memory on the TV and forgets them when the session ends.</p></section>
+<section id="vote-screen" hidden><div class="eyebrow" id="vote-progress"></div>
+  <article class="card couch-card"><div class="meta" id="vote-meta"></div><h2 id="vote-title"></h2><p class="description" id="vote-description"></p><div class="tags" id="vote-tags"></div></article>
+  <div class="vote-buttons"><button id="vote-no" type="button">✕ Not tonight</button><button id="vote-yes" type="button" class="primary">✓ I’d watch it</button></div>
+  <button id="vote-back" type="button" class="link-button">← Change my last vote</button></section>
+<section id="wait-screen" hidden><div class="eyebrow">ALL DONE</div><h2>Nice picks.</h2><p>Waiting for everyone else. Nobody sees anyone’s votes until the reveal.</p><ul id="wait-progress" class="progress-list"></ul>
+  <button id="wait-back" type="button" class="link-button">← Change my last vote</button></section>
+<section id="results-screen" hidden><div class="eyebrow" id="results-eyebrow">THE COUCH HAS SPOKEN</div><h2 id="winner"></h2><p id="winner-why"></p><ol id="results" class="results-list"></ol></section>
+<p id="message" role="status" aria-live="polite"></p>
+<section id="remote" class="remote" hidden aria-label="Remote control"><div><div class="eyebrow">REMOTE</div><p id="now-playing">Nothing playing yet.</p></div>
+  <div class="remote-buttons"><button id="remote-toggle" type="button" disabled>▶ Play</button><button id="remote-stop" type="button" disabled>■ Stop</button></div></section>
+</main>
+</body></html>

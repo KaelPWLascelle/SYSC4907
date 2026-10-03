@@ -80,7 +80,9 @@ python3 -m kevin --db .local/demo.sqlite3 --port 8766
 ```
 
 All computation and data stay on the machine running Python. Open the browser
-on that same machine; the server deliberately binds only to loopback. Once the
+on that same machine; the server deliberately binds only to loopback. The one
+exception is opt-in [couch mode](docs/couch.md), which opens a separate,
+couch-only server on your home network while a session runs. Once the
 repository and Python are present, the demo works without internet access.
 
 ### Try the concept
@@ -107,6 +109,14 @@ For local microphone transcription and audio-file uploads, follow
 faster-whisper dependencies and an explicitly downloaded model. Recordings stay
 on-device and are not saved by Kevin. No cloud speech API or wake word is used.
 
+### Couch mode (prototype)
+
+Start Kevin with `--couch` and press **Start a couch session**. Phones on the same Wi-Fi scan the QR
+code, vote on a shortlist with hidden votes, and act as a remote. Guests reach a separate
+local-network server that exposes only couch routes. Your ratings and history are never reachable
+from the network, and names and votes are forgotten when the session ends. See
+[how couch mode works and what it guarantees](docs/couch.md).
+
 ### System One models (experimental)
 
 Kevin can ask a System One decision model (Laya, Kev, or TypeSafe's Jev) typed questions:
@@ -130,7 +140,7 @@ locally, Jev for catalogue-only tagging, and the fine-tuning path.
 python3 -m unittest discover -s tests -v
 python3 -m kevin.evaluate
 # Optional frontend state tests (Node 24):
-node --test tests/voice-ui.test.mjs tests/student.test.mjs
+node --test tests/voice-ui.test.mjs tests/student.test.mjs tests/couch-ui.test.mjs
 ```
 
 Tests exercise ranking behavior, time constraints, negative feedback, cold start,

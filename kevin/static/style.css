@@ -13,3 +13,35 @@ textarea { width: 100%; resize: vertical; min-height: 72px; padding: 12px; backg
 #record[aria-pressed=true] { border-color: #efb18b; color: #efb18b; background: #382820; }
 [hidden] { display: none !important; }
 @media(max-width:650px) { .assistant-panel { padding: 18px; } .file-label { align-items: flex-start; flex-direction: column; } }
+
+/* Couch mode: host panel and phone guest page */
+.couch-panel { border: 1px solid var(--line); border-radius: 16px; padding: 26px; margin-bottom: 38px; background: var(--surface); }
+.couch-panel > div > p { font-size: 13px; }
+.couch-start { width: auto; min-width: 220px; }
+.couch-live { display: grid; grid-template-columns: 260px 1fr; gap: 32px; margin-top: 18px; }
+.couch-join { text-align: center; }
+.couch-join img { width: 220px; height: 220px; border-radius: 10px; background: #fff; }
+.couch-code { font: 700 30px/1.2 ui-monospace, Menlo, monospace; letter-spacing: 5px; color: var(--lime); margin: 0; }
+.couch-state h3 { font-size: 14px; margin: 18px 0 6px; }
+.couch-state h3:first-child { margin-top: 0; }
+.progress-list, .results-list { margin: 6px 0 12px; padding-left: 20px; font-size: 13px; color: var(--muted); }
+.results-list li { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.remote-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+.couch-guest header, .couch-guest main { max-width: 560px; padding-left: 16px; padding-right: 16px; }
+.couch-guest header { height: 64px; }
+.couch-guest .brand { font-size: 28px; }
+.couch-guest h1 { font-size: 40px; letter-spacing: -1.5px; }
+.couch-guest main { padding-bottom: 150px; }
+.couch-guest form .primary { margin-top: 22px; }
+.couch-card { margin: 14px 0; min-height: 260px; }
+.couch-card h2 { font-size: 26px; margin: 10px 0; }
+.vote-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.vote-buttons button { padding: 16px 8px; font-size: 15px; }
+.link-button { border: 0; padding: 12px 0; color: var(--muted); }
+.link-button:hover { background: none; color: var(--lime); }
+.remote { position: fixed; left: 0; right: 0; bottom: 0; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 16px; background: #1b241b; border-top: 1px solid #526344; }
+.remote p { margin: 2px 0 0; font-size: 12px; }
+.remote button, .results-list button { padding: 12px 14px; white-space: nowrap; }
+.remote .remote-buttons { flex-wrap: nowrap; }
+#message { font-size: 13px; min-height: 20px; }
+@media(max-width:800px) { .couch-live { grid-template-columns: 1fr; } }

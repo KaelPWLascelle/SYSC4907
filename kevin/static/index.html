@@ -14,6 +14,17 @@
   <p id="command-preview" role="status" aria-live="polite">Try “Like Arrival”, “Dislike Alien”, or “Clear my rating for Arrival”.</p>
   <p class="small">Microphone access starts only when you press Record. Recordings are limited to 30 seconds, processed locally, and not saved by Kevin. No wake word or background listening.</p>
 </section>
+<section id="couch-panel" class="couch-panel" aria-labelledby="couch-heading" hidden>
+  <div class="section-head"><div><div class="eyebrow">WATCHING WITH OTHERS</div><h2 id="couch-heading">Couch mode</h2></div><span class="pill">Same Wi-Fi only · no accounts</span></div>
+  <div id="couch-idle"><p>Phones on this Wi-Fi scan a code, swipe through a shortlist built from your current scene, and the group pick appears here. Guests never see your ratings or history.</p><button id="couch-start" type="button" class="primary couch-start">Start a couch session ↗</button></div>
+  <div id="couch-live" class="couch-live" hidden>
+    <div class="couch-join"><img id="couch-qr" alt="QR code to join this couch session" width="220" height="220"><p class="small">Or open <strong id="couch-url"></strong> and enter</p><p class="couch-code" id="couch-code"></p></div>
+    <div class="couch-state"><h3>Who’s voting</h3><ul id="couch-guests" class="progress-list"></ul><button id="couch-reveal" type="button">Reveal results now</button>
+      <h3 id="couch-results-head" hidden>Results</h3><ol id="couch-results" class="results-list"></ol>
+      <h3>Now playing</h3><p id="couch-player"></p><div class="remote-buttons"><button id="couch-toggle" type="button">▶ Play</button><button id="couch-stop-playback" type="button">■ Stop</button><button id="couch-end" type="button">End couch session</button></div></div>
+  </div>
+  <p id="couch-status" role="status" aria-live="polite"></p>
+</section>
 <div class="workspace">
 <aside><form id="session"><h2>Set the scene</h2><p class="muted">A little context goes a long way.</p>
 <label for="mood">What’s the mood?</label><select id="mood"><option value="any">Open to anything</option><option value="relaxing">Relaxing</option><option value="uplifting">Uplifting</option><option value="curious">Curious</option><option value="tense">Tense</option><option value="reflective">Reflective</option></select>

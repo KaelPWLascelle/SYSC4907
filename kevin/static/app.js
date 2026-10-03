@@ -1,5 +1,6 @@
 'use strict';
 import { initVoice } from '/voice.js';
+import { initCouchHost } from '/couch-host.js';
 const $ = id => document.getElementById(id);
 let catalog = [], feedback = {}, requestVersion = 0, busy = false;
 async function api(path, data) {
@@ -101,6 +102,7 @@ for (const key of ['intensity', 'novelty']) $(key).addEventListener('input', () 
   try { const data = await api('/api/state'); catalog = data.catalog; feedback = data.feedback;
     for (const genre of [...new Set(catalog.flatMap(item => item.genres))].sort()) { const option = document.createElement('option'); option.value = genre; option.textContent = genre; $('excluded-genres').append(option); }
     initVoice({api, readSession, voice: data.voice, applyResult: async result => { feedback = result.feedback; setSession(result.session); renderLibrary(); await recommend(); }});
+    initCouchHost({api, readSession, enabled: data.couch});
     $('catalog-size').textContent = catalog.length; renderLibrary(); await recommend(); }
   catch (error) { status(`Could not load Kevin: ${error.message}. Reload to retry.`); }
 })();
