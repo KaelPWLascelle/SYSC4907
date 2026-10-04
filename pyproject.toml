@@ -1,26 +1,56 @@
 [build-system]
-requires = ["setuptools>=61"]
+requires = ["setuptools>=69"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "flicks"
-version = "0.3.0"
-description = "Local-first recommendation experiment for SYSC 4907"
+version = "0.4.0"
+description = "Local-first movie recommendations and playback (SYSC 4907)"
 readme = "README.md"
 requires-python = ">=3.10"
-dependencies = []
+# Lower bounds are the versions CI tests; see docs/adr/0002-fastapi-backend.md.
+dependencies = [
+    "fastapi>=0.142",
+    "uvicorn>=0.54",
+]
 
 [project.optional-dependencies]
 voice = ["faster-whisper==1.2.1"]
+dev = [
+    "httpx2",       # starlette's TestClient transport
+    "pytest>=8",
+    "ruff>=0.16",
+]
 
 [project.scripts]
 flicks = "flicks.__main__:main"
 
-[tool.setuptools]
-packages = ["flicks"]
+[tool.setuptools.packages.find]
+include = ["flicks*"]
 
 [tool.setuptools.package-data]
-flicks = ["data/*.json", "static/*.html", "static/*.js", "static/*.css"]
+# static/ is the Vite build output (web/), produced in CI and before packaging; never committed.
+flicks = ["data/*.json", "static/**/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
 
 [tool.ruff]
 line-length = 120
+extend-exclude = ["web"]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "B", "SIM", "RUF"]
+# The codebase uses compact one-line statements (`if x: y`) on purpose; keep that house style.
+ignore = ["E701", "E702"]
+# En dashes and curly quotes in user-facing copy are intentional typography.
+allowed-confusables = ["–", "’"]
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI's dependency-injection idiom is a call in a default argument by design.
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Header", "fastapi.Query", "fastapi.Body"]
+
+[tool.ruff.lint.isort]
+force-sort-within-sections = true
+known-first-party = ["flicks", "helpers"]

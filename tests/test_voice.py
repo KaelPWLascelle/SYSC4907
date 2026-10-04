@@ -1,22 +1,20 @@
 """Fast command/transport tests; optional audio decoding tests with voice extras."""
-import http.client
 import importlib.util
 import io
-import json
 from pathlib import Path
 import tempfile
-import threading
 import unittest
 import wave
-from flicks.commands import CommandInterpreter, number_words
+
+from flicks.commands import CommandInterpreter
 from flicks.core import Recommender, Session, load_catalog
-from flicks.__main__ import ROOT, make_server
-from flicks.voice import LocalWhisper, MAX_AUDIO_BYTES, VoiceUnavailable
+from flicks.voice import MAX_AUDIO_BYTES, LocalWhisper, VoiceUnavailable
+from helpers import CATALOG, app_client
 
 
 class CommandTests(unittest.TestCase):
     def setUp(self):
-        self.catalog = load_catalog(ROOT/'data'/'movies.json')
+        self.catalog = load_catalog(CATALOG)
         self.parser = CommandInterpreter(self.catalog)
 
     def test_spoken_session_request(self):
@@ -66,27 +64,20 @@ class CommandTests(unittest.TestCase):
 
 class CommandApiTests(unittest.TestCase):
     def setUp(self):
-        class Speech:
-            def status(self): return {'available': True}
-            def transcribe(self, data):
-                if data == b'unavailable': raise VoiceUnavailable('Unavailable for this test')
-                return {'text': 'Like Arrival', 'engine': 'test'}
         self.temp = tempfile.TemporaryDirectory()
-        self.server = make_server(ROOT/'data'/'movies.json', Path(self.temp.name)/'profile.sqlite3', 0, Speech())
-        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
-        self.thread.start()
+        self.context = app_client(Path(self.temp.name))
+        self.client, _ = self.context.__enter__()
 
     def tearDown(self):
-        self.server.shutdown(); self.server.server_close(); self.thread.join(); self.temp.cleanup()
+        self.context.__exit__(None, None, None)
+        self.temp.cleanup()
 
     def request(self, path, payload, content_type='application/json'):
-        connection = http.client.HTTPConnection('127.0.0.1', self.server.server_port)
-        body = json.dumps(payload).encode() if content_type == 'application/json' else payload
-        connection.request('POST', path, body, {'Content-Type': content_type})
-        response = connection.getresponse()
-        result = response.status, json.loads(response.read())
-        connection.close()
-        return result
+        if content_type == 'application/json':
+            response = self.client.post(path, json=payload)
+        else:
+            response = self.client.post(path, content=payload, headers={'Content-Type': content_type})
+        return response.status_code, response.json()
 
     def test_preview_has_no_feedback_side_effect(self):
         code, result = self.request('/api/command/preview', {'text':'Like Arrival'})
@@ -119,7 +110,8 @@ class CommandApiTests(unittest.TestCase):
         self.assertEqual(self.request('/api/command/preview', {'text':'Like Arrival'})[1]['feedback'], {})
 
     def test_audio_transport_validation(self):
-        self.assertEqual(self.request('/api/transcribe', b'bad', 'text/plain')[0], 400)
+        self.assertEqual(self.request('/api/transcribe', b'bad', 'text/plain')[0], 415)
+        self.assertEqual(self.request('/api/transcribe', b'x' * (5 * 1024 * 1024 + 1), 'audio/wav')[0], 413)
         self.assertEqual(self.request('/api/transcribe', b'', 'audio/wav')[0], 400)
         self.assertEqual(self.request('/api/transcribe', b'unavailable', 'audio/wav')[0], 503)
 

@@ -70,7 +70,7 @@ def _alignment_positions(version, size):
         return []
     n = version // 7 + 2
     step = (version * 8 + n * 3 + 5) // (n * 4 - 4) * 2
-    return [6] + sorted(size - 7 - i * step for i in range(n - 1))
+    return [6, *sorted(size - 7 - i * step for i in range(n - 1))]
 
 
 def _bit(value, i):
@@ -160,7 +160,7 @@ class _Builder:
 
     def penalty(self):
         size, dark, score = self.size, self.dark, 0
-        lines = dark + [list(col) for col in zip(*dark)]
+        lines = dark + [list(col) for col in zip(*dark, strict=True)]
         finder = ([True, False, True, True, True, False, True, False, False, False, False],
                   [False, False, False, False, True, False, True, True, True, False, True])
         for line in lines:

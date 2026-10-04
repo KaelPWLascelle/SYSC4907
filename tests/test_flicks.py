@@ -1,16 +1,16 @@
-import http.client
 import json
 import math
 from pathlib import Path
 import tempfile
-import threading
 import unittest
-from html.parser import HTMLParser
-from flicks.core import MOODS, Content, HeuristicDecision, Recommender, Session, TfidfTaste, load_catalog
-from flicks.store import FeedbackStore
-from flicks.__main__ import default_db, make_server, ROOT
-from flicks.commands import CommandInterpreter
 from unittest import mock
+
+from flicks.commands import CommandInterpreter
+from flicks.config import default_db
+from flicks.core import Content, HeuristicDecision, Recommender, Session, load_catalog
+from flicks.db import Database
+from flicks.repositories import RatingsRepository
+from helpers import CATALOG, app_client
 
 
 def item(key, tags, minutes=90, mood='curious', intensity=.5):
@@ -86,29 +86,13 @@ class RecommendationTests(unittest.TestCase):
 
 
 class DataTests(unittest.TestCase):
-    def test_all_moods_are_selectable_in_ui(self):
-        class Options(HTMLParser):
-            def __init__(self):
-                super().__init__()
-                self.in_mood = False
-                self.values = []
-            def handle_starttag(self, tag, attrs):
-                attrs = dict(attrs)
-                if tag == 'select': self.in_mood = attrs.get('id') == 'mood'
-                if tag == 'option' and self.in_mood: self.values.append(attrs.get('value'))
-            def handle_endtag(self, tag):
-                if tag == 'select': self.in_mood = False
-        parser = Options()
-        parser.feed((ROOT/'static'/'index.html').read_text(encoding='utf-8'))
-        self.assertEqual(set(parser.values), set(MOODS))
-
     def test_bundled_catalog(self):
-        catalog = load_catalog(ROOT/'data'/'movies.json')
+        catalog = load_catalog(CATALOG)
         self.assertEqual(len(catalog), 36)
         self.assertTrue(any(i.minutes < 60 for i in catalog))
 
     def test_invalid_catalog_rejected(self):
-        rows = json.loads((ROOT/'data'/'movies.json').read_text(encoding='utf-8'))
+        rows = json.loads((CATALOG).read_text(encoding='utf-8'))
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder)/'bad.json'
             for payload in ([], [rows[0], rows[0]], [{**rows[0], 'minutes': 0}], [{**rows[0], 'moods': ['invalid']}], [{**rows[0], 'tags': 'not a list'}]):
@@ -118,9 +102,9 @@ class DataTests(unittest.TestCase):
     def test_persistence_overwrite_clear_and_validation(self):
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder)/'nested'/'profile.sqlite3'
-            store = FeedbackStore(path)
+            store = RatingsRepository(Database(path))
             store.set('movie', 1)
-            self.assertEqual(FeedbackStore(path).all(), {'movie': 1})
+            self.assertEqual(RatingsRepository(Database(path)).all(), {'movie': 1})
             store.set('movie', -1)
             self.assertEqual(store.all(), {'movie': -1})
             for value in (True, 2, '1', None):
@@ -130,57 +114,64 @@ class DataTests(unittest.TestCase):
 
 
 class ApiTests(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        cls.temp = tempfile.TemporaryDirectory()
-        cls.server = make_server(ROOT/'data'/'movies.json', Path(cls.temp.name)/'test.sqlite3', 0)
-        cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
-        cls.thread.start()
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.context = app_client(Path(self.temp.name))
+        self.client, self.services = self.context.__enter__()
 
-    @classmethod
-    def tearDownClass(cls):
-        cls.server.shutdown(); cls.server.server_close(); cls.thread.join(); cls.temp.cleanup()
-
-    def request(self, path, payload=None, headers=None, raw=None):
-        connection = http.client.HTTPConnection('127.0.0.1', self.server.server_port)
-        body = raw if raw is not None else json.dumps(payload) if payload is not None else None
-        request_headers = {'Content-Type': 'application/json', **(headers or {})}
-        connection.request('POST' if body is not None else 'GET', path, body, request_headers)
-        response = connection.getresponse()
-        result = response.status, response.read(), dict(response.getheaders())
-        connection.close()
-        return result
+    def tearDown(self):
+        self.context.__exit__(None, None, None)
+        self.temp.cleanup()
 
     def test_end_to_end_feedback_and_recommendations(self):
-        self.assertEqual(self.request('/api/feedback', {'id': 'm001', 'value': 1})[0], 200)
-        state = json.loads(self.request('/api/state')[1])
-        self.assertEqual(state['feedback']['m001'], 1)
-        response = json.loads(self.request('/api/recommend', {'session': {'minutes': 120}})[1])
+        self.assertEqual(self.client.post('/api/feedback', json={'id': 'm001', 'value': 1}).status_code, 200)
+        self.assertEqual(self.client.get('/api/state').json()['feedback']['m001'], 1)
+        response = self.client.post('/api/recommend', json={'session': {'minutes': 120}}).json()
         self.assertFalse(response['cold_start'])
         self.assertTrue(response['recommendations'])
         self.assertTrue(all(r['content']['id'] != 'm001' and r['content']['minutes'] <= 120 for r in response['recommendations']))
-        self.request('/api/feedback', {'id': 'm001', 'value': 0})
 
-    def test_bad_inputs(self):
-        for path, payload in (('/api/feedback', {'id': 'missing', 'value': 1}), ('/api/feedback', {'id': [], 'value': 1}), ('/api/feedback', {'id': 'm001', 'value': True}), ('/api/recommend', {'session': {'minutes': -1}}), ('/api/recommend', {'mode': 'bad'}), ('/api/recommend', {'session': None}), ('/api/recommend', {'session': {'intensity': float('nan')}}), ('/api/recommend', {'extra': 1}), ('/api/recommend', [])):
-            with self.subTest(payload=payload): self.assertEqual(self.request(path, payload)[0], 400)
-        self.assertEqual(self.request('/api/recommend', raw='{broken')[0], 400)
-        self.assertEqual(self.request('/api/recommend', raw='x'*8193)[0], 400)
+    def test_explanations_add_up_over_http(self):
+        for row in self.client.post('/api/recommend', json={'session': {'mood': 'relaxing', 'intensity': 0.2}}).json()['recommendations']:
+            self.assertTrue(math.isclose(sum(row['factors'].values()), row['score']))
 
-    def test_origin_host_content_type_and_static_paths(self):
-        self.assertEqual(self.request('/api/feedback', {'id': 'm001', 'value': 1}, {'Origin': 'https://other.example'})[0], 403)
-        self.assertEqual(self.request('/api/state', headers={'Host': 'other.example'})[0], 403)
-        self.assertEqual(self.request('/api/recommend', {}, {'Content-Type': 'text/plain'})[0], 400)
-        self.assertEqual(self.request('/../store.py')[0], 404)
-        status, body, headers = self.request('/')
-        self.assertEqual(status, 200)
-        self.assertIn(b'Top picks for this moment', body)
-        self.assertIn("default-src 'self'", headers['Content-Security-Policy'])
-        for path in ('/app.js', '/style.css', '/poster.js', '/couch-host.js'): self.assertEqual(self.request(path)[0], 200)
+    def test_bad_inputs_are_400_with_a_message(self):
+        for path, payload in (('/api/feedback', {'id': 'missing', 'value': 1}), ('/api/feedback', {'id': [], 'value': 1}),
+                              ('/api/feedback', {'id': 'm001', 'value': True}), ('/api/feedback', {'id': 'm001', 'value': 2}),
+                              ('/api/recommend', {'session': {'minutes': -1}}), ('/api/recommend', {'mode': 'bad'}),
+                              ('/api/recommend', {'session': None}), ('/api/recommend', {'session': {'minutes': '90'}}),
+                              ('/api/recommend', {'extra': 1}), ('/api/recommend', [])):
+            with self.subTest(path=path, payload=payload):
+                response = self.client.post(path, json=payload)
+                self.assertEqual(response.status_code, 400)
+                self.assertTrue(response.json()['error'])
+        nan = self.client.post('/api/recommend', content='{"session": {"intensity": NaN}}', headers={'Content-Type': 'application/json'})
+        self.assertEqual(nan.status_code, 400)
+        broken = self.client.post('/api/recommend', content='{broken', headers={'Content-Type': 'application/json'})
+        self.assertEqual(broken.status_code, 400)
+
+    def test_transport_rules(self):
+        self.assertEqual(self.client.post('/api/feedback', json={'id': 'm001', 'value': 1}, headers={'Origin': 'https://other.example'}).status_code, 403)
+        self.assertEqual(self.client.get('/api/state', headers={'Host': 'other.example'}).status_code, 403)
+        self.assertEqual(self.client.post('/api/recommend', content='{}', headers={'Content-Type': 'text/plain'}).status_code, 415)
+        self.assertEqual(self.client.post('/api/recommend', content='x' * 8193, headers={'Content-Type': 'application/json'}).status_code, 413)
+
+    def test_frontend_is_served_with_security_headers(self):
+        page = self.client.get('/')
+        self.assertEqual(page.status_code, 200)
+        self.assertIn("default-src 'self'", page.headers['content-security-policy'])
+        self.assertEqual(page.headers['cache-control'], 'no-store')
+        asset = self.client.get('/assets/app-1234.js')
+        self.assertEqual((asset.status_code, asset.headers['cache-control']), (200, 'public, max-age=31536000, immutable'))
+        self.assertEqual(self.client.get('/manifest.webmanifest').status_code, 200)
+        for path in ('/../config.py', '/couch.html', '/flicks.sqlite3', '/assets/../index.html', '/app.js'):
+            with self.subTest(path=path):
+                self.assertEqual(self.client.get(path).status_code, 404)
+
 
 class RebrandTests(unittest.TestCase):
     def test_former_name_still_works_as_a_spoken_prefix(self):
-        rules = CommandInterpreter(load_catalog(ROOT/'data'/'movies.json'))
+        rules = CommandInterpreter(load_catalog(CATALOG))
         for text in ('Hey Kevin like Arrival', 'Hey Flicks like Arrival', 'flicks like Arrival'):
             with self.subTest(text=text):
                 self.assertEqual((rules.parse(text)['intent'], rules.parse(text)['id']), ('feedback', 'm001'))

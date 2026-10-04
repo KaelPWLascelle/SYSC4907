@@ -6,14 +6,27 @@ import math
 from pathlib import Path
 import tempfile
 import threading
+from typing import ClassVar
 import unittest
-from flicks.__main__ import ROOT, make_server
+
 from flicks.core import Recommender, Session, load_catalog
 from flicks.distill import Student, agreement, export_laya, split_of
 from flicks.intent import SystemOneInterpreter
-from flicks.systemone import (DecisionClient, HttpBackend, LexicalBackend, PrivacyError, SystemOneError, choice,
-                             expected_calibration_error, noul, parse_answers, score, validate_questions)
+from flicks.systemone import (
+    DecisionClient,
+    HttpBackend,
+    LexicalBackend,
+    PrivacyError,
+    SystemOneError,
+    choice,
+    expected_calibration_error,
+    noul,
+    parse_answers,
+    score,
+    validate_questions,
+)
 from flicks.tagging import FILM_QUESTIONS, TaggedDecision, evaluate, film_state, load_tags, tag_catalog
+from helpers import CATALOG, app_client
 
 # The request/response pair documented in laya's docs/http-api.md (Jev-compatible wire format).
 QUESTIONS = {
@@ -159,19 +172,19 @@ class PrivacyTests(unittest.TestCase):
         self.assertEqual(DecisionClient(remote).decide('public synopsis', QUESTIONS, private=False)['queue'].value, 'billing')
 
     def test_assistant_refuses_remote_backend(self):
-        catalog = load_catalog(ROOT/'data'/'movies.json')
+        catalog = load_catalog(CATALOG)
         with self.assertRaises(PrivacyError):
             SystemOneInterpreter(catalog, DecisionClient(Canned(RESPONSE, local=False)))
 
     def test_teacher_sees_only_public_fields(self):
-        item = load_catalog(ROOT/'data'/'movies.json')[0]
+        item = load_catalog(CATALOG)[0]
         self.assertEqual(set(film_state(item)), {'title', 'year', 'genres', 'description'})
 
 
 class TaggingTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.catalog = load_catalog(ROOT/'data'/'movies.json')
+        cls.catalog = load_catalog(CATALOG)
         cls.data = tag_catalog(cls.catalog, DecisionClient(LexicalBackend()))
 
     def test_every_title_tagged_and_report(self):
@@ -218,7 +231,7 @@ class TaggingTests(unittest.TestCase):
 
 
 class DistillTests(unittest.TestCase):
-    QUESTIONS = {'mood': choice('Mood?', {'curious': 'space science', 'uplifting': 'funny laugh'}),
+    QUESTIONS: ClassVar[dict] = {'mood': choice('Mood?', {'curious': 'space science', 'uplifting': 'funny laugh'}),
                  'kids': noul('Kids?', no='gore', yes='cartoon')}
 
     def rows(self):
@@ -252,12 +265,12 @@ class DistillTests(unittest.TestCase):
         for case in fixture['cases']:
             x = features(case['state'], student.dim)
             for qid, expected in case['probabilities'].items():
-                got = dict(zip(options(student.questions[qid]), student.distribution(qid, x)))
+                got = dict(zip(options(student.questions[qid]), student.distribution(qid, x), strict=True))
                 for option, p in expected.items():
                     self.assertAlmostEqual(got[option], p, 12)
 
     def test_laya_export_splits_are_disjoint_and_complete(self):
-        catalog = load_catalog(ROOT/'data'/'movies.json')
+        catalog = load_catalog(CATALOG)
         data = tag_catalog(catalog, DecisionClient(LexicalBackend()))
         with tempfile.TemporaryDirectory() as folder:
             counts = export_laya(catalog, data, folder)
@@ -277,7 +290,7 @@ class DistillTests(unittest.TestCase):
 
 class InterpreterTests(unittest.TestCase):
     def setUp(self):
-        self.catalog = load_catalog(ROOT/'data'/'movies.json')
+        self.catalog = load_catalog(CATALOG)
         self.parser = SystemOneInterpreter(self.catalog, DecisionClient(LexicalBackend()))
 
     def test_rules_still_win(self):
@@ -304,20 +317,9 @@ class InterpreterTests(unittest.TestCase):
         self.assertIn('unavailable', down.parse('something cozy')['note'])
 
     def test_api_uses_the_assistant(self):
-        import http.client
-        with tempfile.TemporaryDirectory() as folder:
-            server = make_server(ROOT/'data'/'movies.json', Path(folder)/'p.sqlite3', 0, system_one=DecisionClient(LexicalBackend()))
-            thread = threading.Thread(target=server.serve_forever, daemon=True)
-            thread.start()
-            try:
-                conn = http.client.HTTPConnection('127.0.0.1', server.server_port, timeout=5)
-                body = json.dumps({'text': 'something cozy and soothing', 'session': asdict(Session())})
-                conn.request('POST', '/api/command/apply', body, {'Content-Type': 'application/json', 'Host': f'127.0.0.1:{server.server_port}'})
-                reply = json.loads(conn.getresponse().read())
-                self.assertEqual(reply['session']['mood'], 'relaxing')
-            finally:
-                server.shutdown(); server.server_close(); thread.join()
-
+        with tempfile.TemporaryDirectory() as folder, app_client(Path(folder), system_one=DecisionClient(LexicalBackend())) as (client, _):
+            reply = client.post('/api/command/apply', json={'text': 'something cozy and soothing', 'session': asdict(Session())}).json()
+            self.assertEqual(reply['session']['mood'], 'relaxing')
 
 if __name__ == '__main__':
     unittest.main()

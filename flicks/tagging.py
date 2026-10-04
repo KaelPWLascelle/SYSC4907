@@ -15,9 +15,21 @@ import math
 import os
 from pathlib import Path
 from statistics import mean
+
 from .core import MOODS, HeuristicDecision, load_catalog
-from .systemone import (Answer, DecisionClient, HttpBackend, LexicalBackend, SystemOneError, choice,
-                        expected_calibration_error, noul, options, score, validate_questions)
+from .systemone import (
+    Answer,
+    DecisionClient,
+    HttpBackend,
+    LexicalBackend,
+    SystemOneError,
+    choice,
+    expected_calibration_error,
+    noul,
+    options,
+    score,
+    validate_questions,
+)
 
 SCHEMA_VERSION = 1
 

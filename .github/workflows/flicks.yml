@@ -13,7 +13,17 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
-      - run: python -m unittest discover -s tests -v
+      - run: python -m pip install -e ".[dev]"
+      - run: python -m pytest
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install "ruff>=0.16"
+      - run: ruff check flicks tests scripts
   voice-ui:
     runs-on: ubuntu-latest
     steps:
@@ -51,5 +61,5 @@ jobs:
         with:
           python-version: '3.12'
       # The tested lockfile, so a new upstream release cannot break CI without a code change.
-      - run: python -m pip install -r requirements-voice-tested.txt
-      - run: python -m unittest discover -s tests -v
+      - run: python -m pip install -r requirements-voice-tested.txt -e ".[dev]"
+      - run: python -m pytest tests/test_voice.py

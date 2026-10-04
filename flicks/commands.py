@@ -1,6 +1,7 @@
 """Bounded, transparent command interpretation. Parsing never changes stored state."""
 import re
 import unicodedata
+
 from .core import MOODS, Session
 
 
@@ -9,8 +10,8 @@ def normalize(text):
     return re.sub(r'[^a-z0-9]+', ' ', text.replace("'", '')).strip()
 
 
-ONES = dict(zip('zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen'.split(), range(20)))
-TENS = dict(zip('twenty thirty forty fifty sixty seventy eighty ninety'.split(), range(20, 100, 10)))
+ONES = dict(zip(['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen'], range(20), strict=True))
+TENS = dict(zip(['twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'], range(20, 100, 10), strict=True))
 
 
 def number_words(text):

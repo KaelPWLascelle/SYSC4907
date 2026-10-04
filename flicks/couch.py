@@ -1,4 +1,7 @@
-"""Couch mode: phones on the same Wi-Fi join by QR code, vote on a shortlist and act as a remote.
+"""Couch mode rules: joining, hidden votes, results and the shared player state. No networking here;
+the guest server lives in flicks/api/guest.py.
+
+Phones on the same Wi-Fi join by QR code, vote on a shortlist and act as a remote.
 
 Privacy model:
 - Off unless Flicks starts with --couch. The host server stays on 127.0.0.1 and keeps every
@@ -11,20 +14,15 @@ Privacy model:
 - Guests see public catalogue fields only: never the host's ratings, history or taste factors.
   Names and votes live in memory and are discarded when the session ends.
 """
+import contextlib
 from dataclasses import dataclass, field
 import hashlib
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import ipaddress
-import json
-from pathlib import Path
 import secrets
 import socket
 import threading
 import time
 
-from . import qr
-
-STATIC = Path(__file__).parent/'static'
 CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'  # no 0/O, 1/I/L
 CODE_LENGTH = 8
 MAX_FAILED_JOINS = 10
@@ -64,16 +62,11 @@ def check_host(address):
 def lan_address():
     """This machine's address on the local network. A UDP connect picks a route and sends nothing."""
     candidates = []
-    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-        try:
-            s.connect(('192.0.2.1', 9))  # TEST-NET-1: never routed to a real host
-            candidates.append(s.getsockname()[0])
-        except OSError:
-            pass
-    try:
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s, contextlib.suppress(OSError):
+        s.connect(('192.0.2.1', 9))  # TEST-NET-1: never routed to a real host
+        candidates.append(s.getsockname()[0])
+    with contextlib.suppress(OSError):
         candidates.append(socket.gethostbyname(socket.gethostname()))
-    except OSError:
-        pass
     for address in candidates:
         try:
             if not ipaddress.IPv4Address(address).is_loopback:
@@ -215,157 +208,3 @@ class CouchSession:
         with self.lock:
             guest = self.guest(token)
             return {**self._common(), 'you': {'id': guest.id, 'name': guest.name, 'votes': dict(guest.votes)}}
-
-
-class CouchManager:
-    """Starts and stops the guest server around a CouchSession. Used by the loopback host server."""
-
-    def __init__(self, host=None, port=8770):
-        self.host = check_host(host) if host else None
-        self.port = port
-        self.session, self.server, self.url = None, None, None
-        self.posters = None  # PosterLibrary, set by the host server
-        self.lock = threading.Lock()
-
-    def start(self, shortlist):
-        with self.lock:
-            self._stop()
-            session = CouchSession(shortlist, posters=set(self.posters.ids()) if self.posters else ())
-            host = self.host or lan_address()
-            try:
-                server = make_guest_server(session, host, self.port, self.posters)
-            except OSError as exc:
-                raise CouchError(f'Could not listen on {host}:{self.port} ({exc.strerror or exc})') from None
-            threading.Thread(target=server.serve_forever, daemon=True).start()
-            self.session, self.server = session, server
-            self.url = f'http://{host}:{server.server_port}/join'
-            return self.view()
-
-    def stop(self):
-        with self.lock:
-            self._stop()
-
-    def _stop(self):
-        if self.server:
-            self.server.shutdown()
-            self.server.server_close()
-        self.session, self.server, self.url = None, None, None
-
-    def active(self):
-        with self.lock:
-            if self.session and self.session.expired():
-                self._stop()
-            return self.session
-
-    def view(self):
-        session = self.session
-        if not session:
-            return {'active': False}
-        return {**session.host_view(), 'url': self.url, 'join_url': f'{self.url}#{session.code}'}
-
-    def qr_svg(self):
-        session = self.active()
-        if not session:
-            raise CouchError('No couch session is running')
-        return qr.svg(f'{self.url}#{session.code}')
-
-
-def make_guest_server(session, host, port, posters=None):
-    """Network-facing server for guests. Exposes nothing but the couch routes below."""
-    host = check_host(host)
-    pages = {'/join': ('couch.html', 'text/html; charset=utf-8'),
-             '/couch.js': ('couch.js', 'text/javascript; charset=utf-8'),
-             '/poster.js': ('poster.js', 'text/javascript; charset=utf-8'),
-             '/style.css': ('style.css', 'text/css; charset=utf-8')}
-
-    class GuestHandler(BaseHTTPRequestHandler):
-        def setup(self):
-            super().setup()
-            self.connection.settimeout(10)
-
-        def respond(self, status, value, content_type='application/json', cache='no-store'):
-            body = json.dumps(value, allow_nan=False).encode() if content_type == 'application/json' else value
-            self.send_response(status)
-            self.send_header('Content-Type', content_type)
-            self.send_header('Content-Length', str(len(body)))
-            self.send_header('Cache-Control', cache)
-            self.send_header('X-Content-Type-Options', 'nosniff')
-            self.send_header('Referrer-Policy', 'no-referrer')
-            self.send_header('Content-Security-Policy', "default-src 'self'; style-src 'self'; script-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'")
-            self.end_headers()
-            self.wfile.write(body)
-
-        def allowed(self):
-            # The Host check defeats DNS rebinding; the Origin check refuses other sites' pages.
-            expected = f'{host}:{self.server.server_port}'
-            if self.headers.get('Host') != expected:
-                self.respond(403, {'error': 'Use the address shown on the TV'})
-                return False
-            origin = self.headers.get('Origin')
-            if origin and origin != f'http://{expected}':
-                self.respond(403, {'error': 'Cross-origin requests are not allowed'})
-                return False
-            if session.expired():
-                self.respond(410, {'error': 'This couch session has ended'})
-                return False
-            return True
-
-        def token(self):
-            return self.headers.get('X-Flicks-Guest', '')
-
-        def do_GET(self):
-            if not self.allowed():
-                return
-            path = self.path.split('?', 1)[0]
-            try:
-                if path == '/api/couch/state':
-                    self.respond(200, session.guest_view(self.token()))
-                elif path.startswith('/posters/') and path[len('/posters/'):] in session.order:
-                    image = posters.read(path[len('/posters/'):]) if posters else None  # shortlist titles only
-                    if image:
-                        self.respond(200, image[0], image[1], cache='private, max-age=3600')
-                    else:
-                        self.respond(404, {'error': 'Not found'})
-                elif path in pages:
-                    name, mime = pages[path]
-                    self.respond(200, (STATIC/name).read_bytes(), mime)
-                else:
-                    self.respond(404, {'error': 'Not found'})
-            except CouchAuthError as error:
-                self.respond(401, {'error': str(error)})
-
-        def do_POST(self):
-            if not self.allowed():
-                return
-            try:
-                if self.headers.get('Content-Type', '').split(';')[0] != 'application/json':
-                    raise CouchError('Expected application/json')
-                length = int(self.headers.get('Content-Length', '0'))
-                if not 0 < length <= 1024:
-                    raise CouchError('Request must contain 1–1024 bytes')
-                data = json.loads(self.rfile.read(length))
-                if not isinstance(data, dict):
-                    raise CouchError('Expected a JSON object')
-                if self.path == '/api/couch/join':
-                    if set(data) != {'code', 'name'}:
-                        raise CouchError('Expected code and name')
-                    token, guest = session.join(data['code'], data['name'])
-                    self.respond(200, {'token': token, 'name': guest.name})
-                elif self.path == '/api/couch/vote':
-                    if set(data) != {'id', 'value'}:
-                        raise CouchError('Expected id and value')
-                    session.vote(self.token(), data['id'], data['value'])
-                    self.respond(200, session.guest_view(self.token()))
-                elif self.path == '/api/couch/remote':
-                    if set(data) - {'action', 'id'} or 'action' not in data:
-                        raise CouchError('Expected action and optional id')
-                    session.remote(self.token(), data['action'], data.get('id'))
-                    self.respond(200, session.guest_view(self.token()))
-                else:
-                    self.respond(404, {'error': 'Not found'})
-            except CouchAuthError as error:
-                self.respond(401, {'error': str(error)})
-            except (CouchError, ValueError, TypeError) as error:
-                self.respond(400, {'error': str(error)})
-
-    return ThreadingHTTPServer((host, port), GuestHandler)
