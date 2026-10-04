@@ -3,6 +3,7 @@ on: [push, pull_request]
 jobs:
   test:
     strategy:
+      fail-fast: false  # report every platform, not just the first failure
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
         python: ['3.10', '3.12']
@@ -49,5 +50,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: python -m pip install -r requirements-voice.txt
+      # The tested lockfile, so a new upstream release cannot break CI without a code change.
+      - run: python -m pip install -r requirements-voice-tested.txt
       - run: python -m unittest discover -s tests -v

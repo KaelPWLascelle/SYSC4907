@@ -99,7 +99,7 @@ class DataTests(unittest.TestCase):
             def handle_endtag(self, tag):
                 if tag == 'select': self.in_mood = False
         parser = Options()
-        parser.feed((ROOT/'static'/'index.html').read_text())
+        parser.feed((ROOT/'static'/'index.html').read_text(encoding='utf-8'))
         self.assertEqual(set(parser.values), set(MOODS))
 
     def test_bundled_catalog(self):
@@ -108,11 +108,11 @@ class DataTests(unittest.TestCase):
         self.assertTrue(any(i.minutes < 60 for i in catalog))
 
     def test_invalid_catalog_rejected(self):
-        rows = json.loads((ROOT/'data'/'movies.json').read_text())
+        rows = json.loads((ROOT/'data'/'movies.json').read_text(encoding='utf-8'))
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder)/'bad.json'
             for payload in ([], [rows[0], rows[0]], [{**rows[0], 'minutes': 0}], [{**rows[0], 'moods': ['invalid']}], [{**rows[0], 'tags': 'not a list'}]):
-                path.write_text(json.dumps(payload))
+                path.write_text(json.dumps(payload), encoding='utf-8')
                 with self.assertRaises(ValueError): load_catalog(path)
 
     def test_persistence_overwrite_clear_and_validation(self):

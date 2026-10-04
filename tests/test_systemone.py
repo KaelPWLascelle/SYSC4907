@@ -190,14 +190,14 @@ class TaggingTests(unittest.TestCase):
     def test_tag_file_round_trip_and_validation(self):
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder)/'tags.json'
-            path.write_text(json.dumps(self.data))
+            path.write_text(json.dumps(self.data), encoding='utf-8')
             self.assertEqual(load_tags(path, self.catalog)['tags'], self.data['tags'])
             for broken in ({**self.data, 'schema_version': 99}, {**self.data, 'tags': {'nope': {}}},
                            {**self.data, 'tags': {'m001': {'mood': {**self.data['tags']['m001']['mood'], 'probabilities': {'relaxing': .2}}}}},
                            {**self.data, 'tags': {'m001': {'mood': {**self.data['tags']['m001']['mood'],
                                                                     'probabilities': {'relaxing': -1, 'uplifting': 2, 'curious': 0, 'tense': 0, 'reflective': 0}}}}},
                            {**self.data, 'tags': {'m001': {'mood': {**self.data['tags']['m001']['mood'], 'normalized': 'high'}}}}):
-                path.write_text(json.dumps(broken))
+                path.write_text(json.dumps(broken), encoding='utf-8')
                 with self.assertRaises(ValueError): load_tags(path, self.catalog)
 
     def test_tagged_decision_is_bounded_and_explained(self):
@@ -246,7 +246,7 @@ class DistillTests(unittest.TestCase):
     def test_browser_parity_fixture_matches_python(self):
         from flicks.distill import features
         from flicks.systemone import options
-        fixture = json.loads((Path(__file__).parent/'fixtures'/'student-parity.json').read_text())
+        fixture = json.loads((Path(__file__).parent/'fixtures'/'student-parity.json').read_text(encoding='utf-8'))
         student = Student.from_json(fixture['model'])
         self.assertTrue(any(isinstance(c['state'], dict) for c in fixture['cases']))
         for case in fixture['cases']:
@@ -264,7 +264,7 @@ class DistillTests(unittest.TestCase):
             self.assertEqual(sum(counts.values()), len(catalog))
             seen = set()
             for name in ('train', 'dev', 'test'):
-                for line in (Path(folder)/f'{name}.jsonl').read_text().splitlines():
+                for line in (Path(folder)/f'{name}.jsonl').read_text(encoding='utf-8').splitlines():
                     row = json.loads(line)
                     self.assertEqual(split_of(row['id']), name)
                     self.assertEqual(set(row['gold']), set(row['questions']))

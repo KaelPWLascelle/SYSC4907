@@ -18,7 +18,7 @@ def main():
     snapshot_download(repo, revision=revision, local_dir=args.output,
                       allow_patterns=['model.bin', 'config.json', 'tokenizer.json', 'vocabulary.*', 'preprocessor_config.json', 'README.md'])
     files = {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in args.output.iterdir() if p.is_file() and p.name not in ('flicks-model.json', 'kevin-model.json')}
-    (args.output/'flicks-model.json').write_text(json.dumps({'repository': repo, 'revision': revision, 'sha256': files}, indent=2)+'\n')
+    (args.output/'flicks-model.json').write_text(json.dumps({'repository': repo, 'revision': revision, 'sha256': files}, indent=2)+'\n', encoding='utf-8')
     print(f'Voice model ready: {args.output.resolve()}')
 
 if __name__ == '__main__':

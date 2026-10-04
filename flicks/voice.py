@@ -25,7 +25,7 @@ def decode_audio(data):
     import numpy as np
     chunks, samples = [], 0
     try:
-        with av.open(io.BytesIO(data), metadata_errors='ignore') as container:
+        with av.open(io.BytesIO(data)) as container:  # PyAV 19 removed metadata_errors; keep 18 and 19 working
             if not container.streams.audio:
                 raise ValueError('The file has no audio stream')
             resampler = av.AudioResampler(format='s16', layout='mono', rate=16000)
@@ -40,7 +40,7 @@ def decode_audio(data):
                 if samples > MAX_AUDIO_SECONDS*16000:
                     raise ValueError('Recordings must be 30 seconds or shorter')
                 chunks.append(converted.to_ndarray().flatten())
-    except av.error.FFmpegError as error:
+    except (av.error.FFmpegError, UnicodeDecodeError) as error:  # undecodable audio or container metadata
         raise ValueError('Cannot decode this audio file; try WAV, WebM, MP3, or M4A') from error
     if samples < 1600:
         raise ValueError('Recording is too short; speak for at least a moment')
