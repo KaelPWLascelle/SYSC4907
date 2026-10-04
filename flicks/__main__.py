@@ -7,6 +7,7 @@ from pathlib import Path
 import sqlite3
 from urllib.parse import urlsplit
 from .core import load_catalog, Recommender, Session
+from .posters import DEFAULT_DIR as POSTER_DIR, PosterLibrary
 from .store import FeedbackStore
 from .commands import CommandInterpreter
 from .couch import CouchManager
@@ -16,10 +17,17 @@ from .systemone import DecisionClient, HttpBackend, LexicalBackend
 from .tagging import TaggedDecision, load_tags
 
 ROOT = Path(__file__).parent
+JS, CSS, HTML = 'text/javascript; charset=utf-8', 'text/css; charset=utf-8', 'text/html; charset=utf-8'
+STATIC = {'/': ('index.html', HTML), '/app.js': ('app.js', JS), '/voice.js': ('voice.js', JS), '/couch-host.js': ('couch-host.js', JS),
+          '/poster.js': ('poster.js', JS), '/style.css': ('style.css', CSS)}
 
 
-def make_server(catalog_path, db_path, port=8765, voice=None, tags_path=None, system_one=None, couch=None):
+def make_server(catalog_path, db_path, port=8765, voice=None, tags_path=None, system_one=None, couch=None, poster_dir=None):
     catalog = load_catalog(catalog_path)
+    # Posters come from a local cache filled by `python -m flicks.posters`; browsing never fetches remotely.
+    posters = PosterLibrary(poster_dir, {item.id for item in catalog}) if poster_dir else None
+    if couch:
+        couch.posters = posters
     decision = TaggedDecision(load_tags(tags_path, catalog)) if tags_path else None
     engine, store = Recommender(catalog, decision=decision), FeedbackStore(db_path)
     ids = {item.id for item in catalog}
@@ -33,12 +41,12 @@ def make_server(catalog_path, db_path, port=8765, voice=None, tags_path=None, sy
             super().setup()
             self.connection.settimeout(10)
 
-        def respond(self, status, value, content_type='application/json'):
+        def respond(self, status, value, content_type='application/json', cache='no-store'):
             body = json.dumps(value, allow_nan=False).encode() if content_type == 'application/json' else value
             self.send_response(status)
             self.send_header('Content-Type', content_type)
             self.send_header('Content-Length', str(len(body)))
-            self.send_header('Cache-Control', 'no-store')
+            self.send_header('Cache-Control', cache)
             self.send_header('X-Content-Type-Options', 'nosniff')
             self.send_header('Content-Security-Policy', "default-src 'self'; style-src 'self'; script-src 'self'; frame-ancestors 'none'; base-uri 'none'")
             self.end_headers()
@@ -63,9 +71,16 @@ def make_server(catalog_path, db_path, port=8765, voice=None, tags_path=None, sy
             if path == '/api/state':
                 try:
                     self.respond(200, dict(catalog=[asdict(i) for i in catalog], feedback=store.all(), voice=speech.status(),
-                                           assistant=interpreter.name, tagged=decision is not None, couch=couch is not None))
+                                           assistant=interpreter.name, tagged=decision is not None, couch=couch is not None,
+                                           posters=posters.ids() if posters else []))
                 except sqlite3.Error:
                     self.respond(503, {'error': 'Local storage is unavailable; check the database path'})
+            elif path.startswith('/posters/'):
+                image = posters.read(path[len('/posters/'):]) if posters else None
+                if image:
+                    self.respond(200, image[0], image[1], cache='private, max-age=86400')
+                else:
+                    self.respond(404, {'error': 'Not found'})
             elif couch and path == '/api/couch':
                 self.respond(200, couch.view() if couch.active() else {'active': False})
             elif couch and path == '/api/couch/qr.svg':
@@ -73,8 +88,8 @@ def make_server(catalog_path, db_path, port=8765, voice=None, tags_path=None, sy
                     self.respond(200, couch.qr_svg().encode(), 'image/svg+xml')
                 except ValueError as error:
                     self.respond(404, {'error': str(error)})
-            elif path in ('/', '/app.js', '/voice.js', '/couch-host.js', '/style.css'):
-                name, mime = {'/': ('index.html', 'text/html; charset=utf-8'), '/app.js': ('app.js', 'text/javascript; charset=utf-8'), '/voice.js': ('voice.js', 'text/javascript; charset=utf-8'), '/couch-host.js': ('couch-host.js', 'text/javascript; charset=utf-8'), '/style.css': ('style.css', 'text/css; charset=utf-8')}[path]
+            elif path in STATIC:
+                name, mime = STATIC[path]
                 self.respond(200, (ROOT/'static'/name).read_bytes(), mime)
             else:
                 self.respond(404, {'error': 'Not found'})
@@ -170,6 +185,7 @@ def main():
     parser.add_argument('--port', type=int, default=8765)
     parser.add_argument('--voice-model', type=Path, help='Local faster-whisper model directory; no runtime downloads')
     parser.add_argument('--tags', type=Path, help='System One tag file from python -m flicks.tagging (soft mood/intensity)')
+    parser.add_argument('--posters', type=Path, default=POSTER_DIR, help=f'Local poster cache from python -m flicks.posters (default {POSTER_DIR})')
     parser.add_argument('--couch', action='store_true', help='Allow couch sessions: phones on your Wi-Fi join by QR code to vote and use a remote')
     parser.add_argument('--couch-host', help='Home-network address guests connect to (default: detected)')
     parser.add_argument('--couch-port', type=int, default=8770, help='Port for the guest server while a couch session runs')
@@ -180,7 +196,7 @@ def main():
     else:
         system_one = DecisionClient(HttpBackend(args.system_one_url, timeout=5)) if args.system_one_url else None
     couch = CouchManager(args.couch_host, args.couch_port) if args.couch else None
-    server = make_server(args.catalog, args.db, args.port, LocalWhisper(args.voice_model), args.tags, system_one, couch)
+    server = make_server(args.catalog, args.db, args.port, LocalWhisper(args.voice_model), args.tags, system_one, couch, args.posters)
     print(f'Flicks: http://127.0.0.1:{server.server_port} — feedback: {args.db}', flush=True)
     try:
         server.serve_forever()

@@ -5,8 +5,11 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 const guestSource = readFileSync(new URL('../flicks/static/couch.js', import.meta.url), 'utf8');
 const hostSource = readFileSync(new URL('../flicks/static/couch-host.js', import.meta.url), 'utf8');
+const posterSource = readFileSync(new URL('../flicks/static/poster.js', import.meta.url), 'utf8');
+const dataUrl = source => `data:text/javascript;base64,${Buffer.from(source).toString('base64')}`;
 let loads = 0;  // a unique suffix gives each test a fresh module instance
-const load = source => import(`data:text/javascript;base64,${Buffer.from(`${source}\n// load ${++loads}`).toString('base64')}`);
+// Browsers resolve '/poster.js' against the page; here it is inlined as a data: URL.
+const load = source => import(dataUrl(`${source.replace("'/poster.js'", `'${dataUrl(posterSource)}'`)}\n// load ${++loads}`));
 const tick = async () => { for (let i = 0; i < 10; i++) await new Promise(resolve => setImmediate(resolve)); };
 globalThis.setTimeout = () => 0;
 
@@ -20,7 +23,7 @@ const view = (over = {}) => ({active: true, version: 1, items, revealed: false, 
 
 function fakeDom({hash = '', hidden = false, token = null} = {}) {
   const elements = new Map(), listeners = {};
-  const make = () => ({hidden: false, textContent: '', value: '', disabled: false, dataset: {}, children: [], listeners: {}, src: '',
+  const make = () => ({hidden: false, textContent: '', value: '', disabled: false, dataset: {}, children: [], listeners: {}, src: '', style: {setProperty() {}},
     addEventListener(type, listener) { this.listeners[type] = listener; }, setAttribute() {},
     focus() { dom.focused = this; }, append(...nodes) { this.children.push(...nodes); }, replaceChildren(...nodes) { this.children = nodes; }});
   const dom = {focused: null, replaced: null, store: token ? {'flicks-guest': token} : {}};

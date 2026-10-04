@@ -1,4 +1,5 @@
 'use strict';
+import { poster } from '/poster.js';
 // Host (TV) side of couch mode. Runs on the loopback page; guests use couch.js on the LAN server.
 export function initCouchHost({api, readSession, enabled}) {
   const $ = id => document.getElementById(id);
@@ -27,10 +28,14 @@ export function initCouchHost({api, readSession, enabled}) {
     $('couch-reveal').disabled = busy || state.revealed || !people.length;
     $('couch-results').replaceChildren(...(state.results || []).map((row, i) => {
       const li = document.createElement('li');
+      const item = state.items.find(entry => entry.id === row.id);
       const label = document.createElement('span');
-      label.textContent = `${title(row.id)} — ${row.yes} yes · ${row.no} no${row.match ? ' · it’s a match' : ''}${i === 0 ? ' · group pick' : ''}`;
+      label.className = 'result-title';
+      const text = document.createElement('span');
+      text.textContent = `${title(row.id)} — ${row.yes} yes · ${row.no} no${row.match ? ' · it’s a match' : ''}${i === 0 ? ' · group pick' : ''}`;
+      label.append(poster(item, item.poster), text);
       const play = document.createElement('button');
-      play.type = 'button'; play.textContent = '▶ Play';
+      play.type = 'button'; play.className = 'button button-quiet'; play.textContent = '▶ Play';
       play.setAttribute('aria-label', `Play ${title(row.id)}`);
       play.addEventListener('click', () => send('/api/couch/player', {action: 'select', id: row.id}));
       li.append(label, play);

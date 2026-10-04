@@ -99,10 +99,11 @@ class Guest:
 class CouchSession:
     """In-memory state for one couch session. Thread-safe; no network or persistence."""
 
-    def __init__(self, shortlist, clock=time.monotonic, seconds=SESSION_SECONDS):
+    def __init__(self, shortlist, clock=time.monotonic, seconds=SESSION_SECONDS, posters=()):
         if len(shortlist) < 2:
             raise CouchError('Couch mode needs at least two titles to vote on; widen the scene settings')
-        self.items = [{k: row['content'][k] for k in PUBLIC_FIELDS} for row in shortlist]
+        self.items = [{**{k: row['content'][k] for k in PUBLIC_FIELDS}, 'poster': row['content']['id'] in posters}
+                      for row in shortlist]
         self.order = {item['id']: rank for rank, item in enumerate(self.items)}  # Flicks' ranking
         self.clock, self.expires = clock, clock() + seconds
         self.code, self.failed_joins = new_code(), 0
@@ -223,15 +224,16 @@ class CouchManager:
         self.host = check_host(host) if host else None
         self.port = port
         self.session, self.server, self.url = None, None, None
+        self.posters = None  # PosterLibrary, set by the host server
         self.lock = threading.Lock()
 
     def start(self, shortlist):
         with self.lock:
             self._stop()
-            session = CouchSession(shortlist)
+            session = CouchSession(shortlist, posters=set(self.posters.ids()) if self.posters else ())
             host = self.host or lan_address()
             try:
-                server = make_guest_server(session, host, self.port)
+                server = make_guest_server(session, host, self.port, self.posters)
             except OSError as exc:
                 raise CouchError(f'Could not listen on {host}:{self.port} ({exc.strerror or exc})') from None
             threading.Thread(target=server.serve_forever, daemon=True).start()
@@ -268,11 +270,12 @@ class CouchManager:
         return qr.svg(f'{self.url}#{session.code}')
 
 
-def make_guest_server(session, host, port):
+def make_guest_server(session, host, port, posters=None):
     """Network-facing server for guests. Exposes nothing but the couch routes below."""
     host = check_host(host)
     pages = {'/join': ('couch.html', 'text/html; charset=utf-8'),
              '/couch.js': ('couch.js', 'text/javascript; charset=utf-8'),
+             '/poster.js': ('poster.js', 'text/javascript; charset=utf-8'),
              '/style.css': ('style.css', 'text/css; charset=utf-8')}
 
     class GuestHandler(BaseHTTPRequestHandler):
@@ -280,12 +283,12 @@ def make_guest_server(session, host, port):
             super().setup()
             self.connection.settimeout(10)
 
-        def respond(self, status, value, content_type='application/json'):
+        def respond(self, status, value, content_type='application/json', cache='no-store'):
             body = json.dumps(value, allow_nan=False).encode() if content_type == 'application/json' else value
             self.send_response(status)
             self.send_header('Content-Type', content_type)
             self.send_header('Content-Length', str(len(body)))
-            self.send_header('Cache-Control', 'no-store')
+            self.send_header('Cache-Control', cache)
             self.send_header('X-Content-Type-Options', 'nosniff')
             self.send_header('Referrer-Policy', 'no-referrer')
             self.send_header('Content-Security-Policy', "default-src 'self'; style-src 'self'; script-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'")
@@ -317,6 +320,12 @@ def make_guest_server(session, host, port):
             try:
                 if path == '/api/couch/state':
                     self.respond(200, session.guest_view(self.token()))
+                elif path.startswith('/posters/') and path[len('/posters/'):] in session.order:
+                    image = posters.read(path[len('/posters/'):]) if posters else None  # shortlist titles only
+                    if image:
+                        self.respond(200, image[0], image[1], cache='private, max-age=3600')
+                    else:
+                        self.respond(404, {'error': 'Not found'})
                 elif path in pages:
                     name, mime = pages[path]
                     self.respond(200, (STATIC/name).read_bytes(), mime)

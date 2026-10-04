@@ -174,9 +174,9 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(self.request('/../store.py')[0], 404)
         status, body, headers = self.request('/')
         self.assertEqual(status, 200)
-        self.assertIn(b'Find my next watch', body)
+        self.assertIn(b'Top picks for this moment', body)
         self.assertIn("default-src 'self'", headers['Content-Security-Policy'])
-        for path in ('/app.js', '/style.css'): self.assertEqual(self.request(path)[0], 200)
+        for path in ('/app.js', '/style.css', '/poster.js', '/couch-host.js'): self.assertEqual(self.request(path)[0], 200)
 
 class RebrandTests(unittest.TestCase):
     def test_former_name_still_works_as_a_spoken_prefix(self):

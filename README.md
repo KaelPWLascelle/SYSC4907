@@ -60,9 +60,9 @@ Design and implement a streaming video player with an integrated local AI recomm
 ## Flicks recommendation MVP
 
 Flicks v0.3 is a working, local-first experiment for the recommendation concept.
-It includes a browser UI, 36 bundled movie/short-film records, like/dislike/clear
-controls, SQLite feedback persistence, a TF-IDF taste profile, and a separate
-explainable session reranker. No API keys, model downloads, or third-party Python
+It includes a streaming-style browser UI (top-pick hero, ranked rail, browse grid and a
+“why this pick” sheet), 36 bundled movie/short-film records, one-tap like/pass ratings,
+SQLite feedback persistence, a TF-IDF taste profile, and a separate explainable session reranker. No API keys, model downloads, or third-party Python
 packages are required. Optional local Whisper voice commands are available; playback and eye tracking remain future work.
 
 ### Run
@@ -83,6 +83,16 @@ For a separate demo profile or a different port:
 python3 -m flicks --db .local/demo.sqlite3 --port 8766
 ```
 
+**Posters (optional, one-time).** Without them, Flicks draws title cards. To cache real posters:
+
+```sh
+python3 -m flicks.posters        # ~6 MB into ~/.flicks/posters; only titles and years are sent, once
+```
+
+Posters are looked up on English Wikipedia when you run this command, and never while you browse.
+They are copyrighted, so they stay in your local cache and out of git. `posters.json` in the cache
+records each image's source page.
+
 All computation and data stay on the machine running Python. Open the browser
 on that same machine; the server deliberately binds only to loopback. The one
 exception is opt-in [couch mode](docs/couch.md), which opens a separate,
@@ -91,13 +101,14 @@ repository and Python are present, the demo works without internet access.
 
 ### Try the concept
 
-1. Like **Arrival** and **Moon**, then dislike **Alien** in the catalogue.
-2. Set 120 minutes, Curious, medium intensity, and low Discovery. Generate picks.
-3. Change to Relaxing and low intensity, then generate again.
-4. Switch between **Taste only · baseline** and **Taste + this session** to compare.
-5. Open **Why this pick?** for weighted contributions and matching profile terms.
-6. Try 45 minutes for short films or 10 minutes for the explicit empty state.
-7. Reload or restart: your ratings remain. Use **Clear** to undo an individual rating.
+1. In **Browse & rate**, like **Arrival** and **Moon**, then pass on **Alien** (tap again to clear).
+2. In the scene bar, pick **Curious**, set 2h, medium intensity, and low Discovery. Picks update live.
+3. Switch to **Relaxing** and low intensity and watch the hero and the ranked rail change.
+4. Flip the **Lens** between **Taste + scene** and **Taste only** to compare.
+5. Open any poster, or **Why this pick**, to see the weighted factors and shared taste terms.
+6. Try 45 minutes for short films, or 10 minutes for the empty state.
+7. Press <kbd>/</kbd> and type “something tense, no horror”, then Preview and Apply.
+8. Reload or restart: your ratings remain.
 
 To start completely fresh without deleting anything, supply a new `--db` path.
 Session controls are intentionally temporary and return to defaults on reload.

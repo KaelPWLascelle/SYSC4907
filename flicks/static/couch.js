@@ -1,4 +1,5 @@
 'use strict';
+import { poster } from '/poster.js';
 // Guest page for couch mode, served by the LAN guest server. Talks only to that server.
 const $ = id => document.getElementById(id);
 const saved = {
@@ -36,13 +37,16 @@ function render() {
     const people = state.progress.length;
     $('results-eyebrow').textContent = top.match ? 'IT’S A MATCH' : 'THE COUCH HAS SPOKEN';
     $('winner').textContent = best.title;
+    $('winner-poster').replaceChildren(poster(best, best.poster, 'poster', true));
     $('winner-why').textContent = `${top.yes} of ${people} said yes${top.no ? `, ${top.no} said no` : ''}. ${best.minutes} min · ${best.genres.join(' / ')}. Ties go to Flicks’ own ranking (#${top.flicks_rank}).`;
     $('results').replaceChildren(...state.results.map(row => {
       const li = document.createElement('li');
-      const label = document.createElement('span');
-      label.textContent = `${byId(row.id).title} — ${row.yes} yes · ${row.no} no${row.match ? ' · everyone' : ''}`;
+      const label = document.createElement('span'), text = document.createElement('span');
+      label.className = 'result-title';
+      text.textContent = `${byId(row.id).title} — ${row.yes} yes · ${row.no} no${row.match ? ' · everyone' : ''}`;
+      label.append(poster(byId(row.id), byId(row.id).poster), text);
       const play = document.createElement('button');
-      play.type = 'button'; play.textContent = '▶ Play this';
+      play.type = 'button'; play.className = 'button button-quiet'; play.textContent = '▶ Play';
       play.setAttribute('aria-label', `Play ${byId(row.id).title} on the TV`);
       play.addEventListener('click', () => send('/api/couch/remote', {action: 'select', id: row.id}));
       li.append(label, play);
@@ -53,6 +57,7 @@ function render() {
     $('vote-progress').textContent = `TITLE ${Object.keys(votes).length + 1} OF ${state.items.length}`;
     $('vote-meta').textContent = `${next.year} / ${next.minutes} MIN`;
     $('vote-title').textContent = next.title;
+    $('vote-poster').replaceChildren(poster(next, next.poster, 'poster', true));
     $('vote-description').textContent = next.description;
     $('vote-tags').textContent = next.genres.join(' · ');
     $('vote-yes').dataset.id = $('vote-no').dataset.id = next.id;
