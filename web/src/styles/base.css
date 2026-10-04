@@ -1,0 +1,325 @@
+/* Base */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 84px;
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.55 var(--sans);
+  -webkit-font-smoothing: antialiased;
+}
+h1,
+h2,
+h3 {
+  font-family: var(--display);
+  margin: 0;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+h2 {
+  font-size: clamp(20px, 2.2vw, 26px);
+  font-weight: 700;
+}
+h3 {
+  font-size: 15px;
+  font-weight: 650;
+}
+p {
+  margin: 0;
+  color: var(--muted);
+}
+a {
+  color: inherit;
+}
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+button {
+  cursor: pointer;
+}
+button:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+svg {
+  width: 1em;
+  height: 1em;
+  fill: currentColor;
+  flex: none;
+}
+[hidden] {
+  display: none !important;
+}
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+.visually-hidden {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.skip-link {
+  position: absolute;
+  left: 12px;
+  top: -48px;
+  z-index: 50;
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 700;
+}
+.skip-link:focus {
+  top: 12px;
+}
+.eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.hint {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.fine {
+  font-size: 11.5px;
+  color: var(--faint);
+}
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 11px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  font-size: 11.5px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.empty {
+  color: var(--muted);
+  padding: 24px 0;
+}
+kbd {
+  font: 600 10.5px/1 var(--sans);
+  padding: 3px 6px;
+  border-radius: 5px;
+  border: 1px solid var(--line-strong);
+  color: var(--muted);
+}
+
+/* Buttons */
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 0 18px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-weight: 650;
+  font-size: 14px;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    transform 0.15s;
+}
+.button svg {
+  font-size: 18px;
+}
+.button-primary {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+.button-primary:hover:not(:disabled) {
+  background: var(--accent-strong);
+}
+.button-quiet {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--line);
+}
+.button-quiet:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.14);
+}
+.button-danger {
+  background: transparent;
+  border-color: rgba(255, 138, 128, 0.4);
+  color: var(--pass);
+}
+.button-danger:hover:not(:disabled) {
+  background: rgba(255, 138, 128, 0.1);
+}
+.link {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--muted);
+  font-size: 12.5px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.link:hover {
+  color: var(--text);
+}
+.round {
+  display: inline-grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1px solid var(--line-strong);
+  background: rgba(16, 16, 21, 0.7);
+}
+.round svg {
+  font-size: 20px;
+}
+.round:hover:not(:disabled) {
+  background: var(--surface-3);
+}
+
+/* Top bar */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  height: 68px;
+  padding: 0 var(--gutter);
+  background: linear-gradient(rgba(8, 8, 11, 0.92), rgba(8, 8, 11, 0.72));
+  backdrop-filter: saturate(160%) blur(16px);
+  -webkit-backdrop-filter: saturate(160%) blur(16px);
+  border-bottom: 1px solid var(--line);
+}
+.logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  text-decoration: none;
+}
+.logo-mark {
+  width: 30px;
+  height: 30px;
+}
+.logo-mark rect {
+  fill: var(--accent);
+}
+.logo-mark path {
+  fill: var(--accent-ink);
+}
+.logo-word {
+  font: 800 23px/1 var(--display);
+  letter-spacing: -0.045em;
+}
+.nav {
+  display: flex;
+  gap: 22px;
+  font-size: 14px;
+}
+.nav a {
+  text-decoration: none;
+  color: var(--muted);
+  transition: color 0.15s;
+}
+.nav a:hover {
+  color: var(--text);
+}
+.topbar-end {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.ask-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 8px 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 13px;
+}
+.ask-button svg {
+  font-size: 16px;
+  color: var(--accent);
+}
+.ask-button:hover {
+  color: var(--text);
+  border-color: rgba(245, 196, 81, 0.5);
+}
+.privacy-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.privacy-chip i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--like);
+  box-shadow: 0 0 0 4px rgba(110, 231, 168, 0.15);
+}
+
+/* Posters and title cards */
+.poster {
+  position: relative;
+  aspect-ratio: 2 / 3;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--surface-2);
+}
+.poster img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.poster-fallback {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 14px;
+  background:
+    radial-gradient(120% 80% at 20% 0%, hsl(var(--hue) 55% 32%), transparent 70%),
+    linear-gradient(160deg, hsl(var(--hue) 35% 18%), hsl(calc(var(--hue) + 40) 30% 8%));
+}
+.poster-fallback-title {
+  font: 800 clamp(15px, 1.6vw, 21px)/1.05 var(--display);
+  letter-spacing: -0.03em;
+  color: #fff;
+  text-wrap: balance;
+}
+.poster-fallback-year {
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: rgba(255, 255, 255, 0.6);
+}

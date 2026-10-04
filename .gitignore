@@ -9,3 +9,6 @@ work/
 build/
 dist/
 *.egg-info/
+
+# Frontend build output (web/ -> npm run build); never committed, see docs/adr/0004.
+flicks/static/

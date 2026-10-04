@@ -122,9 +122,8 @@ substitute for authentication if the app is later deployed beyond loopback.
 ## Tests and extension points
 
 ```sh
-python3 -m unittest discover -s tests -v
-.venv/bin/python -m unittest discover -s tests -v
-node --test tests/voice-ui.test.mjs
+.venv/bin/python -m pytest                 # skips audio decoding unless the voice extras are installed
+npm --prefix web test                      # includes the command/voice state machine
 ```
 
 The first command skips optional audio-decoding tests when voice dependencies are
