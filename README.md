@@ -59,45 +59,71 @@ Design and implement a streaming video player with an integrated local AI recomm
 
 ## Flicks recommendation MVP
 
-Flicks v0.3 is a working, local-first experiment for the recommendation concept.
-It includes a streaming-style browser UI (top-pick hero, ranked rail, browse grid and a
-“why this pick” sheet), 36 bundled movie/short-film records, one-tap like/pass ratings,
-SQLite feedback persistence, a TF-IDF taste profile, and a separate explainable session reranker. No API keys, model downloads, or third-party Python
-packages are required. Optional local Whisper voice commands are available; playback and eye tracking remain future work.
+Flicks v0.4 is a working, local-first streaming app for the recommendation concept.
+It includes a streaming-style web UI (top-pick hero, ranked rail, continue watching, browse grid
+and a “why this pick” sheet), 36 bundled movie/short-film records, one-tap like/pass ratings,
+playback of your own video files with resume, a TF-IDF taste profile with an explainable scene
+reranker, optional local Whisper voice commands, and couch mode for choosing together. No API keys
+or accounts; nothing leaves the device. Architecture decisions are recorded in [docs/adr](docs/adr/README.md).
+
+### Set up (once)
+
+Requires Python 3.10+ and, to build the interface, Node 20+. From the repository root:
+
+```sh
+python3 -m venv .venv
+.venv/bin/pip install -e ".[dev]"        # Flicks + FastAPI/uvicorn + test tools
+npm --prefix web ci                      # interface dependencies (developers only)
+npm --prefix web run build               # builds the interface into flicks/static/
+```
+
+On Windows use `.venv\Scripts\pip` and `.venv\Scripts\flicks`.
 
 ### Run
 
-Requires Python 3.10+ and a modern browser. From the repository root:
-
 ```sh
-python3 -m flicks
+.venv/bin/flicks                                  # open http://127.0.0.1:8765
+.venv/bin/flicks --media ~/Movies                 # play your own files (repeat --media for more folders)
+.venv/bin/flicks --db .local/demo.sqlite3 --port 8766   # a separate demo profile
 ```
 
-On Windows, use `py -3 -m flicks`. Open <http://127.0.0.1:8765>.
-To install it as a `flicks` command instead (still no third-party dependencies), run
-`python3 -m pip install .` from the repository, then `flicks`.
-Stop with Ctrl+C. Feedback survives restarts in `~/.flicks/feedback.sqlite3`.
-For a separate demo profile or a different port:
+Stop with Ctrl+C. Ratings and watch progress survive restarts in `~/.flicks/feedback.sqlite3`
+(ratings from before the rename, in `~/.kevin/`, are picked up automatically).
 
-```sh
-python3 -m flicks --db .local/demo.sqlite3 --port 8766
-```
+**Playing films.** Point `--media` at folders of video files named like Jellyfin/Plex libraries,
+`A Trip to the Moon (1902).mp4` (optionally inside a folder of the same name), or by content ID
+(`m033.webm`). MP4 (H.264/AAC) and WebM play in every browser; MKV and MOV may not, and the app
+says so. Public-domain films such as *A Trip to the Moon*, *Sherlock Jr.* and *The General* are good
+demo material. See [ADR 0005](docs/adr/0005-video-playback.md).
 
 **Posters (optional, one-time).** Without them, Flicks draws title cards. To cache real posters:
 
 ```sh
-python3 -m flicks.posters        # ~6 MB into ~/.flicks/posters; only titles and years are sent, once
+.venv/bin/python -m flicks.posters      # ~6 MB into ~/.flicks/posters; only titles and years are sent, once
 ```
 
 Posters are looked up on English Wikipedia when you run this command, and never while you browse.
 They are copyrighted, so they stay in your local cache and out of git. `posters.json` in the cache
 records each image's source page.
 
-All computation and data stay on the machine running Python. Open the browser
-on that same machine; the server deliberately binds only to loopback. The one
-exception is opt-in [couch mode](docs/couch.md), which opens a separate,
-couch-only server on your home network while a session runs. Once the
-repository and Python are present, the demo works without internet access.
+**Install as an app.** In Chrome or Edge, use “Install Flicks” in the address bar for its own window
+and dock icon ([ADR 0006](docs/adr/0006-installable-app.md)).
+
+All computation and data stay on the machine running Flicks. The server binds only to loopback; the
+one exception is opt-in [couch mode](docs/couch.md), which opens a separate, couch-only server on
+your home network while a session runs. Once set up, everything works without internet access.
+
+### Develop the interface
+
+Run the API and the Vite dev server side by side; edits reload instantly:
+
+```sh
+.venv/bin/flicks --dev            # API on :8765, also accepting the dev server's origin
+npm --prefix web run dev          # http://localhost:5173, proxies /api, /posters and /media
+```
+
+The interface lives in `web/` (React + TypeScript, [ADR 0004](docs/adr/0004-react-vite-frontend.md));
+`flicks/static/` is build output and is not committed.
 
 ### Try the concept
 
@@ -140,9 +166,9 @@ commands the rules do not understand, and distil the teacher into a small studen
 in the browser. User text is never sent to a non-local backend; the code refuses it.
 
 ```sh
-python3 -m flicks.tagging --out work/tags.json
-python3 -m flicks.distill --tags work/tags.json --export-laya work/laya-data --student work/student.json
-python3 -m flicks --tags work/tags.json --system-one-url lexical
+.venv/bin/python -m flicks.tagging --out work/tags.json
+.venv/bin/python -m flicks.distill --tags work/tags.json --export-laya work/laya-data --student work/student.json
+.venv/bin/flicks --tags work/tags.json --system-one-url lexical
 ```
 
 These commands use an offline keyword stand-in (not a model). See
@@ -152,15 +178,17 @@ locally, Jev for catalogue-only tagging, and the fine-tuning path.
 ### Verify
 
 ```sh
-python3 -m unittest discover -s tests -v
-python3 -m flicks.evaluate
-# Optional frontend state tests (Node 24):
-node --test tests/voice-ui.test.mjs tests/student.test.mjs tests/couch-ui.test.mjs
+.venv/bin/python -m pytest                 # backend: API, security rules, migrations, playback, couch
+.venv/bin/ruff check flicks tests scripts  # backend lint
+npm --prefix web run lint && npm --prefix web test && npm --prefix web run build
+.venv/bin/python -m flicks.evaluate        # deterministic ranking demonstration
 ```
 
-Tests exercise ranking behavior, time constraints, negative feedback, cold start,
-explanations, validation, persistence, adapter injection, and real HTTP requests.
-CI is configured for Python 3.10/3.12 on Linux, Windows, and macOS.
+Backend tests cover ranking, explanations, validation, persistence and migrations, the request
+guard (host, origin, content type and size), range-request streaming, watch history, and the couch
+guest server over a real socket. Interface tests cover the command/voice state machine, the couch
+flows (including stale-poll protection), the player, and the main screens. CI runs Python 3.10/3.12
+on Linux, Windows and macOS, plus lint, the interface build, and a packaging check.
 
 See [architecture and scoring](docs/architecture.md),
 [data provenance and schema](flicks/data/README.md), and

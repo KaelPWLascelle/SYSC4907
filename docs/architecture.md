@@ -1,4 +1,8 @@
-# Flicks v0.2 architecture
+# Flicks architecture
+
+> The HTTP layer, storage and interface changed in v0.4: FastAPI (`flicks/api/`), SQLite migrations
+> (`flicks/db.py`, `flicks/repositories.py`) and a React interface (`web/`). The decisions and their
+> reasons are in [docs/adr](adr/README.md); the ranking model and scoring below are unchanged.
 
 The browser sends feedback and explicitly selected session context to a loopback
 Python server. The server loads the catalogue once, computes TF-IDF once, reads
@@ -10,16 +14,18 @@ requests, telemetry, CDN dependencies, remote models, or cloud accounts.
 
 - `core.py`: validated Content/Session types, `TasteModel` and `DecisionLayer`
   protocols, TF-IDF implementation, deterministic reranker, eligibility policy.
-- `store.py`: parameterized SQLite queries, one connection/transaction per operation,
-  upserted ratings with timestamps. One local profile per database file.
-- `__main__.py`: loopback HTTP transport, input validation, bounded request size,
-  host/origin checks, restrictive content policy, static route allowlist.
-- `static/`: accessible native browser controls, text-only rendering of catalogue
-  data, explicit loading/error/empty states, request sequencing against stale results.
+- `db.py`, `repositories.py`: SQLite connections, numbered migrations, ratings and watch history.
+  One local profile per database file.
+- `api/`: FastAPI apps. `security.py` is the request guard (host/origin checks, JSON-only bodies,
+  size limits, restrictive content policy); `routes/` maps HTTP to the services; `guest.py` is the
+  couch-mode server.
+- `services.py`, `config.py`: build the long-lived objects from settings; `__main__.py` is the CLI.
+- `media.py`: maps local video files to catalogue titles for range-request streaming.
+- `web/` (repository root): the React interface, built into `static/`.
 - `data/`: offline demo fixture and replacement schema.
 - `voice.py`: optional local Whisper speech adapter with bounded in-memory decoding.
 - `commands.py`: side-effect-free interpretation of supported session/rating commands.
-- `static/voice.js`: microphone/file capture, transcript editing, preview and apply.
+- `web/src/host/commands/CommandController.ts`: microphone/file capture, transcript editing, preview and apply.
 
 See [voice architecture and setup](voice.md) for the optional speech dependencies.
 

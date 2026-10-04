@@ -1,21 +1,22 @@
+import http.client
 import json
 from pathlib import Path
 import tempfile
-import threading
 import unittest
 from unittest import mock
+
 from flicks import posters
+from flicks.api.guest import create_guest_app
+from flicks.api.server import ServerThread
 from flicks.core import Content
-from flicks.couch import CouchManager, CouchSession, make_guest_server
+from flicks.couch import CouchSession
 from flicks.posters import PosterLibrary, plausible, sniff
-from flicks.__main__ import make_server, ROOT
-import http.client
+from helpers import app_client
 
 
-def http_request(host, port, path, payload=None):
+def http_request(host, port, path):
     connection = http.client.HTTPConnection(host, port, timeout=10)
-    body = json.dumps(payload) if payload is not None else None
-    connection.request('POST' if body is not None else 'GET', path, body, {'Content-Type': 'application/json'})
+    connection.request('GET', path)
     response = connection.getresponse()
     result = response.status, response.read(), dict(response.getheaders())
     connection.close()
@@ -101,41 +102,31 @@ class PosterServingTests(unittest.TestCase):
         self.dir = Path(self.temp.name)/'posters'
         self.dir.mkdir()
         write_cache(self.dir, {'m001': {'file': 'm001.jpg'}, 'm002': {'file': 'm002.png'}}, {'m001.jpg': JPEG, 'm002.png': PNG})
-        self.couch = CouchManager('127.0.0.1', 0)
-        self.server = make_server(ROOT/'data'/'movies.json', Path(self.temp.name)/'db.sqlite3', 0, couch=self.couch, poster_dir=self.dir)
-        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
-        self.thread.start()
 
     def tearDown(self):
-        self.couch.stop()
-        self.server.shutdown(); self.server.server_close(); self.thread.join(); self.temp.cleanup()
-
-    def host(self, path, payload=None):
-        return http_request('127.0.0.1', self.server.server_port, path, payload)
+        self.temp.cleanup()
 
     def test_host_serves_cached_posters_with_their_type(self):
-        self.assertEqual(json.loads(self.host('/api/state')[1])['posters'], ['m001', 'm002'])
-        status, body, headers = self.host('/posters/m002')
-        self.assertEqual((status, body, headers['Content-Type']), (200, PNG, 'image/png'))
-        self.assertIn('max-age', headers['Cache-Control'])
-        for path in ('/posters/m003', '/posters/../posters.json', '/posters/', '/posters/m001.jpg'):
-            with self.subTest(path=path):
-                self.assertEqual(self.host(path)[0], 404)
+        with app_client(Path(self.temp.name), poster_dir=self.dir) as (client, _):
+            self.assertEqual(client.get('/api/state').json()['posters'], ['m001', 'm002'])
+            response = client.get('/posters/m002')
+            self.assertEqual((response.status_code, response.content, response.headers['content-type']), (200, PNG, 'image/png'))
+            self.assertIn('max-age', response.headers['cache-control'])
+            for path in ('/posters/m003', '/posters/../posters.json', '/posters/', '/posters/m001.jpg'):
+                with self.subTest(path=path):
+                    self.assertEqual(client.get(path).status_code, 404)
 
     def test_guests_get_posters_for_the_shortlist_only(self):
         library = PosterLibrary(self.dir, {'m001', 'm002', 'm003'})
         session = CouchSession([row('m001'), row('m003')], posters=set(library.ids()))
         self.assertEqual([(i['id'], i['poster']) for i in session.items], [('m001', True), ('m003', False)])
-        guest = make_guest_server(session, '127.0.0.1', 0, library)
-        thread = threading.Thread(target=guest.serve_forever, daemon=True)
-        thread.start()
+        server = ServerThread(lambda port: create_guest_app(session, '127.0.0.1', port, library), '127.0.0.1', 0).start()
         try:
-            port = guest.server_port
-            status, body, headers = http_request('127.0.0.1', port, '/posters/m001')
-            self.assertEqual((status, body, headers['Content-Type']), (200, JPEG, 'image/jpeg'))
-            self.assertEqual(http_request('127.0.0.1', port, '/posters/m003')[0], 404)  # shortlisted, no poster
-            self.assertEqual(http_request('127.0.0.1', port, '/posters/m002')[0], 404)  # has a poster, not shortlisted
+            status, body, headers = http_request('127.0.0.1', server.port, '/posters/m001')
+            self.assertEqual((status, body, headers['content-type']), (200, JPEG, 'image/jpeg'))
+            self.assertEqual(http_request('127.0.0.1', server.port, '/posters/m003')[0], 404)  # shortlisted, no poster
+            self.assertEqual(http_request('127.0.0.1', server.port, '/posters/m002')[0], 404)  # has a poster, not shortlisted
         finally:
-            guest.shutdown(); guest.server_close(); thread.join()
+            server.stop()
 
 if __name__ == '__main__': unittest.main()

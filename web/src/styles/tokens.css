@@ -1,0 +1,25 @@
+/* Flicks · design tokens */
+:root {
+  color-scheme: dark;
+  --bg: #08080b;
+  --bg-raised: #101015;
+  --surface: #16161d;
+  --surface-2: #1e1e27;
+  --surface-3: #282833;
+  --line: rgba(255, 255, 255, 0.08);
+  --line-strong: rgba(255, 255, 255, 0.16);
+  --text: #f5f5f7;
+  --muted: #a3a3b2;
+  --faint: #6e6e7d;
+  --accent: #f5c451;
+  --accent-strong: #ffd479;
+  --accent-ink: #1b1405;
+  --like: #6ee7a8;
+  --pass: #ff8a80;
+  --radius: 14px;
+  --radius-sm: 9px;
+  --gutter: clamp(16px, 4vw, 56px);
+  --shadow: 0 24px 60px -24px rgba(0, 0, 0, 0.8);
+  --sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  --display: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', 'Segoe UI', Roboto, sans-serif;
+}

@@ -23,13 +23,14 @@ phones on the Wi-Fi ── <LAN address>:8770 ── guest server (only while a 
                                               join · state · vote · remote · its own page
 ```
 
-The guest server is a separate `ThreadingHTTPServer` (`flicks/couch.py`) with its own routes. The
+The guest server is a separate FastAPI app on its own port (`flicks/api/guest.py`; the session rules
+are in `flicks/couch.py`). The
 host's ratings, history, voice and command routes do not exist on it, so they cannot be reached
 from the network at all. Clients poll every 1.5 s, and a poll that started before the client's own
 action is dropped, so a stale response cannot overwrite a newer state. A tab polls only while it is
 visible, and it catches up when it becomes visible again.
 
-## Guarantees the code enforces (tests in `tests/test_couch.py`)
+## Guarantees the code enforces (tests in `tests/test_couch.py` and `web/src/guest/`)
 
 - **Off by default.** Without `--couch`, the couch routes return 404 and nothing listens on the network.
 - **Home network only.** Only private or loopback IPv4 addresses are accepted, never a public interface.
@@ -56,8 +57,10 @@ straightforward variants worth comparing in the evaluation.
 
 ## Limits and next steps
 
-- **Playback is a stub.** The remote changes a shared player state (`playing`/`paused`/`stopped`
-  plus who pressed it) that the real video player will subscribe to.
+- **The remote drives the real player.** Choosing a title on a phone opens and plays it on the TV
+  (when it has a local file); pause, play and stop work both ways, and the TV's own controls are
+  reported back to the phones. If the browser blocks autoplay without a click on the TV, the player
+  shows a "Press play" button instead of failing silently.
 - **The phone mic is not used.** Browsers allow the microphone only on HTTPS or localhost, and a home
   device cannot easily get a trusted certificate. Voice stays on the TV's mic for now.
 - **Campus and guest Wi-Fi.** These networks usually block device-to-device traffic (client isolation).

@@ -7,7 +7,7 @@ from pathlib import Path
 import re
 from typing import Protocol
 
-STOP_WORDS = frozenset('a an and are as at be by for from has her his in into is it its of on or that the their them they this to two while who with'.split())
+STOP_WORDS = frozenset(['a', 'an', 'and', 'are', 'as', 'at', 'be', 'by', 'for', 'from', 'has', 'her', 'his', 'in', 'into', 'is', 'it', 'its', 'of', 'on', 'or', 'that', 'the', 'their', 'them', 'they', 'this', 'to', 'two', 'while', 'who', 'with'])
 
 MOODS = ('any', 'relaxing', 'uplifting', 'curious', 'tense', 'reflective')
 

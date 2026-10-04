@@ -2,13 +2,14 @@ import http.client
 import json
 from pathlib import Path
 import tempfile
-import threading
 import unittest
 from urllib.parse import urlsplit
+
 from flicks import qr
-from flicks.couch import (MAX_FAILED_JOINS, MAX_GUESTS, CouchAuthError, CouchError, CouchManager, CouchSession,
-                         check_host, make_guest_server)
-from flicks.__main__ import make_server, ROOT
+from flicks.api.guest import create_guest_app
+from flicks.api.server import ServerThread
+from flicks.couch import MAX_FAILED_JOINS, MAX_GUESTS, CouchAuthError, CouchError, CouchSession, check_host
+from helpers import app_client, write_frontend
 
 
 def row(key, title=None):
@@ -187,38 +188,45 @@ class CouchSessionTests(unittest.TestCase):
 
 
 class GuestServerTests(unittest.TestCase):
+    """The network-facing server, over a real socket: that is the boundary these tests exist to pin."""
+
     def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        static = write_frontend(Path(self.temp.name))
         self.now = [0.0]
         self.session = CouchSession([row('a'), row('b')], clock=lambda: self.now[0], seconds=100)
-        self.server = make_guest_server(self.session, '127.0.0.1', 0)
-        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
-        self.thread.start()
+        self.server = ServerThread(lambda port: create_guest_app(self.session, '127.0.0.1', port, static_dir=static),
+                                   '127.0.0.1', 0).start()
 
     def tearDown(self):
-        self.server.shutdown(); self.server.server_close(); self.thread.join()
+        self.server.stop()
+        self.temp.cleanup()
 
     def request(self, path, payload=None, headers=None, raw=None):
-        return http_request('127.0.0.1', self.server.server_port, path, payload, headers, raw)
+        return http_request('127.0.0.1', self.server.port, path, payload, headers, raw)
 
     def test_exposes_only_couch_routes(self):
         status, body, headers = self.request('/join')
         self.assertEqual(status, 200)
-        self.assertIn(b'couch.js', body)
-        self.assertIn("default-src 'self'", headers['Content-Security-Policy'])
-        for path in ('/', '/api/state', '/app.js', '/voice.js', '/couch-host.js', '/../couch.py', '/api/couch/qr.svg'):
+        self.assertIn(b'Flicks couch', body)
+        self.assertIn("default-src 'self'", headers['content-security-policy'])
+        self.assertEqual(self.request('/assets/app-1234.js')[0], 200)
+        for path in ('/', '/index.html', '/api/state', '/api/history', '/media/a', '/manifest.webmanifest',
+                     '/../couch.py', '/api/couch', '/api/couch/qr.svg'):
             with self.subTest(path=path):
                 self.assertEqual(self.request(path)[0], 404)
-        for path in ('/api/feedback', '/api/recommend', '/api/command/apply', '/api/transcribe', '/api/couch/start'):
+        for path in ('/api/feedback', '/api/recommend', '/api/command/apply', '/api/couch/start', '/api/couch/reveal'):
             with self.subTest(path=path):
                 self.assertEqual(self.request(path, {'id': 'a', 'value': 1})[0], 404)
+        self.assertEqual(self.request('/api/transcribe', raw=b'audio', headers={'Content-Type': 'audio/webm'})[0], 415)
 
     def test_host_origin_and_token_checks(self):
         self.assertEqual(self.request('/join', headers={'Host': 'evil.example'})[0], 403)
         code = self.session.code
         self.assertEqual(self.request('/api/couch/join', {'code': code, 'name': 'Sam'}, {'Origin': 'http://evil.example'})[0], 403)
         self.assertEqual(self.request('/api/couch/join', {'code': 'WRONG', 'name': 'Sam'})[0], 401)
-        self.assertEqual(self.request('/api/couch/join', {'code': code, 'name': 'Sam'}, {'Content-Type': 'text/plain'})[0], 400)
-        self.assertEqual(self.request('/api/couch/join', raw='x' * 1025)[0], 400)
+        self.assertEqual(self.request('/api/couch/join', {'code': code, 'name': 'Sam'}, {'Content-Type': 'text/plain'})[0], 415)
+        self.assertEqual(self.request('/api/couch/join', raw='x' * 1025)[0], 413)
         status, body, _ = self.request('/api/couch/join', {'code': code, 'name': 'Sam'})
         self.assertEqual(status, 200)
         token = json.loads(body)['token']
@@ -228,6 +236,7 @@ class GuestServerTests(unittest.TestCase):
         self.assertEqual((status, json.loads(body)['you']['votes']), (200, {'a': 1}))
         self.assertEqual(self.request('/api/couch/remote', {'action': 'select', 'id': 'a'}, {'X-Flicks-Guest': token})[0], 200)
         self.assertEqual(self.request('/api/couch/vote', {'id': 'zzz', 'value': 1}, {'X-Flicks-Guest': token})[0], 400)
+        self.assertEqual(self.request('/api/couch/vote', {'id': 'a', 'value': True}, {'X-Flicks-Guest': token})[0], 400)
         self.now[0] = 100
         self.assertEqual(self.request('/api/couch/state', headers={'X-Flicks-Guest': token})[0], 410)
 
@@ -235,23 +244,23 @@ class GuestServerTests(unittest.TestCase):
 class HostCouchApiTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
-        self.couch = CouchManager('127.0.0.1', 0)
-        self.server = make_server(ROOT/'data'/'movies.json', Path(self.temp.name)/'test.sqlite3', 0, couch=self.couch)
-        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
-        self.thread.start()
+        self.context = app_client(Path(self.temp.name), couch=True, couch_host='127.0.0.1', couch_port=0)
+        self.client, self.services = self.context.__enter__()
 
     def tearDown(self):
-        self.couch.stop()
-        self.server.shutdown(); self.server.server_close(); self.thread.join(); self.temp.cleanup()
+        self.context.__exit__(None, None, None)
+        self.temp.cleanup()
 
     def host(self, path, payload=None, headers=None):
-        status, body, _ = http_request('127.0.0.1', self.server.server_port, path, payload, headers)
-        return status, json.loads(body) if body[:1] == b'{' else body
+        response = self.client.post(path, json=payload, headers=headers) if payload is not None else self.client.get(path, headers=headers)
+        is_json = response.headers.get('content-type', '').startswith('application/json')
+        return response.status_code, response.json() if is_json else response.content
 
     def test_full_couch_session(self):
         self.assertTrue(self.host('/api/state')[1]['couch'])
         self.assertEqual(self.host('/api/couch')[1], {'active': False})
         self.assertEqual(self.host('/api/couch/reveal', {})[0], 400)
+        self.assertEqual(self.host('/api/couch/qr.svg')[0], 400)
         self.host('/api/feedback', {'id': 'm001', 'value': 1})
         status, view = self.host('/api/couch/start', {'session': {'mood': 'relaxing'}})
         self.assertEqual(status, 200)
@@ -262,7 +271,10 @@ class HostCouchApiTests(unittest.TestCase):
         self.assertTrue(status == 200 and image.startswith(b'<svg'))
         url = urlsplit(view['url'])
         self.assertEqual(view['join_url'], f"{view['url']}#{view['code']}")
-        guest = lambda path, payload=None, token='': http_request(url.hostname, url.port, path, payload, {'X-Flicks-Guest': token})
+        def guest(path, payload=None, token=''):
+            return http_request(url.hostname, url.port, path, payload, {'X-Flicks-Guest': token})
+
+        self.assertEqual(guest('/join')[0], 200)
         token = json.loads(guest('/api/couch/join', {'code': view['code'], 'name': 'Sam'})[1])['token']
         self.assertEqual(guest('/api/feedback', {'id': 'm001', 'value': -1}, token)[0], 404)
         for item in view['items']:
@@ -273,22 +285,25 @@ class HostCouchApiTests(unittest.TestCase):
         status, view = self.host('/api/couch/player', {'action': 'select', 'id': view['results'][0]['id']})
         self.assertEqual((status, view['player']['state']), (200, 'playing'))
         self.assertEqual(self.host('/api/couch/player', {'action': 'select', 'id': 'nope'})[0], 400)
+        self.assertEqual(self.host('/api/couch/player', {'action': 'select', 'id': 'm002', 'extra': 1})[0], 400)
         self.assertEqual(self.host('/api/couch/start', {}, {'Origin': 'http://evil.example'})[0], 403)
         self.assertEqual(self.host('/api/couch/stop', {})[1], {'active': False})
         with self.assertRaises(OSError):
             guest('/join')
 
-    def test_couch_routes_are_absent_without_the_flag(self):
-        server = make_server(ROOT/'data'/'movies.json', Path(self.temp.name)/'other.sqlite3', 0)
-        thread = threading.Thread(target=server.serve_forever, daemon=True)
-        thread.start()
-        try:
-            port = server.server_port
-            self.assertFalse(json.loads(http_request('127.0.0.1', port, '/api/state')[1])['couch'])
-            self.assertEqual(http_request('127.0.0.1', port, '/api/couch')[0], 404)
-            self.assertEqual(http_request('127.0.0.1', port, '/api/couch/start', {})[0], 404)
-        finally:
-            server.shutdown(); server.server_close(); thread.join()
+    def test_starting_twice_replaces_the_session_and_frees_the_port(self):
+        first = self.host('/api/couch/start', {})[1]
+        second = self.host('/api/couch/start', {})[1]
+        self.assertNotEqual(first['code'], second['code'])
+        old_port, new_port = urlsplit(first['url']).port, urlsplit(second['url']).port
+        if old_port != new_port:  # the OS may legitimately hand the new server the same port
+            with self.assertRaises(OSError):
+                http_request('127.0.0.1', old_port, '/join')
 
+    def test_couch_routes_are_absent_without_the_flag(self):
+        with tempfile.TemporaryDirectory() as folder, app_client(Path(folder)) as (client, _):
+            self.assertFalse(client.get('/api/state').json()['couch'])
+            self.assertEqual(client.get('/api/couch').status_code, 404)
+            self.assertEqual(client.post('/api/couch/start', json={}).status_code, 404)
 
 if __name__ == '__main__': unittest.main()

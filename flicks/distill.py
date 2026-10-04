@@ -18,6 +18,7 @@ import math
 from pathlib import Path
 from statistics import mean
 import zlib
+
 from .core import load_catalog
 from .systemone import options, state_text, tokens, validate_questions
 from .tagging import film_state, load_tags
@@ -122,7 +123,7 @@ class Student:
             raise ValueError('This student only answers the questions it was trained on')
         x, answers = features(state, self.dim), {}
         for qid, q in questions.items():
-            probs = dict(zip(options(q), (round(p, 6) for p in self.distribution(qid, x))))
+            probs = dict(zip(options(q), (round(p, 6) for p in self.distribution(qid, x)), strict=True))
             answers[qid] = {'type': 'noul', 'noul': probs['true']} if q['type'] == 'noul' else {'type': q['type'], 'probabilities': probs}
         return {'model': 'flicks-student', 'answers': answers}
 

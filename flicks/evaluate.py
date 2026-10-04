@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 from statistics import median
 from time import perf_counter
+
 from .core import Recommender, Session, load_catalog
 
 
