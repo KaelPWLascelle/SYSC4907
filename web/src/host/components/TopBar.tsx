@@ -30,7 +30,7 @@ export function Footer({ titles, posters, playable }: { titles: number; posters:
   return (
     <footer className="footer">
       <span>
-        <strong>flicks</strong> · SYSC 4907 · v0.4
+        <strong>flicks</strong> · SYSC 4907
       </span>
       <span>
         {titles} titles · {playable} playable · local taste profile + explainable scene ranking · nothing leaves this

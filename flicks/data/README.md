@@ -1,4 +1,4 @@
-# Demo catalogue v1
+# Catalogue
 
 `movies.json` bundles 36 real film titles (including three short films) selected
 for recognizable examples and varied genres, moods, runtimes, and intensity.
@@ -11,13 +11,14 @@ verify against the actual media file before using runtime as a playback constrai
 These entries have not received an independent catalogue audit.
 Descriptions are newly written short summaries, not scraped or copied synopses.
 Genres, theme tags, mood labels, and intensity values are editorial annotations
-created for this prototype. They are subjective and are not age/content ratings.
+created for this project. They are subjective and are not age/content ratings.
 No posters, videos, external assets, audience ratings, or third-party dataset
-extracts are bundled. No rights to the underlying films are conveyed.
+extracts are bundled; posters are an optional local cache (`python -m flicks.posters`).
+No rights to the underlying films are conveyed.
 
 ## Bring your own catalogue
 
-Run `python3 -m flicks --catalog path/to/catalog.json --db path/to/profile.sqlite3`.
+Run `flicks --catalog path/to/catalog.json --db path/to/profile.sqlite3`.
 Use a nonempty JSON array; every object must have exactly these fields:
 
 ```json

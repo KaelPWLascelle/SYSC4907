@@ -1,146 +1,111 @@
-# Flicks voice commands (v0.2)
+# Voice commands
 
-Flicks now has an optional on-device speech pipeline:
+Flicks can transcribe spoken requests on the device with Whisper and turn them into the same
+reviewed changes as typed requests. Voice is optional: typing works without any of this.
 
 ```
-Browser microphone or audio file
-  → MediaRecorder audio (maximum 30 seconds / 5 MiB)
-  → local Python / PyAV decode to mono 16 kHz samples
-  → faster-whisper / CTranslate2 CPU int8 transcription + speech activity filtering
+Microphone or audio file (≤ 30 s, ≤ 5 MiB)
+  → decoded to mono 16 kHz in memory (PyAV)
+  → transcribed on the CPU (faster-whisper, int8, speech-activity filtering)
   → editable transcript
-  → deterministic command preview
-  → Apply button
-  → existing validated session/rating operations and recommendation engine
+  → preview of exactly what will change
+  → Apply
 ```
 
-Whisper is the neural AI model in this release. Command interpretation is a
-bounded local rules parser, not an LLM or a general conversational agent. Ratings
-still personalize TF-IDF; session ranking remains transparent and deterministic.
-No Ollama service, FunctionGemma model, or cloud account is required.
+Whisper is the only neural model in this path. Interpreting the transcript is done by a bounded,
+rule-based parser, not a chat model; an optional local [System One](system-one.md) model can help
+with requests the rules don't recognize.
 
 ## Setup
 
-The base app and typed commands still need only Python 3.10+. Voice was tested
-with Python 3.12 on Apple Silicon macOS. From the repository root:
+From the repository root, after the [quick start](../README.md#quick-start):
 
 ```sh
-python3 -m venv .venv
-.venv/bin/python -m pip install -r requirements-voice.txt
+.venv/bin/pip install -e ".[voice]"
 .venv/bin/python scripts/download_voice_model.py
-.venv/bin/python -m flicks --db .local/demo.sqlite3 --voice-model .local/models/whisper-base.en
+.venv/bin/flicks --voice-model .local/models/whisper-base.en
 ```
 
-Windows equivalents use `.venv\Scripts\python.exe` in place of `.venv/bin/python`.
-Open <http://127.0.0.1:8765>. Stop the previous Flicks process first if that port is
-occupied, or add `--port 8766`. No system FFmpeg installation is required; PyAV
-provides decoding. `requirements-voice-tested.txt` records the exact dependency
-versions from the tested macOS/Python 3.12 environment; it is not a claim that
-those versions support every Python/OS combination.
+The download script fetches `Systran/faster-whisper-base.en` at a pinned revision and records the
+revision and file SHA-256 hashes in `flicks-model.json`. That is the only network step. At runtime
+Flicks loads only the directory you pass, with `local_files_only=True`; a missing or incomplete
+model produces setup guidance, never a download. Set `HF_HUB_OFFLINE=1` to confirm Flicks does not
+need the model hub after setup. Models, recordings and `.local/` are excluded from git.
 
-The setup script downloads `Systran/faster-whisper-base.en` from a pinned upstream
-revision and records source revision plus file SHA-256 values in `flicks-model.json`.
-It needs internet once. Runtime loads only the explicitly supplied local directory
-with `local_files_only=True`. Missing/incomplete files produce setup guidance,
-not an automatic download. `.venv`, `.local`, recordings, and model weights are
-excluded from Git. The model is not distributed with the repository.
-
-For a smaller, less accurate option:
+For a smaller, less accurate model:
 
 ```sh
 .venv/bin/python scripts/download_voice_model.py --model tiny.en
-.venv/bin/python -m flicks --voice-model .local/models/whisper-tiny.en
+.venv/bin/flicks --voice-model .local/models/whisper-tiny.en
 ```
 
-To verify runtime independence from Hugging Face, set `HF_HUB_OFFLINE=1` when
-starting Flicks. The application does not need the model hub after setup.
+No system FFmpeg is needed; PyAV bundles its own decoder. `requirements-voice-tested.txt` pins the
+exact versions CI tests against.
 
 ## Using voice
 
-1. Press **Record command** and allow microphone access in your browser/OS.
-2. Speak a short English command. Press **Stop & transcribe** when finished.
-   Capture stops just before 30 seconds to leave room for the final audio frame.
-3. Check the transcript. Correct any words, then press **Preview command** again.
-4. Read the exact settings/rating Flicks proposes. Press **Apply to Flicks**.
+1. Press **Record command** and allow microphone access.
+2. Speak a short English request, then press **Stop & transcribe**. Recording stops on its own just
+   before 30 seconds.
+3. Check the transcript, correct any words, and press **Preview**.
+4. Read exactly what Flicks proposes, then press **Apply**.
 
-You can also choose an audio file or type directly. Microphone permission denial,
-missing hardware, unsupported browser capture, and unavailable models leave the
-text path usable. Browser and OS microphone permissions may both be needed. If an
-embedded browser cannot provide microphone access, open the same local address
-in a supported desktop browser or use a recording file.
+You can also choose an audio file with **Use a recording**, or press <kbd>/</kbd> and type. If
+microphone access is denied or the browser cannot record, typing and audio files still work.
 
-No background listening, wake word, continuous streaming, speech synthesis, or
-media playback is implemented. Closing/leaving the page stops active microphone
-tracks. Cancel discards the recording or cancels the browser's pending request;
-an already-started short server inference may finish, but cannot apply a command.
-A single nonblocking inference lock prevents simultaneous model runs. Subsequent
-requests receive a retry message. Browser requests time out after 120 seconds;
-there is no hard termination of an in-process native model inference.
+There is no background listening, wake word or continuous streaming. Leaving the page stops the
+microphone. **Cancel** discards a recording or an in-flight transcription; a transcription that has
+already started on the server may finish, but its result is never applied. One transcription runs
+at a time; a second request is asked to retry.
 
-## Supported commands
+## Supported requests
 
 | Say or type | Proposed change |
 |---|---|
-| “Something relaxing under ninety minutes, low intensity, no horror” | Relaxing; maximum 89 minutes; intensity 20%; exclude horror |
-| “Curious, two hours, surprise me” | Curious; 120 minutes; novelty 90% |
-| “An hour and a half, familiar” | 90 minutes; novelty 10% |
-| “No horror” | Set excluded genres to horror |
-| “Allow all genres” / “Clear exclusions” | Clear genre exclusions |
-| “Like Arrival” / “I liked Arrival” | Save a positive rating |
-| “Dislike Alien” / “I did not like Alien” | Save a negative rating |
-| “Clear my rating for Arrival” | Remove that rating |
-| “Show recommendations” | Refresh using the current settings |
+| "Something relaxing under ninety minutes, low intensity, no horror" | Relaxing; up to 89 minutes; intensity 20%; avoid horror |
+| "Curious, two hours, surprise me" | Curious; 120 minutes; discovery 90% |
+| "An hour and a half, familiar" | 90 minutes; discovery 10% |
+| "No horror" | Avoid horror |
+| "Allow all genres" / "Clear exclusions" | Avoid nothing |
+| "Like Arrival" / "I liked Arrival" | Like *Arrival* |
+| "Dislike Alien" / "I did not like Alien" | Pass on *Alien* |
+| "Clear my rating for Arrival" | Remove that rating |
+| "Show recommendations" | Refresh with the current scene |
 
-Time is whole minutes. “Under/less than 90” is strictly below 90, so the maximum
-integer runtime is 89; “90 minutes” and “at most 90 minutes” include 90.
-Use one duration (e.g. 90 minutes instead of 1 hour 30 minutes). One mood per
-request. Low/medium/high intensity map to 20/50/90%. Unmentioned session controls
-remain unchanged. A new exclusion command replaces the current exclusion list;
-the preview lists exactly what it will set. Exclusions apply in both ranking modes.
+- **Time** is in whole minutes. "Under 90" means strictly below, so up to 89; "90 minutes" and "at
+  most 90 minutes" include 90. Use one duration per request.
+- **Intensity:** low, medium and high mean 20%, 50% and 90%.
+- **One mood per request.** Settings you don't mention stay as they are. A new "no …" request
+  replaces the list of avoided genres.
+- **Titles must match exactly** (ignoring punctuation and accents). Flicks never guesses from "like
+  it", similar spellings or ambiguous matches, so a misheard word cannot silently become a rating.
+- **"Flicks"** at the start of a request is ignored ("Hey Flicks, no horror").
 
-Titles must match a unique catalogue title after punctuation/accent normalization.
-Flicks does not guess from “like it”, similar spellings, or multiple title matches.
-This is intentional: speech errors must not silently become ratings. General chat,
-compound rating commands, and unsupported negation may be rejected. Recognized
-session phrases are extracted and listed; other wording is not interpreted. Always
-review the proposed action. Typing works identically to a speech transcript.
+## Privacy
 
-## Privacy and boundaries
+Audio goes only to the Flicks server on this machine. It is decoded and transcribed in memory and is
+never written to disk by Flicks. Transcripts are not stored in the database or the server logs. Only
+applied ratings persist. Flicks does not use the browser's built-in speech recognition, which may
+send audio to a remote service.
 
-Audio is uploaded only to the local loopback Flicks process. It is decoded and
-transcribed in memory, not written to an audio file by Flicks. Transcripts are not
-stored in SQLite or server request logs. They remain visible in the current page
-until edited/reloaded. Only applied ratings persist; session controls still reset
-on reload. A recording file you upload already exists on disk and is not deleted.
-The explicit model download is the only network setup step; Flicks does not use
-browser SpeechRecognition, which may rely on a remote speech service.
+Preview never changes anything. Apply re-parses the text on the server and goes through the same
+validated operations as the rest of the app; a request the parser does not understand cannot be
+applied.
 
-Preview endpoints never alter ratings. Apply reparses the text server-side and
-uses the existing validated domain operations. Unknown commands cannot be applied.
-This review step is a product behavior for imperfect speech recognition, not a
-substitute for authentication if the app is later deployed beyond loopback.
-
-## Tests and extension points
+## Tests
 
 ```sh
-.venv/bin/python -m pytest                 # skips audio decoding unless the voice extras are installed
-npm --prefix web test                      # includes the command/voice state machine
+.venv/bin/python -m pytest tests/test_voice.py   # audio decoding runs when the voice extras are installed
+npm --prefix web test                             # the recording and command state machine
 ```
 
-The first command skips optional audio-decoding tests when voice dependencies are
-absent. The second includes them. Node 24 runs the isolated browser-state tests;
-it is needed for those tests only, not to run Flicks. The UI tests use fake audio
-and permissions, never the machine's microphone. Model weights are not downloaded
-by CI. Actual inference is validated separately with generated speech samples.
+The interface tests use simulated microphones and permissions, never a real device. CI does not
+download model weights; real transcription is checked separately (see [evaluation](evaluation.md)).
 
-`LocalWhisper.transcribe(bytes)` returns text/timing, with no application side effects.
-`CommandInterpreter.parse(text)` returns a bounded session patch, exact-title feedback,
-or an unknown result. A future FunctionGemma/local tool model can implement that
-contract, with output validation, explicit review, and deterministic fallback. A
-future context provider can supply timestamped, consented sensor observations;
-manual user settings should take precedence. Voice transcription itself must never
-silently infer alertness or other sensitive characteristics.
+The parser's contract is small: `CommandInterpreter.parse(text)` returns a session change, an
+exact-title rating, or "unknown". Any replacement (for example a local tool-calling model) must keep
+that contract, its output validation, and the preview step.
 
-Implementation references:
-[faster-whisper](https://github.com/SYSTRAN/faster-whisper),
-[Whisper Base English converted model](https://huggingface.co/Systran/faster-whisper-base.en),
+References: [faster-whisper](https://github.com/SYSTRAN/faster-whisper),
+[Whisper Base English](https://huggingface.co/Systran/faster-whisper-base.en),
 [MediaRecorder](https://developer.mozilla.org/en-US/docs/Web/API/MediaRecorder).

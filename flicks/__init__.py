@@ -1,1 +1,1 @@
-"""Flicks: local, explainable content recommendations."""
+"""Flicks: local-first movie recommendations and playback. Nothing leaves the device."""

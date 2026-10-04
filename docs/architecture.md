@@ -1,118 +1,195 @@
-# Flicks architecture
+# Architecture
 
-> The HTTP layer, storage and interface changed in v0.4: FastAPI (`flicks/api/`), SQLite migrations
-> (`flicks/db.py`, `flicks/repositories.py`) and a React interface (`web/`). The decisions and their
-> reasons are in [docs/adr](adr/README.md); the ranking model and scoring below are unchanged.
-
-The browser sends feedback and explicitly selected session context to a loopback
-Python server. The server loads the catalogue once, computes TF-IDF once, reads
-feedback from SQLite per recommendation request, ranks eligible titles, and
-returns additive explanations. Static assets are local; there are no outbound
-requests, telemetry, CDN dependencies, remote models, or cloud accounts.
-
-## Boundaries
-
-- `core.py`: validated Content/Session types, `TasteModel` and `DecisionLayer`
-  protocols, TF-IDF implementation, deterministic reranker, eligibility policy.
-- `db.py`, `repositories.py`: SQLite connections, numbered migrations, ratings and watch history.
-  One local profile per database file.
-- `api/`: FastAPI apps. `security.py` is the request guard (host/origin checks, JSON-only bodies,
-  size limits, restrictive content policy); `routes/` maps HTTP to the services; `guest.py` is the
-  couch-mode server.
-- `services.py`, `config.py`: build the long-lived objects from settings; `__main__.py` is the CLI.
-- `media.py`: maps local video files to catalogue titles for range-request streaming.
-- `web/` (repository root): the React interface, built into `static/`.
-- `data/`: offline demo fixture and replacement schema.
-- `voice.py`: optional local Whisper speech adapter with bounded in-memory decoding.
-- `commands.py`: side-effect-free interpretation of supported session/rating commands.
-- `web/src/host/commands/CommandController.ts`: microphone/file capture, transcript editing, preview and apply.
-
-See [voice architecture and setup](voice.md) for the optional speech dependencies.
-
-The HTTP server is a development/demo server, not a deployment or authentication
-solution. All local OS users who can access the database or service can access the
-profile. SQLite is not encrypted. Do not expose it through a tunnel or bind it to
-a LAN address without replacing the transport/security design.
-
-## Reproducible baseline
-
-Each item is represented by genres repeated 3 times, tags repeated 2 times, and
-its description. Lowercase ASCII alphanumeric tokens are used with a small explicit
-stop-word list. This English-focused tokenizer is a known limitation.
-For count c of term t in document d:
+Flicks is a Python server and a React interface that run on the user's own machine. The server binds
+to loopback, keeps all personal data in one SQLite file, and computes every recommendation locally.
+The reasons behind each major choice are in the [decision records](adr/README.md).
 
 ```
-TF(t,d) = 1 + ln(c)
-IDF(t) = 1 + ln((N + 1) / (document_frequency(t) + 1))
-x_d = L2_normalize(TF * IDF)
-p = L2_normalize(sum(x_d for liked d))
-n = L2_normalize(sum(x_d for disliked d))
-u = L2_normalize(p - 0.7*n)
+┌──────────────────────────── this machine ────────────────────────────┐
+│                                                                      │
+│  Browser ──▶ host app (FastAPI, 127.0.0.1:8765)                      │
+│                 │  request guard: Host/Origin, JSON-only, size, CSP  │
+│                 ├─ routes/library    recommender (core.py)           │
+│                 ├─ routes/assistant  commands · intent · voice       │
+│                 ├─ routes/playback   media library · watch history   │
+│                 └─ routes/couch      CouchManager ─┐                 │
+│                                                    ▼                 │
+│                         SQLite (~/.flicks)   guest app (LAN, only    │
+│                                              during a session)       │
+└──────────────────────────────────────────────────────▲───────────────┘
+                                                       │
+                                       phones on the same Wi-Fi
+```
+
+## Components
+
+### Backend (`flicks/`)
+
+| Module | Responsibility |
+|---|---|
+| `__main__.py` | Command line: builds `Settings`, the services and the app, then runs uvicorn on loopback |
+| `config.py` | `Settings` and default paths (`~/.flicks/`) |
+| `services.py` | Builds the long-lived objects (recommender, repositories, media library, couch manager) |
+| `api/app.py` | The host app: middleware, error handlers, routers, and the built interface |
+| `api/security.py` | The request guard shared by both apps (see [Security model](#security-model)) |
+| `api/routes/` | One router per area (library, assistant, playback, couch); routes stay thin |
+| `api/schemas.py` | Request bodies: strict types, no unknown fields; ranges are checked by the domain |
+| `api/guest.py`, `api/server.py` | The couch guest app and its lifecycle in a background thread |
+| `core.py` | Domain types (`Content`, `Session`), the TF-IDF taste model and the session reranker |
+| `db.py`, `repositories.py` | SQLite connections, migrations, ratings and watch history |
+| `media.py` | Maps local video files to catalogue titles |
+| `commands.py`, `intent.py` | Rule-based command parsing, with an optional local System One fallback |
+| `voice.py` | Optional on-device Whisper transcription with bounded audio decoding |
+| `couch.py`, `qr.py` | Couch-session rules (joining, hidden votes, results, player state) and the QR encoder |
+| `posters.py` | The one-time poster fetch and the read-only poster cache |
+| `systemone.py`, `tagging.py`, `distill.py` | System One client, catalogue tagging and the distilled student |
+
+`core.py`, `couch.py` and `repositories.py` contain no HTTP code, so they are tested directly.
+
+### Interface (`web/`)
+
+React 19 and TypeScript, built by Vite into `flicks/static/` with two entry points: the host app
+(`index.html`) and the couch phone page (`couch.html`).
+
+| Path | Responsibility |
+|---|---|
+| `src/api/` | Typed client and response types mirroring the Python API |
+| `src/host/App.tsx` | Owns the user's state (ratings, scene, open sheet, playback) and wires the screens |
+| `src/host/components/` | Hero, rails and tiles, scene bar, Ask bar, details sheet, browse grid, couch panel, player |
+| `src/host/hooks/` | Recommendations (debounced, aborting stale requests), history, couch host polling |
+| `src/host/commands/` | `CommandController`: the voice and command state machine, framework-free |
+| `src/host/library.ts`, `reasons.ts` | Shared title lookups and actions; plain-language reasons from score factors |
+| `src/guest/` | The couch phone app and its polling hook |
+| `src/lib/` | Formatting, polling that loads in background tabs, and the in-browser student model |
+
+Server responses that can arrive out of order are guarded: recommendation requests abort their
+predecessors, and couch polls that started before the user's own action are discarded.
+
+## Data model
+
+All personal data is in one SQLite file (default `~/.flicks/feedback.sqlite3`). Schema changes are
+numbered migrations tracked with `PRAGMA user_version`; see [ADR 0003](adr/0003-sqlite-migrations.md).
+
+| Table | Columns | Notes |
+|---|---|---|
+| `feedback` | `content_id`, `value` (1 or -1), `updated_at` | A missing row means no rating |
+| `watch_history` | `content_id`, `position_seconds`, `duration_seconds`, `completed`, `started_at`, `updated_at` | Finished at 90% watched; resumable from 30 s |
+
+The catalogue is a validated JSON file (`flicks/data/movies.json`), loaded once at startup.
+
+## Security model
+
+Everything here is enforced in code and covered by tests (`tests/test_flicks.py`, `test_couch.py`,
+`test_playback.py`).
+
+- **Loopback only.** The host app binds to `127.0.0.1` and answers only `Host: 127.0.0.1` or
+  `localhost`, which defeats DNS rebinding.
+- **No cross-site requests.** Any request carrying an `Origin` other than the app's own is refused.
+  State-changing requests must be JSON, which forces a CORS preflight that is never approved.
+- **Bounded input.** JSON bodies are capped at 8 KiB and audio at 5 MiB, including chunked uploads
+  without a `Content-Length`. Request bodies are validated with strict types and no unknown fields.
+- **Strict Content Security Policy.** Only the app's own scripts, styles, images and media load;
+  no inline scripts.
+- **No paths from requests.** Media and poster routes serve only files matched to a catalogue ID at
+  startup.
+- **Couch guests are isolated.** They use a separate server with its own routes, so ratings, history,
+  voice and commands are unreachable from the network. See [couch mode](couch.md).
+- **User text stays local.** Typed or spoken requests may only go to a System One model on this
+  machine. See [System One](system-one.md).
+
+The database is not encrypted, and any local OS user with access to the file can read it. Flicks is
+not designed to be exposed beyond the machine (for example through a tunnel).
+
+## Recommendation model
+
+### Taste (TF-IDF)
+
+Each title is represented by its genres (repeated 3 times), tags (2 times) and description, as
+lowercase alphanumeric tokens with a small stop-word list. For count c of term t in document d:
+
+```
+TF(t,d)  = 1 + ln(c)
+IDF(t)   = 1 + ln((N + 1) / (document_frequency(t) + 1))
+x_d      = L2_normalize(TF · IDF)
+p        = L2_normalize(Σ x_d over liked d)
+n        = L2_normalize(Σ x_d over disliked d)
+u        = L2_normalize(p − 0.7·n)
 taste(d) = (cosine(x_d, u) + 1) / 2
 ```
 
-Empty/cancelled profiles get neutral taste 0.5. The normalized positive and
-negative centroids mean the 0.7 negative weight controls direction independently
-of the number of dislikes. Dislike-only profiles still demote similar content.
-No popularity or collaborative signals are available in this fixture.
+With no ratings, taste is a neutral 0.5. Normalizing the positive and negative centroids separately
+means the 0.7 weight sets the direction regardless of how many titles were disliked.
 
-## Separate session decision layer
+### Session reranking
 
-First, exclude every rated item and every item exceeding the available minutes, and every item matching an excluded genre.
-Both comparison modes use identical hard constraints. Equality fits the limit.
-The session layer scores every remaining candidate (no approximate retrieval yet):
+Hard constraints come first and apply in both modes: rated titles, titles longer than the available
+time, and titles in an avoided genre are removed. The rest are scored:
 
 | Factor | Definition | Weight |
 |---|---|---:|
-| Taste | Baseline score above | 0.55 |
-| Mood | 1 if editorial mood matches, otherwise 0; Any gives 0.5 | 0.20 |
-| Intensity | 1 - abs(item intensity - requested intensity) | 0.15 |
-| Novelty | 1 - abs((1 - cosine(x_d,p)) - requested novelty) | 0.10 |
+| Taste | The taste score above | 0.55 |
+| Mood | 1 if the title has the requested mood, otherwise 0; "anything" gives 0.5 | 0.20 |
+| Intensity | 1 − \|title intensity − requested intensity\| | 0.15 |
+| Discovery | 1 − \|(1 − cosine(x_d, p)) − requested novelty\| | 0.10 |
 
-Without likes, novelty is neutral 0.5. Novelty measures theme distance from liked
-content, not whether a person has watched a film; these concepts must not be
-conflated. Weights are initial design choices, not learned or validated values.
-Results sort by total descending then stable content ID, returning at most 12.
-Taste-only mode ranks by taste alone. Scores are not probabilities, and absolute
-scores from the two modes are not directly comparable.
+Without likes, discovery is a neutral 0.5. Results are sorted by score, then by content ID for
+stability, and the top 12 are returned. The "taste only" lens ranks by taste alone. Scores are
+ranking signals in [0, 1], not probabilities, and the factors shown in the interface add up to the
+score exactly.
 
-Explanations list actual weighted contributions, positive/negative profile terms,
-mood annotations, editorial intensity, and the duration constraint. They are
-computed from the ranker, not generated prose. Display rounding can introduce a
-0.001 difference when manually adding the visible numbers.
+The weights are design choices, not learned values. Measuring whether they help is the subject of
+the [evaluation plan](evaluation.md).
 
-## Extension contracts
+### Extension points
 
-Inject `TasteModel.scores(feedback)` or `DecisionLayer.factors(content,taste,session)`
-into `Recommender`. A taste adapter supplies a mapping by stable content ID with
-`taste` in [0,1], `familiarity` in [0,1] or None, `evidence` terms and optional
-`negative_evidence`. A decision adapter returns named finite nonnegative weighted
-contributions summing to [0,1]. These are trusted in-process interfaces, not an
-untrusted model-output boundary. Add validation, deadlines, and heuristic fallback
-before connecting model outputs. Application-owned exclusions remain in place.
-
-A future Laya/Kev-like adapter should return bounded scores through that decision
-contract. No availability, license, accuracy, or hardware compatibility of any
-specific model is assumed or verified in this MVP. Benchmark before adoption.
-
-Whisper now transcribes speech locally; the bounded command interpreter maps
-transcripts to reviewed feedback/session operations. FunctionGemma could later
-replace this interpreter. Ambiguous titles currently produce no action. Eye-tracking context should be an opt-in provider with timestamps,
-confidence, expiry, and manual override; it must not silently replace user choices.
-Cross-domain content can reuse Content IDs/kind but needs domain-specific features,
-runtime conventions, and evaluation. Voice input is implemented; eye tracking is not.
+`Recommender` accepts any `TasteModel` (`scores(feedback)`) and any `DecisionLayer`
+(`factors(content, taste, session)`). A decision layer must return finite, non-negative weighted
+factors that sum to [0, 1]. `TaggedDecision` (System One tags) is one such layer. Hard constraints
+stay in the application and cannot be overridden by a model.
 
 ## API
 
-- `GET /api/state`: catalogue and saved feedback.
-- `POST /api/feedback`: `{"id":"m001","value":1}`; 1 like, -1 dislike, 0 clear.
-- `POST /api/recommend`: `{"session":{"mood":"curious","minutes":120,
-  "intensity":0.5,"novelty":0.3},"mode":"session"}`; mode may be `baseline`.
+All responses are JSON unless noted. Errors have the shape `{"error": "<message>"}`.
 
-Session omissions use defaults; unknown fields/IDs and invalid values return 400.
-Requests must use JSON, at most 8192 bytes. Storage failures return 503.
+### Host app (`127.0.0.1:8765`)
 
-Voice endpoints: `POST /api/transcribe` accepts raw audio (maximum 5 MiB / 30 seconds).
-`POST /api/command/preview` and `/api/command/apply` accept `text` and the current
-`session`. Preview has no side effects. Apply reparses the text and updates only
-recognized settings or a validated title rating. See docs/voice.md for examples.
+| Method and path | Purpose |
+|---|---|
+| `GET /api/state` | Catalogue, ratings, voice status, posters, playable media, and whether couch mode is on |
+| `POST /api/feedback` | `{"id": "m001", "value": 1}`: 1 like, -1 pass, 0 clear |
+| `POST /api/recommend` | `{"session": {...}, "mode": "session" \| "baseline"}`; omitted fields use defaults |
+| `POST /api/command/preview` | `{"text": "...", "session": {...}}`: what a request would change; no side effects |
+| `POST /api/command/apply` | Same body; re-parses the text and applies it |
+| `POST /api/transcribe` | Raw audio (≤ 5 MiB, ≤ 30 s) → transcript |
+| `GET /api/history` | Watch progress, most recent first |
+| `PUT /api/history/{id}` | `{"position_seconds": 120.5, "duration_seconds": 840}` |
+| `DELETE /api/history/{id}` | Forget progress for a title |
+| `GET /media/{id}` | Stream a matched video file; supports `Range` (206) and `HEAD` |
+| `GET /posters/{id}` | A cached poster image |
+| `GET /api/couch`, `GET /api/couch/qr.svg` | Couch session view and QR code (with `--couch`) |
+| `POST /api/couch/start`, `stop`, `reveal`, `player` | Couch session controls (with `--couch`) |
+
+A session is `{"mood", "minutes", "intensity", "novelty", "excluded_genres"}`. Moods are `any`,
+`relaxing`, `uplifting`, `curious`, `tense` and `reflective`; minutes are 1–600; intensity and novelty
+are 0–1.
+
+### Couch guest app (home network, during a session)
+
+`GET /join` (the phone page), `GET /posters/{id}` (shortlisted titles only), `GET /api/couch/state`,
+and `POST /api/couch/join`, `vote` and `remote`. Requests after joining carry the guest token in an
+`X-Flicks-Guest` header.
+
+### Status codes
+
+| Code | Meaning |
+|---|---|
+| 400 | Invalid request body or values |
+| 401 | Missing or wrong guest token (couch) |
+| 403 | Wrong `Host` or a cross-site `Origin` |
+| 404 | Unknown route, title, poster or media file |
+| 409 | Voice is busy with another transcription |
+| 410 | The couch session has ended |
+| 413 | Request body too large |
+| 415 | Wrong content type |
+| 416 | Requested byte range is outside the file |
+| 503 | Storage or voice unavailable, or the interface is not built |

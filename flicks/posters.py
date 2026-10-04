@@ -17,9 +17,9 @@ import ssl
 import time
 from urllib import error, parse, request
 
+from .config import DEFAULT_POSTERS as DEFAULT_DIR
 from .core import load_catalog
 
-DEFAULT_DIR = Path.home()/'.flicks'/'posters'
 API = 'https://en.wikipedia.org/w/api.php'
 USER_AGENT = 'Flicks/0.3 (SYSC 4907 student project; https://github.com/KaelPWLascelle/SYSC4907)'
 MAX_BYTES = 3 * 1024 * 1024

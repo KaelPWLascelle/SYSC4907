@@ -5,13 +5,10 @@ from pathlib import Path
 PACKAGE = Path(__file__).parent
 DEFAULT_CATALOG = PACKAGE/'data'/'movies.json'
 DEFAULT_STATIC = PACKAGE/'static'
+# Per-user data lives here: ratings and watch history, and the poster cache.
 HOME = Path.home()/'.flicks'
-
-
-def default_db():
-    """~/.flicks/feedback.sqlite3, or the pre-rebrand ~/.kevin file when only that exists, so ratings carry over."""
-    current, legacy = Path.home()/'.flicks'/'feedback.sqlite3', Path.home()/'.kevin'/'feedback.sqlite3'
-    return legacy if legacy.exists() and not current.exists() else current
+DEFAULT_DB = HOME/'feedback.sqlite3'
+DEFAULT_POSTERS = HOME/'posters'
 
 
 @dataclass(frozen=True)

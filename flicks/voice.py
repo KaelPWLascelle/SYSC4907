@@ -64,7 +64,7 @@ class LocalWhisper:
         elif not all((self.path/name).is_file() for name in ('model.bin', 'config.json', 'tokenizer.json')):
             reason = 'The local Whisper model is missing or incomplete. Run the setup in docs/voice.md.'
         elif importlib.util.find_spec('faster_whisper') is None:
-            reason = 'Install requirements-voice.txt in your Python environment to enable voice.'
+            reason = 'Voice needs its optional dependencies: pip install -e ".[voice]" (see docs/voice.md).'
         return {'available': reason is None, 'message': reason or 'Local Whisper ready · English · up to 30 seconds',
                 'engine': 'faster-whisper', 'model': self.path.name if self.path else None,
                 'loaded': self._model is not None, 'max_seconds': MAX_AUDIO_SECONDS, 'max_bytes': MAX_AUDIO_BYTES}
@@ -83,7 +83,7 @@ class LocalWhisper:
                 audio = decode_audio(data)
                 from faster_whisper import WhisperModel
             except ImportError as error:
-                raise VoiceUnavailable('Voice dependencies are incomplete. Reinstall requirements-voice.txt.') from error
+                raise VoiceUnavailable('Voice dependencies are incomplete. Reinstall them: pip install -e ".[voice]".') from error
             if self._model is None:
                 try:
                     self._model = WhisperModel(str(self.path), device='cpu', compute_type='int8',

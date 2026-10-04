@@ -5,8 +5,7 @@ from pathlib import Path
 import uvicorn
 
 from .api.app import create_app
-from .config import DEFAULT_CATALOG, Settings, default_db
-from .posters import DEFAULT_DIR as POSTER_DIR
+from .config import DEFAULT_CATALOG, DEFAULT_DB, DEFAULT_POSTERS, Settings
 from .services import build_services
 from .systemone import DecisionClient, HttpBackend, LexicalBackend
 from .voice import LocalWhisper
@@ -17,11 +16,11 @@ VITE_DEV_ORIGINS = ('http://localhost:5173', 'http://127.0.0.1:5173')
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(prog='flicks', description='Flicks: local-first movie recommendations and playback')
     parser.add_argument('--catalog', type=Path, default=DEFAULT_CATALOG)
-    parser.add_argument('--db', type=Path, default=default_db(), help='Ratings and watch history (default ~/.flicks/feedback.sqlite3)')
+    parser.add_argument('--db', type=Path, default=DEFAULT_DB, help=f'Ratings and watch history (default {DEFAULT_DB})')
     parser.add_argument('--port', type=int, default=8765)
     parser.add_argument('--media', type=Path, action='append', default=[], metavar='DIR',
                         help='Folder of video files to play; repeatable. Name files "Title (Year).mp4" or by content ID')
-    parser.add_argument('--posters', type=Path, default=POSTER_DIR, help=f'Local poster cache from python -m flicks.posters (default {POSTER_DIR})')
+    parser.add_argument('--posters', type=Path, default=DEFAULT_POSTERS, help=f'Local poster cache from python -m flicks.posters (default {DEFAULT_POSTERS})')
     parser.add_argument('--voice-model', type=Path, help='Local faster-whisper model directory; no runtime downloads')
     parser.add_argument('--tags', type=Path, help='System One tag file from python -m flicks.tagging (soft mood/intensity)')
     parser.add_argument('--system-one-url', help='Local System One server for free-text commands, e.g. http://127.0.0.1:8000 (laya-serve), or "lexical" for the offline stand-in')

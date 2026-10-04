@@ -8,7 +8,7 @@ from pathlib import Path
 import sqlite3
 
 MIGRATIONS = (
-    # 1: the MVP's ratings table, unchanged, so existing databases adopt it as-is.
+    # 1: ratings. IF NOT EXISTS lets databases created before migrations existed adopt it as-is.
     """
     CREATE TABLE IF NOT EXISTS feedback (
         content_id TEXT PRIMARY KEY,
