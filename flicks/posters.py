@@ -13,15 +13,14 @@ import argparse
 from datetime import datetime, timezone
 import json
 from pathlib import Path
-import ssl
 import time
-from urllib import error, parse, request
+from urllib import error, parse
 
 from .config import DEFAULT_POSTERS as DEFAULT_DIR
 from .core import load_catalog
+from .net import get as _get
 
 API = 'https://en.wikipedia.org/w/api.php'
-USER_AGENT = 'Flicks/0.3 (SYSC 4907 student project; https://github.com/KaelPWLascelle/SYSC4907)'
 MAX_BYTES = 3 * 1024 * 1024
 TYPES = {'.jpg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp'}
 
@@ -61,24 +60,6 @@ class PosterLibrary:
         if name is None:
             return None
         return (self.directory/name).read_bytes(), TYPES[Path(name).suffix]
-
-
-def _ssl_context():
-    """Verified TLS. python.org's macOS Python has no CA bundle until its Install Certificates step,
-    so fall back to the operating system's bundle rather than ever skipping verification."""
-    context = ssl.create_default_context()
-    if not context.get_ca_certs() and Path('/etc/ssl/cert.pem').is_file():
-        context.load_verify_locations('/etc/ssl/cert.pem')
-    return context
-
-
-def _get(url, limit, context=None):
-    req = request.Request(url, headers={'User-Agent': USER_AGENT, 'Accept': '*/*'})
-    with request.urlopen(req, timeout=20, context=context or _ssl_context()) as reply:
-        data = reply.read(limit + 1)
-    if len(data) > limit:
-        raise ValueError('response too large')
-    return data
 
 
 def candidates(item):

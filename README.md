@@ -53,6 +53,22 @@ of the same name), or by content ID (`m033.webm`). MP4 (H.264/AAC) and WebM play
 MKV and MOV may not, and Flicks says so instead of failing silently. Public-domain films such as
 *A Trip to the Moon*, *Sherlock Jr.* and *The General* make good demo material.
 
+### Use the MovieLens catalogue (about 9,700 films)
+
+Flicks ships with a small hand-curated catalogue of 36 films. To browse and get recommendations from
+the MovieLens "latest-small" dataset instead:
+
+```sh
+.venv/bin/python -m flicks.datasets.movielens
+.venv/bin/flicks --catalog ~/.flicks/catalogs/movielens-small.json --db ~/.flicks/movielens.sqlite3
+```
+
+The importer downloads MovieLens from GroupLens (verified against its published checksum) and adds
+runtimes and short descriptions from Wikidata and Wikipedia, matched by IMDb ID. Only public film
+identifiers are sent. It takes several minutes the first time and is cached after that. Moods and
+intensity are estimated from genres. MovieLens is for non-commercial research use and must be cited
+(Harper & Konstan, 2015); see [the catalogue guide](flicks/data/README.md#movielens).
+
 ### Add posters (optional)
 
 ```sh
