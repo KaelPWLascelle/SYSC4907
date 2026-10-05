@@ -69,6 +69,8 @@ export interface Recommendation {
   negative_evidence: string[];
   /** Liked titles whose fans also liked this one (collaborative filtering), strongest first. */
   because: string[];
+  /** Widely liked in public ratings, and that popularity supplied at least half of the taste score. */
+  popular: boolean;
   familiarity: number | null;
 }
 

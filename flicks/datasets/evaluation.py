@@ -14,9 +14,9 @@ Protocol (docs/evaluation.md):
   and every reported number comes from the test half.
 - Each model is also evaluated as a new user would be, with only 3 or 10 of the user's likes. The
   blend is tuned for the mean over these profile sizes, because Flicks' own users start with few.
+- The popularity prior's strength is then tuned the same way, on top of the chosen blend.
 """
 import argparse
-from collections import Counter
 from dataclasses import dataclass, replace
 import hashlib
 import json
@@ -25,17 +25,18 @@ from pathlib import Path
 import random
 import statistics
 
-from ..collaborative import CollaborativeTaste, ItemNeighbours, blend
+from ..collaborative import CollaborativeTaste, ItemNeighbours, blend, popularity_scores, with_prior
 from ..config import HOME
 from ..core import TfidfTaste, load_catalog
 from . import neighbours as neighbour_builder
 
-LIKE, DISLIKE = 4.0, 2.0
+LIKE, DISLIKE = neighbour_builder.LIKE, 2.0
 MIN_LIKES = 5
 CUTOFF = 10
 SAMPLED_NEGATIVES = 100
 SEED = 4907
 BLEND_GRID = (0.25, 0.5, 1.0, 2.0, 4.0, 8.0, 16.0, 32.0)
+PRIOR_GRID = (0.125, 0.25, 0.5, 1.0, 2.0, 4.0, 8.0, 16.0)
 PROFILE_SIZES = (3, 10, None)  # None: the user's full history
 
 
@@ -126,7 +127,8 @@ def run(catalog_path, ratings_path, log=print):
     log(f'{len(development)} development and {len(test)} test users; rebuilding neighbours without held-out ratings')
     neighbours = ItemNeighbours(neighbour_builder.build(training, ids))
     content_model, collaborative = TfidfTaste(catalog), CollaborativeTaste(neighbours)
-    popularity = Counter(r.item for r in training if r.value >= LIKE)
+    popularity = neighbour_builder.popularity(training, ids)
+    prior = popularity_scores(popularity)
     cache = {}
 
     def parts(case):
@@ -143,16 +145,27 @@ def run(catalog_path, ratings_path, log=print):
     def hybrid(strength):
         return lambda case: {item: s['taste'] for item, s in blend(*parts(case), strength).items()}
 
-    # Tune for the users Flicks expects (new ones with a few likes, and established ones): the blend
-    # strength with the best mean NDCG@10 over every profile size, on development users only.
+    def hybrid_with_prior(strength, prior_strength):
+        return lambda case: {item: s['taste'] for item, s in
+                             with_prior(blend(*parts(case), strength), prior, case.feedback, prior_strength).items()}
+
+    def tune(grid, model):
+        """{value: mean NDCG@10 over every profile size} on development users, and the best value."""
+        tuning = {}
+        for value in grid:
+            per_size = [evaluate([truncate(c, size) for c in development], model(value), ids)['ndcg_at_10']
+                        for size in PROFILE_SIZES]
+            tuning[value] = round(statistics.mean(per_size), 4)
+        return tuning, max(grid, key=lambda value: (tuning[value], -value))
+
+    # Tune for the users Flicks expects (new ones with a few likes, and established ones): the strength
+    # with the best mean NDCG@10 over every profile size, on development users only.
     log('Choosing the blend strength on development users')
-    tuning = {}
-    for strength in BLEND_GRID:
-        per_size = [evaluate([truncate(c, size) for c in development], hybrid(strength), ids)['ndcg_at_10']
-                    for size in PROFILE_SIZES]
-        tuning[strength] = round(statistics.mean(per_size), 4)
-    best = max(BLEND_GRID, key=lambda strength: (tuning[strength], -strength))
+    tuning, best = tune(BLEND_GRID, hybrid)
     log(f'  mean NDCG@10 by strength: {tuning} -> {best}')
+    log('Choosing the popularity prior strength on development users')
+    prior_tuning, best_prior = tune(PRIOR_GRID, lambda value: hybrid_with_prior(best, value))
+    log(f'  mean NDCG@10 by strength: {prior_tuning} -> {best_prior}')
 
     models = {
         'random': random_scores,
@@ -160,6 +173,7 @@ def run(catalog_path, ratings_path, log=print):
         'content (TF-IDF)': lambda case: {item: s['taste'] for item, s in parts(case)[0].items()},
         'collaborative (item-item)': lambda case: {item: p * support for item, (p, support, _) in parts(case)[1].items()},
         f'hybrid (blend {best})': hybrid(best),
+        f'hybrid + popularity prior ({best_prior})': hybrid_with_prior(best, best_prior),
     }
     results = {}
     for size in PROFILE_SIZES:
@@ -169,7 +183,9 @@ def run(catalog_path, ratings_path, log=print):
     return {'protocol': {'like': LIKE, 'dislike': DISLIKE, 'min_likes': MIN_LIKES, 'cutoff': CUTOFF,
                          'sampled_negatives': SAMPLED_NEGATIVES, 'seed': SEED, 'profile_sizes': [_label(s) for s in PROFILE_SIZES],
                          'development_users': len(development), 'test_users': len(test)},
-            'blend_tuning_mean_ndcg_at_10': {str(k): v for k, v in tuning.items()}, 'blend': best, 'results': results}
+            'blend_tuning_mean_ndcg_at_10': {str(k): v for k, v in tuning.items()}, 'blend': best,
+            'prior_tuning_mean_ndcg_at_10': {str(k): v for k, v in prior_tuning.items()}, 'prior': best_prior,
+            'results': results}
 
 
 def main(argv=None):
@@ -181,10 +197,10 @@ def main(argv=None):
     report = run(args.catalog, args.ratings)
     for profile, rows in report['results'].items():
         print(f"\nTest users, {profile}")
-        print(f"{'Model':<28} {'HR@10':>14} {'NDCG@10':>8} {'HR@10 (sampled)':>16}")
+        print(f"{'Model':<36} {'HR@10':>14} {'NDCG@10':>8} {'HR@10 (sampled)':>16}")
         for name, r in rows.items():
             hit = f"{r['hit_rate_at_10']:.3f} ± {r['hit_rate_ci95']:.3f}"
-            print(f"{name:<28} {hit:>14} {r['ndcg_at_10']:>8.3f} {r['sampled_hit_rate_at_10']:>16.3f}")
+            print(f"{name:<36} {hit:>14} {r['ndcg_at_10']:>8.3f} {r['sampled_hit_rate_at_10']:>16.3f}")
     if args.out:
         args.out.parent.mkdir(parents=True, exist_ok=True)
         args.out.write_text(json.dumps(report, indent=1) + '\n', encoding='utf-8')

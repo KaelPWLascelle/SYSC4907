@@ -13,3 +13,4 @@ is immutable once accepted; a later record supersedes it rather than editing it.
 | [0006](0006-installable-app.md) | Installable web app (manifest), no service worker | Accepted |
 | [0007](0007-catalogue-artifact.md) | The catalogue is a read-only build artifact, searched in memory | Accepted · amends 0003 |
 | [0008](0008-collaborative-filtering.md) | Item-to-item collaborative filtering, precomputed from public ratings | Accepted |
+| [0009](0009-popularity-prior.md) | New users start from a popularity prior that gives way as they rate | Accepted |

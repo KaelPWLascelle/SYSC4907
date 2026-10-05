@@ -2,7 +2,7 @@
 from dataclasses import dataclass
 
 from .api.guest import CouchManager
-from .collaborative import HybridTaste, ItemNeighbours
+from .collaborative import HybridTaste, ItemNeighbours, PopularityPrior
 from .commands import CommandInterpreter
 from .core import Recommender, TfidfTaste, load_catalog
 from .db import Database
@@ -30,6 +30,7 @@ class Services:
     couch: CouchManager | None
     tagged: bool
     collaborative: bool
+    popularity_prior: bool
 
 
 def build_services(settings, *, speech=None, system_one=None):
@@ -38,9 +39,14 @@ def build_services(settings, *, speech=None, system_one=None):
     ids = frozenset(item.id for item in catalog)
     decision = TaggedDecision(load_tags(settings.tags, catalog)) if settings.tags else None
     taste = TfidfTaste(catalog)
+    collaborative = prior = False
     if settings.neighbours:
         neighbours = ItemNeighbours.load(settings.neighbours, ids)
         taste = HybridTaste(taste, neighbours, {item.id: item.title for item in catalog})
+        collaborative = True
+        if neighbours.popularity:
+            taste = PopularityPrior(taste, neighbours.popularity)
+            prior = True
     database = Database(settings.db)
     posters = PosterLibrary(settings.poster_dir, ids) if settings.poster_dir else None
     couch = CouchManager(settings.couch_host, settings.couch_port, posters=posters,
@@ -56,5 +62,6 @@ def build_services(settings, *, speech=None, system_one=None):
         media=MediaLibrary(settings.media_dirs, catalog),
         couch=couch,
         tagged=decision is not None,
-        collaborative=isinstance(taste, HybridTaste),
+        collaborative=collaborative,
+        popularity_prior=prior,
     )
