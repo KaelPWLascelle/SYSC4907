@@ -23,6 +23,7 @@ def state(svc: Services = Depends(services)):
         'voice': svc.speech.status(),
         'assistant': svc.interpreter.name,
         'tagged': svc.tagged,
+        'collaborative': svc.collaborative,
         'couch': svc.couch is not None,
         'posters': svc.posters.ids() if svc.posters else [],
         'media': [{'id': f.content_id, 'direct_play': f.direct_play} for f in svc.media.files.values()],

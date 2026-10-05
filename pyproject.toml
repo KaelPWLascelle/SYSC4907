@@ -16,8 +16,11 @@ dependencies = [
 
 [project.optional-dependencies]
 voice = ["faster-whisper==1.2.1"]
+# Build-time only: precomputing collaborative-filtering neighbours and evaluating recommenders.
+datasets = ["numpy>=1.26"]
 dev = [
     "httpx2",       # starlette's TestClient transport
+    "numpy>=1.26",  # the datasets extra, so its tests run in CI
     "pytest>=8",
     "ruff>=0.16",
 ]

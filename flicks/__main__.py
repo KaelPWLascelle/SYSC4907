@@ -22,6 +22,7 @@ def parse_args(argv=None):
                         help='Folder of video files to play; repeatable. Name files "Title (Year).mp4" or by content ID')
     parser.add_argument('--posters', type=Path, default=DEFAULT_POSTERS, help=f'Local poster cache from python -m flicks.posters (default {DEFAULT_POSTERS})')
     parser.add_argument('--voice-model', type=Path, help='Local faster-whisper model directory; no runtime downloads')
+    parser.add_argument('--neighbours', type=Path, help='Collaborative-filtering neighbours (default: <catalog>.neighbours.json when present)')
     parser.add_argument('--tags', type=Path, help='System One tag file from python -m flicks.tagging (soft mood/intensity)')
     parser.add_argument('--system-one-url', help='Local System One server for free-text commands, e.g. http://127.0.0.1:8000 (laya-serve), or "lexical" for the offline stand-in')
     parser.add_argument('--couch', action='store_true', help='Allow couch sessions: phones on your Wi-Fi join by QR code to vote and use a remote')
@@ -31,10 +32,17 @@ def parse_args(argv=None):
     return parser.parse_args(argv)
 
 
+def _sidecar(catalog):
+    """An imported catalogue's neighbours file, if it was built (python -m flicks.datasets.neighbours)."""
+    path = catalog.with_suffix('.neighbours.json')
+    return path if path.is_file() else None
+
+
 def main(argv=None):
     args = parse_args(argv)
     settings = Settings(db=args.db, catalog=args.catalog, port=args.port, poster_dir=args.posters,
-                        media_dirs=tuple(args.media), tags=args.tags, couch=args.couch, couch_host=args.couch_host,
+                        media_dirs=tuple(args.media), tags=args.tags, neighbours=args.neighbours or _sidecar(args.catalog),
+                        couch=args.couch, couch_host=args.couch_host,
                         couch_port=args.couch_port, extra_origins=VITE_DEV_ORIGINS if args.dev else ())
     if args.system_one_url == 'lexical':  # offline demo of the fallback path; not a model
         system_one = DecisionClient(LexicalBackend())
@@ -43,7 +51,9 @@ def main(argv=None):
     services = build_services(settings, speech=LocalWhisper(args.voice_model), system_one=system_one)
     if services.media.unmatched:
         print(f'Media: {len(services.media.unmatched)} file(s) did not match a catalogue title, e.g. {services.media.unmatched[0].name}')
-    print(f'Flicks: http://127.0.0.1:{settings.port} · ratings: {settings.db} · playable titles: {len(services.media.files)}', flush=True)
+    mode = 'content + collaborative' if services.collaborative else 'content'
+    print(f'Flicks: http://127.0.0.1:{settings.port} · ratings: {settings.db} · {mode} recommendations · '
+          f'playable titles: {len(services.media.files)}', flush=True)
     try:
         uvicorn.run(create_app(settings, services), host='127.0.0.1', port=settings.port, log_level='warning')
     finally:

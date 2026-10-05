@@ -81,6 +81,11 @@
   background: rgba(245, 196, 81, 0.1);
   border: 1px solid rgba(245, 196, 81, 0.28);
   color: #f7dc9b;
+  /* Long film titles truncate; the full text is in the details sheet. */
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .hero-actions {
   display: flex;

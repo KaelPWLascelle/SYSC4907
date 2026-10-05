@@ -45,6 +45,8 @@ export interface AppState {
   voice: VoiceStatus;
   assistant: string;
   tagged: boolean;
+  /** Recommendations also use public ratings (item-to-item collaborative filtering). */
+  collaborative: boolean;
   couch: boolean;
   posters: string[];
   media: MediaEntry[];
@@ -65,6 +67,8 @@ export interface Recommendation {
   factors: Record<string, number>;
   evidence: string[];
   negative_evidence: string[];
+  /** Liked titles whose fans also liked this one (collaborative filtering), strongest first. */
+  because: string[];
   familiarity: number | null;
 }
 

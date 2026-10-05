@@ -26,6 +26,7 @@ export const appState = (over: Partial<AppState> = {}): AppState => ({
   voice: { available: false, message: 'Voice is not configured.', max_bytes: 5_242_880, max_seconds: 30 },
   assistant: 'Local command rules',
   tagged: false,
+  collaborative: false,
   couch: false,
   posters: [],
   media: [{ id: 'm1', direct_play: true }],
@@ -38,5 +39,6 @@ export const pick = (item: Content, score = 0.6): Recommendation => ({
   factors: { taste: score - 0.3, mood: 0.2, intensity: 0.05, novelty: 0.05 },
   evidence: ['quiet'],
   negative_evidence: [],
+  because: [],
   familiarity: null,
 });
