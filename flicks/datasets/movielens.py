@@ -18,6 +18,7 @@ import csv
 from dataclasses import dataclass
 from datetime import datetime, timezone
 import hashlib
+import importlib.util
 import io
 import json
 from pathlib import Path
@@ -28,7 +29,7 @@ from .. import net
 from ..config import HOME
 from ..core import load_catalog
 from . import genres as genre_rules
-from . import wikimedia
+from . import neighbours, wikimedia
 
 DATASET = 'ml-latest-small'
 ARCHIVE_URL = f'https://files.grouplens.org/datasets/movielens/{DATASET}.zip'
@@ -227,7 +228,22 @@ def import_movielens(out: Path = DEFAULT_OUT, cache: Path = DEFAULT_CACHE, log=p
         'ratings': str(folder/'ratings.csv'),
     }
     _save(out.with_suffix('.provenance.json'), provenance)
+    provenance['neighbours'] = _build_neighbours(out, folder/'ratings.csv', {row['id'] for row in rows}, log)
     return provenance
+
+
+def _build_neighbours(catalogue: Path, ratings: Path, catalogue_ids, log):
+    """Collaborative-filtering neighbours next to the catalogue, when NumPy (the datasets extra) is installed."""
+    if importlib.util.find_spec('numpy') is None:
+        log('Skipping collaborative filtering: pip install -e ".[datasets]" and re-run to add it')
+        return None
+    built = neighbours.build(neighbours.read_ratings(ratings), catalogue_ids)
+    if not built:
+        return None
+    path = neighbours.sidecar(catalogue)
+    neighbours.write(built, path, str(ratings), catalogue_ids)
+    log(f'Collaborative filtering: {len(built)} titles have neighbours -> {path}')
+    return str(path)
 
 
 def main(argv=None):

@@ -9,8 +9,8 @@ measured yet (whether the recommendations are good), and sets out how to measure
 
 | Suite | Count | Covers |
 |---|---:|---|
-| Backend (`pytest`) | 123 | Ranking and explanations, hard constraints, validation, migrations, the request guard, range-request streaming, watch history, posters, couch rules and the guest server over a real socket, command parsing, System One validation, catalogue search, and the MovieLens importer (offline fixtures) |
-| Interface (Vitest) | 40 | The voice and command state machine (cancellation, stale results, permissions), couch phone flows, the player, the couch panel, server-side browsing, and the main screens |
+| Backend (`pytest`) | 135 | Ranking and explanations, hard constraints, validation, migrations, the request guard, range-request streaming, watch history, posters, couch rules and the guest server over a real socket, command parsing, System One validation, catalogue search, the MovieLens importer (offline fixtures), and collaborative filtering (neighbour build, predictions, blend, leakage-free evaluation split) |
+| Interface (Vitest) | 41 | The voice and command state machine (cancellation, stale results, permissions), couch phone flows, the player, the couch panel, server-side browsing, and the main screens |
 
 Regression tests for bugs found during manual testing (a stale poll overwriting a vote, a background
 tab not loading the couch session) were each checked to fail with the bug reintroduced. CI runs the
@@ -76,6 +76,70 @@ and *Space Buddies*. TF-IDF matches shared words in the descriptions ("star", "w
 what people who liked those films go on to enjoy. This is the case for adding collaborative
 filtering from MovieLens ratings, and for evaluating it against held-out ratings.
 
+## Recommendation quality on MovieLens
+
+`python -m flicks.datasets.evaluation` (2026-10-05) measures how well each model finds a film a user
+actually liked, using held-out MovieLens ratings:
+
+- **Who is evaluated:** 603 MovieLens
+  users with at least 5 liked catalogue films (rating ≥ 4.0).
+- **What is held out:** one liked film per user, chosen with a fixed seed. Ratings ≥ 4 become likes
+  and ≤ 2 become passes; anything in between is ignored, since Flicks has no neutral rating.
+- **What is measured:** each model ranks every catalogue film the user has not rated. **HR@10** is
+  how often the held-out film lands in the top 10; **NDCG@10** also rewards a higher position.
+- **No leakage:** neighbours are rebuilt from the ratings minus every held-out rating.
+- **Development and test users:** users are split in half by a hash of their ID. The blend strength
+  is chosen on the development half only; every number below is from the test half.
+- **New users too:** each model is also evaluated with only 3 or 10 of a user's likes, because
+  Flicks' own users start with few. The blend is tuned for the mean over these profile sizes
+  (mean NDCG@10 by strength: 0.25: 0.0480, 0.5: 0.0496, 1.0: 0.0514, 2.0: 0.0530, 4.0: 0.0516, 8.0: 0.0450, 16.0: 0.0359, 32.0: 0.0287; chosen: 2.0).
+- **Sampled HR@10** ranks the held-out film among 100 random unrated films. It is common in the
+  literature but optimistic (Krichene & Rendle, 2020), so the full-catalogue figures are the ones
+  to quote.
+
+**Test users, 3 likes** (323 users)
+
+| Model | HR@10 (95% CI) | NDCG@10 | HR@10, sampled |
+|---|---:|---:|---:|
+| random | 0.000 ± 0.000 | 0.000 | 0.074 |
+| popularity | 0.127 ± 0.036 | 0.072 | 0.771 |
+| content (TF-IDF) | 0.015 ± 0.013 | 0.010 | 0.257 |
+| collaborative (item-item) | 0.043 ± 0.022 | 0.018 | 0.158 |
+| **hybrid (blend 2.0)** | **0.050 ± 0.024** | **0.026** | 0.359 |
+
+**Test users, 10 likes** (323 users)
+
+| Model | HR@10 (95% CI) | NDCG@10 | HR@10, sampled |
+|---|---:|---:|---:|
+| random | 0.000 ± 0.000 | 0.000 | 0.074 |
+| popularity | 0.127 ± 0.036 | 0.072 | 0.771 |
+| content (TF-IDF) | 0.031 ± 0.019 | 0.026 | 0.313 |
+| collaborative (item-item) | 0.084 ± 0.030 | 0.045 | 0.406 |
+| **hybrid (blend 2.0)** | **0.102 ± 0.033** | **0.059** | 0.564 |
+
+**Test users, full history** (323 users)
+
+| Model | HR@10 (95% CI) | NDCG@10 | HR@10, sampled |
+|---|---:|---:|---:|
+| random | 0.000 ± 0.000 | 0.000 | 0.074 |
+| popularity | 0.127 ± 0.036 | 0.072 | 0.771 |
+| content (TF-IDF) | 0.025 ± 0.017 | 0.020 | 0.353 |
+| collaborative (item-item) | 0.099 ± 0.033 | 0.054 | 0.650 |
+| **hybrid (blend 2.0)** | **0.105 ± 0.034** | **0.054** | 0.681 |
+
+**Reading the results.**
+- **Collaborative filtering roughly triples or quadruples quality.** At every profile size, the
+  hybrid is 3–4× better than the content model alone: HR@10 0.105 against 0.025 with full histories,
+  and 0.050 against 0.015 for a new user with 3 likes.
+- **Popularity is still the strongest single baseline,** as is common on MovieLens: held-out liked
+  films skew popular. For users with 10 or more likes the hybrid is within the margin of error of
+  popularity; for new users popularity is clearly ahead. A popularity prior for users with few
+  ratings is the next step. Popularity alone is not personal, since everyone gets the same list.
+- **On the proposal's "hit rate above 70%" target:** on the sampled protocol the hybrid reaches
+  0.68 with full histories and popularity 0.77. On the full catalogue, the stricter and more honest
+  measure, no model is near 70%. The target needs to be stated with a protocol before it can be
+  claimed.
+
 ## Speech recognition smoke test
 
 English speech generated with macOS's `say`, transcribed offline (`HF_HUB_OFFLINE=1`) with
@@ -99,9 +163,8 @@ samples do not establish an accuracy rate.
 - **TF-IDF captures word overlap, not meaning.** Disliking one film can suppress a whole shared
   genre (disliking *Alien* also pushes down other science fiction).
 - **The weights are not learned or tuned,** and scores are not calibrated confidences.
-- **No relevance judgments exist yet,** so no honest precision, recall or NDCG figure can be
-  reported. The proposal's target of a hit rate above 70% has **not** been demonstrated.
-- **Collaborative filtering is not implemented.** It is planned using public data (see below).
+- **Offline measures are proxies.** Held-out MovieLens ratings show which model finds films people
+  liked, not whether Flicks' users are happier with their picks; that still needs the user study below.
 
 ## Evaluation plan
 
@@ -115,9 +178,8 @@ samples do not establish an accuracy rate.
    candidates. Measure the preferred list, time to choose, precision@5, NDCG@5 (graded), coverage
    and constraint violations. Report participant counts and uncertainty.
 4. **Tuning.** Tune weights on development participants only and report final results on others.
-5. **Model comparisons.** Only then compare TF-IDF with local embeddings, item-to-item collaborative
-   filtering precomputed from public ratings, and System One tags, within latency, memory and privacy
-   limits.
+5. **Model comparisons.** Done offline for content, collaborative and hybrid models (above). Next:
+   a popularity prior for new users, local embeddings, and System One tags, with the same protocol.
 6. **Speech.** Collect consented recordings from the team (varied voices, accents and noise). Measure
    word error rate, exact command match, rejection rate and latency. Keep recordings out of git.
 

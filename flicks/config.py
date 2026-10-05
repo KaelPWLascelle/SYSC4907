@@ -20,6 +20,8 @@ class Settings:
     poster_dir: Path | None = None
     media_dirs: tuple[Path, ...] = ()
     tags: Path | None = None
+    # Item-to-item neighbours for collaborative filtering (flicks.datasets.neighbours); None: content only.
+    neighbours: Path | None = None
     couch: bool = False
     couch_host: str | None = None
     couch_port: int = 8770

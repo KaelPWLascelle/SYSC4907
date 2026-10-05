@@ -179,5 +179,5 @@ class Recommender:
             taste = {**scores[key], **explained.get(key, {})}
             result.append(dict(content=asdict(item), score=-negative_score, factors=factors,
                                evidence=taste.get('evidence', []), negative_evidence=taste.get('negative_evidence', []),
-                               familiarity=taste['familiarity']))
+                               because=taste.get('because', []), familiarity=taste['familiarity']))
         return result

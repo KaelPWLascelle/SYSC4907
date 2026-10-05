@@ -123,6 +123,8 @@ export function DetailsSheet({ item, picks, session, onClose }: DetailsSheetProp
                 </div>
                 <p className="fine">
                   Scores are ranking signals, not probabilities.
+                  {pick.because.length > 0 &&
+                    ` People who liked ${pick.because.join(' and ')} also rated this highly (MovieLens ratings).`}
                   {pick.evidence.length > 0 && ` Terms shared with films you liked: ${pick.evidence.join(', ')}.`}
                   {pick.negative_evidence.length > 0 &&
                     ` Terms from films you passed on: ${pick.negative_evidence.join(', ')}.`}

@@ -43,7 +43,8 @@ The reasons behind each major choice are in the [decision records](adr/README.md
 | `couch.py`, `qr.py` | Couch-session rules (joining, hidden votes, results, player state) and the QR encoder |
 | `posters.py` | The one-time poster fetch and the read-only poster cache |
 | `search.py` | In-memory title lookup and search ([ADR 0007](adr/0007-catalogue-artifact.md)) |
-| `datasets/` | Importers that build catalogues from public data (MovieLens, enriched from Wikidata and Wikipedia) |
+| `collaborative.py` | Item-to-item collaborative filtering and the content/collaborative blend ([ADR 0008](adr/0008-collaborative-filtering.md)) |
+| `datasets/` | Build-time tools: the MovieLens importer, neighbour precomputation, and the offline evaluation |
 | `net.py` | Outbound HTTP for the explicit one-time commands (posters, imports); the app itself never uses it |
 | `systemone.py`, `tagging.py`, `distill.py` | System One client, catalogue tagging and the distilled student |
 
@@ -124,6 +125,23 @@ taste(d) = (cosine(x_d, u) + 1) / 2
 
 With no ratings, taste is a neutral 0.5. Normalizing the positive and negative centroids separately
 means the 0.7 weight sets the direction regardless of how many titles were disliked.
+
+### Taste (collaborative, when neighbours are available)
+
+For a catalogue with a neighbour file (built from public MovieLens ratings, see
+[ADR 0008](adr/0008-collaborative-filtering.md)), each title's taste is blended with a collaborative
+prediction from the user's ratings r_j ∈ {+1, −1} of the films j that list it as a neighbour:
+
+```
+prediction(i) = Σ sim(i,j)·r_j / Σ sim(i,j)        support(i) = Σ sim(i,j)
+weight(i)     = support(i) / (support(i) + 2)
+taste(i)      = weight(i)·(prediction(i) + 1)/2 + (1 − weight(i))·taste_tfidf(i)
+```
+
+Titles no rated film points to keep their TF-IDF taste. Similarity is adjusted cosine over co-raters,
+shrunk by n/(n + 10), top 30 per film. Discovery still uses TF-IDF familiarity, because it measures
+theme distance rather than preference. Recommendations name the liked films that contributed
+(`because`).
 
 ### Session reranking
 

@@ -69,6 +69,19 @@ identifiers are sent. It takes several minutes the first time and is cached afte
 intensity are estimated from genres. MovieLens is for non-commercial research use and must be cited
 (Harper & Konstan, 2015); see [the catalogue guide](flicks/data/README.md#movielens).
 
+### Collaborative filtering and evaluation
+
+With the `datasets` extra installed (`.venv/bin/pip install -e ".[dev,datasets]"`), the MovieLens import
+also precomputes which films the same people liked (`movielens-small.neighbours.json`). Flicks then
+blends those patterns with its content model, entirely on your device ("Fans of *The Empire Strikes
+Back* also like this"). To measure recommendation quality on held-out MovieLens ratings:
+
+```sh
+.venv/bin/python -m flicks.datasets.evaluation
+```
+
+See [evaluation](docs/evaluation.md) for the protocol and results.
+
 ### Add posters (optional)
 
 ```sh
