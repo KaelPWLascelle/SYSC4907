@@ -20,7 +20,8 @@ export const GAMMA = content('m3', 'Gamma');
 export const CATALOG = [ALPHA, BETA, GAMMA];
 
 export const appState = (over: Partial<AppState> = {}): AppState => ({
-  catalog: CATALOG,
+  catalog_size: CATALOG.length,
+  genres: ['drama', 'horror'],
   feedback: {},
   voice: { available: false, message: 'Voice is not configured.', max_bytes: 5_242_880, max_seconds: 30 },
   assistant: 'Local command rules',

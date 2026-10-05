@@ -36,7 +36,7 @@ export function Tile({ item, rank, resume = false }: TileProps) {
         type="button"
         className="tile-open"
         aria-label={label}
-        onClick={() => (resumeAt !== null ? library.play(item.id) : library.openDetails(item.id))}
+        onClick={() => (resumeAt !== null ? library.play(item) : library.openDetails(item))}
       >
         <Poster item={item} hasPoster={library.posters.has(item.id)} />
         {playable && (

@@ -31,8 +31,16 @@ export interface MediaEntry {
   direct_play: boolean;
 }
 
+/** A title the player and couch remote can refer to; Content and CouchItem both satisfy it. */
+export interface TitleRef {
+  id: string;
+  title: string;
+}
+
 export interface AppState {
-  catalog: Content[];
+  /** The catalogue itself is not sent (it can hold thousands of titles); search it with /api/titles. */
+  catalog_size: number;
+  genres: string[];
   feedback: Record<string, Rating>;
   voice: VoiceStatus;
   assistant: string;
@@ -94,6 +102,14 @@ export interface Progress {
   updated_at: string;
   /** Not finished and watched long enough to offer "continue watching". */
   resumable: boolean;
+  content: Content;
+}
+
+export type TitleFilter = 'all' | 'liked' | 'passed' | 'unrated';
+
+export interface TitlesResponse {
+  items: Content[];
+  total: number;
 }
 
 // ---------- couch mode ----------

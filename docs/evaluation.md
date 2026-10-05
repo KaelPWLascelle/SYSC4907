@@ -9,8 +9,8 @@ measured yet (whether the recommendations are good), and sets out how to measure
 
 | Suite | Count | Covers |
 |---|---:|---|
-| Backend (`pytest`) | 104 | Ranking and explanations, hard constraints, validation, migrations, the request guard, range-request streaming, watch history, posters, couch rules and the guest server over a real socket, command parsing, System One validation |
-| Interface (Vitest) | 37 | The voice and command state machine (cancellation, stale results, permissions), couch phone flows, the player, the couch panel, and the main screens |
+| Backend (`pytest`) | 123 | Ranking and explanations, hard constraints, validation, migrations, the request guard, range-request streaming, watch history, posters, couch rules and the guest server over a real socket, command parsing, System One validation, catalogue search, and the MovieLens importer (offline fixtures) |
+| Interface (Vitest) | 40 | The voice and command state machine (cancellation, stale results, permissions), couch phone flows, the player, the couch panel, server-side browsing, and the main screens |
 
 Regression tests for bugs found during manual testing (a stale poll overwriting a vote, a background
 tab not loading the couch session) were each checked to fail with the bug reintroduced. CI runs the
@@ -53,6 +53,29 @@ This shows that the scene changes the ordering and that ranking is fast on 36 ti
 (excluding HTTP and SQLite). It does **not** show that the changes make people happier with the
 picks.
 
+## At MovieLens scale
+
+The MovieLens import (`python -m flicks.datasets.movielens`, run 2026-10-05) produced **9,349 titles**
+from 9,742: 268 were skipped for having no runtime on Wikidata, 87 for not being on Wikidata, 26 for
+having no genres, and 12 for having no year. Measured on an Apple M2 with Python 3.12:
+
+| Measurement | Result |
+|---|---:|
+| Load catalogue / build TF-IDF / build search index | 56 / 240 / 25 ms |
+| Recommendations, cold start (median / p95) | 9 / 12 ms |
+| Recommendations with 4 ratings (median / p95) | 51 / 56 ms |
+| Search (`/api/titles`) | 3 ms in process; 6 ms for a 48-title page over HTTP |
+| `/api/state` | 520 bytes (it previously embedded the catalogue, which would be 5.1 MB) |
+
+Recommendations were 99 and 156 ms before taste evidence was limited to the titles returned. Output
+is byte-for-byte identical across both catalogues, several profiles and scenes, and both lenses.
+
+**What the content model gets wrong at this scale.** After liking *Star Wars* IV and V, the top picks
+are *The Star Wars Holiday Special*, *Spaceballs*, *Ewoks: The Battle for Endor*, *Spaced Invaders*
+and *Space Buddies*. TF-IDF matches shared words in the descriptions ("star", "wars", "space"), not
+what people who liked those films go on to enjoy. This is the case for adding collaborative
+filtering from MovieLens ratings, and for evaluating it against held-out ratings.
+
 ## Speech recognition smoke test
 
 English speech generated with macOS's `say`, transcribed offline (`HF_HUB_OFFLINE=1`) with
@@ -71,8 +94,8 @@ samples do not establish an accuracy rate.
 
 ## Limitations
 
-- **The catalogue is small and curated.** 36 titles with hand-written descriptions and subjective
-  mood and intensity labels. It has not been independently audited.
+- **The bundled catalogue is small and curated** (36 titles, subjective mood and intensity labels).
+  The MovieLens catalogue is large, but its moods and intensity are estimated from genres.
 - **TF-IDF captures word overlap, not meaning.** Disliking one film can suppress a whole shared
   genre (disliking *Alien* also pushes down other science fiction).
 - **The weights are not learned or tuned,** and scores are not calibrated confidences.
@@ -82,9 +105,9 @@ samples do not establish an accuracy rate.
 
 ## Evaluation plan
 
-1. **Catalogue.** Expand to a few thousand titles from a licensed public dataset (MovieLens joined
-   to public descriptions), recording source, version and license, and keeping objective metadata
-   separate from annotations.
+1. **Catalogue.** Done for MovieLens latest-small (9,349 titles, with source, checksum, license and
+   skip reasons recorded in the provenance file). Next: replace genre-estimated moods with System One
+   tags and a hand-labelled sample.
 2. **Relevance judgments.** Ask each participant for seed likes and dislikes, then collect held-out
    judgments for several chosen scenes. Keep judgments separate from training data, and never derive
    ground truth from the system's own tags.

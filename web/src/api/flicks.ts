@@ -10,6 +10,8 @@ import type {
   Rating,
   RecommendResponse,
   Session,
+  TitleFilter,
+  TitlesResponse,
   TranscribeResponse,
 } from './types';
 
@@ -17,6 +19,11 @@ export const flicksApi = {
   state: () => request<AppState>('/api/state'),
   recommend: (session: Session, mode: Mode, init?: RequestInit) =>
     request<RecommendResponse>('/api/recommend', { ...json('POST', { session, mode }), ...init }),
+  titles: (query: { q: string; show: TitleFilter; offset: number; limit: number }, init?: RequestInit) =>
+    request<TitlesResponse>(
+      `/api/titles?${new URLSearchParams({ ...query, offset: String(query.offset), limit: String(query.limit) })}`,
+      init,
+    ),
   rate: (id: string, value: Rating | 0) =>
     request<{ feedback: Record<string, Rating> }>('/api/feedback', json('POST', { id, value })),
 

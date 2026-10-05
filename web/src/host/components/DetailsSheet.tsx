@@ -1,6 +1,6 @@
 import { type CSSProperties, useEffect, useRef } from 'react';
 
-import type { Recommendation, Session } from '../../api/types';
+import type { Content, Recommendation, Session } from '../../api/types';
 import { Icon } from '../../components/Icon';
 import { Poster } from '../../components/Poster';
 import { RateButtons } from '../../components/RateButtons';
@@ -9,25 +9,24 @@ import { useLibrary } from '../library';
 import { FACTORS, reasons } from '../reasons';
 
 interface DetailsSheetProps {
-  id: string | null;
+  item: Content | null;
   picks: Recommendation[];
   session: Session;
   onClose: () => void;
 }
 
 /** "Why this pick" for any title: rank, reasons, the weighted factors behind the score, and actions. */
-export function DetailsSheet({ id, picks, session, onClose }: DetailsSheetProps) {
+export function DetailsSheet({ item, picks, session, onClose }: DetailsSheetProps) {
   const dialog = useRef<HTMLDialogElement>(null);
   const library = useLibrary();
 
   useEffect(() => {
     const node = dialog.current;
     if (!node) return;
-    if (id && !node.open) node.showModal();
-    if (!id && node.open) node.close();
-  }, [id]);
+    if (item && !node.open) node.showModal();
+    if (!item && node.open) node.close();
+  }, [item]);
 
-  const item = id ? library.byId.get(id) : undefined;
   const rank = item ? picks.findIndex(row => row.content.id === item.id) : -1;
   const pick = rank >= 0 ? picks[rank] : undefined;
   const media = item ? library.media.get(item.id) : undefined;
@@ -73,12 +72,12 @@ export function DetailsSheet({ id, picks, session, onClose }: DetailsSheetProps)
             <div className="details-actions">
               {media && (
                 <>
-                  <button type="button" className="button button-primary" onClick={() => library.play(item.id)}>
+                  <button type="button" className="button button-primary" onClick={() => library.play(item)}>
                     <Icon name="play" />
                     {progress?.resumable ? `Resume from ${timestamp(progress.position_seconds)}` : 'Play'}
                   </button>
                   {progress?.resumable && (
-                    <button type="button" className="button button-quiet" onClick={() => library.play(item.id, true)}>
+                    <button type="button" className="button button-quiet" onClick={() => library.play(item, true)}>
                       <Icon name="replay" />
                       Start over
                     </button>

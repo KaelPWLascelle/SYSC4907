@@ -1,11 +1,11 @@
 import { useState } from 'react';
 
-import type { Content } from '../../api/types';
+import type { TitleFilter } from '../../api/types';
 import { RadioChips } from '../../components/Chips';
+import { useTitles } from '../hooks/useTitles';
 import { useLibrary } from '../library';
 import { Tile } from './Tile';
 
-type Filter = 'all' | 'liked' | 'passed' | 'unrated';
 const FILTERS = [
   { value: 'all', label: 'All' },
   { value: 'liked', label: 'Liked' },
@@ -13,23 +13,14 @@ const FILTERS = [
   { value: 'unrated', label: 'Unrated' },
 ] as const;
 
-export function Browse({ catalog }: { catalog: Content[] }) {
+export function Browse() {
   const library = useLibrary();
-  const [filter, setFilter] = useState<Filter>('all');
+  const [show, setShow] = useState<TitleFilter>('all');
   const [query, setQuery] = useState('');
+  const titles = useTitles(query, show, library.feedback);
   const ratings = Object.values(library.feedback);
   const liked = ratings.filter(v => v === 1).length;
   const passed = ratings.filter(v => v === -1).length;
-  const needle = query.trim().toLowerCase();
-  const matches = catalog.filter(item => {
-    const rating = library.feedback[item.id];
-    const keep =
-      filter === 'all' ||
-      (filter === 'liked' && rating === 1) ||
-      (filter === 'passed' && rating === -1) ||
-      (filter === 'unrated' && !rating);
-    return keep && `${item.title} ${item.genres.join(' ')} ${item.tags.join(' ')}`.toLowerCase().includes(needle);
-  });
 
   return (
     <section className="browse" id="browse" aria-labelledby="browse-heading">
@@ -43,25 +34,46 @@ export function Browse({ catalog }: { catalog: Content[] }) {
           </p>
         </div>
         <div className="browse-tools">
-          <RadioChips label="Show" className="segmented" options={FILTERS} value={filter} onChange={setFilter} />
+          <RadioChips label="Show" className="segmented" options={FILTERS} value={show} onChange={setShow} />
           <label className="search">
             <span className="visually-hidden">Search the catalogue</span>
             <input
               type="search"
-              placeholder="Search titles, genres, themes"
+              placeholder="Search titles, genres, themes, years"
               value={query}
               onChange={event => setQuery(event.target.value)}
             />
           </label>
         </div>
       </div>
-      <div className="grid">
-        {matches.length ? (
-          matches.map(item => <Tile key={item.id} item={item} />)
-        ) : (
-          <p className="empty">No titles match. Try another search or filter.</p>
-        )}
+      <p className="hint" role="status" aria-live="polite">
+        {titles.error
+          ? `Could not search the catalogue: ${titles.error}`
+          : titles.loading
+            ? 'Searching…'
+            : titles.total
+              ? `${titles.total.toLocaleString()} ${titles.total === 1 ? 'title' : 'titles'}`
+              : 'No titles match. Try another search or filter.'}
+      </p>
+      <div className="grid" aria-busy={titles.loading}>
+        {titles.items.map(item => (
+          <Tile key={item.id} item={item} />
+        ))}
       </div>
+      {!titles.loading && titles.items.length < titles.total && (
+        <div className="more">
+          <button
+            type="button"
+            className="button button-quiet"
+            disabled={titles.loadingMore}
+            onClick={() => void titles.loadMore()}
+          >
+            {titles.loadingMore
+              ? 'Loading…'
+              : `Show more (${titles.items.length.toLocaleString()} of ${titles.total.toLocaleString()})`}
+          </button>
+        </div>
+      )}
     </section>
   );
 }

@@ -1,7 +1,8 @@
-"""Catalogue state, ratings, recommendations and posters."""
+"""Catalogue state and search, ratings, recommendations and posters."""
 from dataclasses import asdict
+from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response
 
 from ...services import Services
@@ -14,8 +15,10 @@ router = APIRouter()
 
 @router.get('/api/state')
 def state(svc: Services = Depends(services)):
+    # The catalogue itself is not sent: it can hold thousands of titles. Clients search /api/titles.
     return {
-        'catalog': [asdict(item) for item in svc.catalog],
+        'catalog_size': len(svc.titles),
+        'genres': svc.titles.genres,
         'feedback': svc.ratings.all(),
         'voice': svc.speech.status(),
         'assistant': svc.interpreter.name,
@@ -24,6 +27,24 @@ def state(svc: Services = Depends(services)):
         'posters': svc.posters.ids() if svc.posters else [],
         'media': [{'id': f.content_id, 'direct_play': f.direct_play} for f in svc.media.files.values()],
     }
+
+
+@router.get('/api/titles')
+def titles(
+    q: str = Query('', max_length=100),
+    show: Literal['all', 'liked', 'passed', 'unrated'] = 'all',
+    offset: int = Query(0, ge=0),
+    limit: int = Query(48, ge=1, le=100),
+    svc: Services = Depends(services),
+):
+    """Search the catalogue in catalogue order, optionally limited by the user's ratings."""
+    feedback = svc.ratings.all()
+    wanted = {'liked': 1, 'passed': -1}.get(show)
+    keep = (None if show == 'all' else
+            (lambda item: item.id not in feedback) if show == 'unrated' else
+            (lambda item: feedback.get(item.id) == wanted))
+    page, total = svc.titles.search(q, keep, offset, limit)
+    return {'items': [asdict(item) for item in page], 'total': total}
 
 
 @router.post('/api/feedback')

@@ -11,3 +11,4 @@ is immutable once accepted; a later record supersedes it rather than editing it.
 | [0004](0004-react-vite-frontend.md) | React + TypeScript + Vite for the frontend, not Next.js | Accepted |
 | [0005](0005-video-playback.md) | Direct play over HTTP range requests; transcoding is optional | Accepted |
 | [0006](0006-installable-app.md) | Installable web app (manifest), no service worker | Accepted |
+| [0007](0007-catalogue-artifact.md) | The catalogue is a read-only build artifact, searched in memory | Accepted · amends 0003 |

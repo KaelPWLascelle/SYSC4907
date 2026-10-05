@@ -16,6 +16,30 @@ No posters, videos, external assets, audience ratings, or third-party dataset
 extracts are bundled; posters are an optional local cache (`python -m flicks.posters`).
 No rights to the underlying films are conveyed.
 
+## MovieLens
+
+`python -m flicks.datasets.movielens` builds `~/.flicks/catalogs/movielens-small.json` from the
+MovieLens "latest-small" dataset:
+
+- **From MovieLens:** titles (with "Matrix, The" reordered), years, genres (mapped to this
+  catalogue's vocabulary) and up to five of the most-applied user tags.
+- **From Wikidata (CC0), matched by IMDb ID:** runtimes (the shortest plausible one when there are
+  several cuts) and the English Wikipedia article.
+- **From English Wikipedia (CC BY-SA 4.0):** the first sentences of each article's introduction as
+  the description, with Wikidata's short description as a fallback.
+- **Estimated:** moods and intensity, from genres (`flicks/datasets/genres.py`). They are a baseline,
+  not editorial labels; System One tagging can replace them.
+
+Titles without a year, genres, runtime or description are skipped, and the provenance file next to
+the catalogue (`movielens-small.provenance.json`) records how many were skipped and why, along with
+the dataset checksum, license and citation.
+
+MovieLens may be used for non-commercial research. Publications must acknowledge it, and any
+redistribution, including derived catalogues, must carry the same conditions. Cite: F. Maxwell Harper
+and Joseph A. Konstan. 2015. The MovieLens Datasets: History and Context. *ACM Transactions on
+Interactive Intelligent Systems* 5, 4: 19:1–19:19. <https://doi.org/10.1145/2827872>. Flicks does not
+imply any endorsement by the University of Minnesota or GroupLens.
+
 ## Bring your own catalogue
 
 Run `flicks --catalog path/to/catalog.json --db path/to/profile.sqlite3`.

@@ -58,7 +58,7 @@ export function Hero({ pick, session, mode, loading }: HeroProps) {
           </ul>
           <div className="hero-actions">
             {library.media.has(item.id) && (
-              <button type="button" className="button button-primary" onClick={() => library.play(item.id)}>
+              <button type="button" className="button button-primary" onClick={() => library.play(item)}>
                 <Icon name="play" />
                 {progress?.resumable ? `Resume from ${timestamp(progress.position_seconds)}` : 'Play'}
               </button>
@@ -66,7 +66,7 @@ export function Hero({ pick, session, mode, loading }: HeroProps) {
             <button
               type="button"
               className={library.media.has(item.id) ? 'button button-quiet' : 'button button-primary'}
-              onClick={() => library.openDetails(item.id)}
+              onClick={() => library.openDetails(item)}
             >
               <Icon name="info" />
               Why this pick

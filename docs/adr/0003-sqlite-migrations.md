@@ -1,6 +1,6 @@
 # 0003. SQLite stays; schema changes go through numbered migrations
 
-**Status:** Accepted
+**Status:** Accepted · the catalogue part is amended by [0007](0007-catalogue-artifact.md)
 
 ## Context
 New features need new tables (watch history now; profiles and a larger catalogue later). The MVP

@@ -42,6 +42,9 @@ The reasons behind each major choice are in the [decision records](adr/README.md
 | `voice.py` | Optional on-device Whisper transcription with bounded audio decoding |
 | `couch.py`, `qr.py` | Couch-session rules (joining, hidden votes, results, player state) and the QR encoder |
 | `posters.py` | The one-time poster fetch and the read-only poster cache |
+| `search.py` | In-memory title lookup and search ([ADR 0007](adr/0007-catalogue-artifact.md)) |
+| `datasets/` | Importers that build catalogues from public data (MovieLens, enriched from Wikidata and Wikipedia) |
+| `net.py` | Outbound HTTP for the explicit one-time commands (posters, imports); the app itself never uses it |
 | `systemone.py`, `tagging.py`, `distill.py` | System One client, catalogue tagging and the distilled student |
 
 `core.py`, `couch.py` and `repositories.py` contain no HTTP code, so they are tested directly.
@@ -75,7 +78,9 @@ numbered migrations tracked with `PRAGMA user_version`; see [ADR 0003](adr/0003-
 | `feedback` | `content_id`, `value` (1 or -1), `updated_at` | A missing row means no rating |
 | `watch_history` | `content_id`, `position_seconds`, `duration_seconds`, `completed`, `started_at`, `updated_at` | Finished at 90% watched; resumable from 30 s |
 
-The catalogue is a validated JSON file (`flicks/data/movies.json`), loaded once at startup.
+The catalogue is a validated, read-only JSON file, loaded once at startup: the bundled
+`flicks/data/movies.json` or an imported one ([ADR 0007](adr/0007-catalogue-artifact.md)). The browser
+never receives it whole; it searches it page by page through `/api/titles`.
 
 ## Security model
 
@@ -155,13 +160,14 @@ All responses are JSON unless noted. Errors have the shape `{"error": "<message>
 
 | Method and path | Purpose |
 |---|---|
-| `GET /api/state` | Catalogue, ratings, voice status, posters, playable media, and whether couch mode is on |
+| `GET /api/state` | Catalogue size and genres, ratings, voice status, posters, playable media, couch mode |
+| `GET /api/titles` | Search: `q` (words, all must match), `show` (`all`, `liked`, `passed`, `unrated`), `offset`, `limit` (≤ 100) |
 | `POST /api/feedback` | `{"id": "m001", "value": 1}`: 1 like, -1 pass, 0 clear |
 | `POST /api/recommend` | `{"session": {...}, "mode": "session" \| "baseline"}`; omitted fields use defaults |
 | `POST /api/command/preview` | `{"text": "...", "session": {...}}`: what a request would change; no side effects |
 | `POST /api/command/apply` | Same body; re-parses the text and applies it |
 | `POST /api/transcribe` | Raw audio (≤ 5 MiB, ≤ 30 s) → transcript |
-| `GET /api/history` | Watch progress, most recent first |
+| `GET /api/history` | Watch progress, most recent first, with each title's details |
 | `PUT /api/history/{id}` | `{"position_seconds": 120.5, "duration_seconds": 840}` |
 | `DELETE /api/history/{id}` | Forget progress for a title |
 | `GET /media/{id}` | Stream a matched video file; supports `Range` (206) and `HEAD` |

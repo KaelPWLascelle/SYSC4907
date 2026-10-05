@@ -21,13 +21,16 @@ def media(content_id: str, svc: Services = Depends(services)):
     return FileResponse(file.path, media_type=file.media_type, headers={'Cache-Control': 'private, no-cache'})
 
 
-def _progress_json(progress):
-    return {**asdict(progress), 'resumable': progress.resumable}
+def _progress_json(progress, content=None):
+    data = {**asdict(progress), 'resumable': progress.resumable}
+    return {**data, 'content': asdict(content)} if content else data
 
 
 @router.get('/api/history')
 def history(svc: Services = Depends(services)):
-    return {'items': [_progress_json(p) for p in svc.history.recent() if p.content_id in svc.ids]}
+    """Most recent first, each with its title's details (clients do not hold the whole catalogue)."""
+    by_id = svc.titles.by_id
+    return {'items': [_progress_json(p, by_id[p.content_id]) for p in svc.history.recent() if p.content_id in by_id]}
 
 
 @router.put('/api/history/{content_id}')
