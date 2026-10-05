@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { flicksApi } from '../api/flicks';
-import type { AppState, Mode, Rating } from '../api/types';
+import type { AppState, Content, Mode, Rating, TitleRef } from '../api/types';
 import { CommandController } from './commands/CommandController';
 import { AskBar } from './components/AskBar';
 import { Browse } from './components/Browse';
@@ -41,8 +41,8 @@ function Home({ initial }: { initial: AppState }) {
   const [feedback, setFeedback] = useState(initial.feedback);
   const [session, setSession] = useState(DEFAULT_SESSION);
   const [mode, setMode] = useState<Mode>('session');
-  const [detailsId, setDetailsId] = useState<string | null>(null);
-  const [playing, setPlaying] = useState<{ id: string; startAt: number } | null>(null);
+  const [details, setDetails] = useState<Content | null>(null);
+  const [playing, setPlaying] = useState<{ item: TitleRef; startAt: number } | null>(null);
   const [ratingBusy, setRatingBusy] = useState(false);
   const [notice, setNotice] = useState('');
   const askInput = useRef<HTMLTextAreaElement>(null);
@@ -51,11 +51,9 @@ function Home({ initial }: { initial: AppState }) {
   const history = useHistory();
   const couch = useCouchHost(initial.couch);
 
-  const byId = useMemo(() => new Map(initial.catalog.map(item => [item.id, item])), [initial.catalog]);
   const posters = useMemo(() => new Set(initial.posters), [initial.posters]);
   const media = useMemo(() => new Map(initial.media.map(entry => [entry.id, entry])), [initial.media]);
   const progress = useMemo(() => new Map(history.items.map(p => [p.content_id, p])), [history.items]);
-  const genres = useMemo(() => [...new Set(initial.catalog.flatMap(item => item.genres))].sort(), [initial.catalog]);
 
   // ---------- assistant ----------
   const [controller] = useState(
@@ -108,17 +106,17 @@ function Home({ initial }: { initial: AppState }) {
   }, []);
 
   const play = useCallback(
-    (id: string, fromStart = false) => {
-      const saved = progress.get(id);
-      setDetailsId(null);
-      setPlaying({ id, startAt: !fromStart && saved?.resumable ? saved.position_seconds : 0 });
+    (item: TitleRef, fromStart = false) => {
+      const saved = progress.get(item.id);
+      setDetails(null);
+      setPlaying({ item, startAt: !fromStart && saved?.resumable ? saved.position_seconds : 0 });
     },
     [progress],
   );
 
   const library = useMemo<Library>(
-    () => ({ byId, posters, media, feedback, progress, ratingBusy, rate, openDetails: setDetailsId, play }),
-    [byId, posters, media, feedback, progress, ratingBusy, rate, play],
+    () => ({ posters, media, feedback, progress, ratingBusy, rate, openDetails: setDetails, play }),
+    [posters, media, feedback, progress, ratingBusy, rate, play],
   );
 
   // ---------- couch remote -> player ----------
@@ -130,31 +128,30 @@ function Home({ initial }: { initial: AppState }) {
     // Adjusting state while rendering (not in an effect): runs exactly once per new remote command.
     setRemote({ key: remoteKey, version: remote.version + 1 });
     const id = couchPlayer?.id;
-    if (id && couchPlayer.state === 'playing' && media.has(id) && playing?.id !== id) {
-      const saved = progress.get(id);
-      setDetailsId(null);
-      setPlaying({ id, startAt: saved?.resumable ? saved.position_seconds : 0 });
+    const selected = id && couch.view.active ? couch.view.items.find(item => item.id === id) : undefined;
+    if (selected && couchPlayer?.state === 'playing' && media.has(selected.id) && playing?.item.id !== selected.id) {
+      const saved = progress.get(selected.id);
+      setDetails(null);
+      setPlaying({ item: selected, startAt: saved?.resumable ? saved.position_seconds : 0 });
     }
   }
 
+  const playingId = playing?.item.id;
   const remoteForPlayer =
-    playing && couchPlayer?.id === playing.id ? { state: couchPlayer.state, version: remote.version } : null;
+    playingId && couchPlayer?.id === playingId ? { state: couchPlayer.state, version: remote.version } : null;
   const reportPlayback = (state: 'playing' | 'paused') => {
-    if (couchPlayer?.id && couchPlayer.id === playing?.id && couchPlayer.state !== state) {
+    if (couchPlayer?.id && couchPlayer.id === playingId && couchPlayer.state !== state) {
       void couch.player(state === 'playing' ? 'play' : 'pause');
     }
   };
   const closePlayer = () => {
-    if (couchPlayer?.id && couchPlayer.id === playing?.id && couchPlayer.state !== 'stopped') void couch.player('stop');
+    if (couchPlayer?.id && couchPlayer.id === playingId && couchPlayer.state !== 'stopped') void couch.player('stop');
     setPlaying(null);
     void history.refresh();
   };
 
   // ---------- render ----------
-  const continueWatching = history.items.flatMap(p => {
-    const item = byId.get(p.content_id);
-    return p.resumable && item && media.has(item.id) ? [item] : [];
-  });
+  const continueWatching = history.items.filter(p => p.resumable && media.has(p.content_id)).map(p => p.content);
   const { picks, coldStart, loading, error } = recommendations;
   const status = error
     ? `Could not load picks: ${error}`
@@ -163,7 +160,6 @@ function Home({ initial }: { initial: AppState }) {
       : coldStart
         ? 'Like a few films below and Flicks learns your taste. Until then, picks follow your scene.'
         : 'Shaped by your ratings and this scene. Open any title to see why it ranks where it does.';
-  const playingItem = playing ? byId.get(playing.id) : undefined;
 
   return (
     <LibraryContext.Provider value={library}>
@@ -174,7 +170,7 @@ function Home({ initial }: { initial: AppState }) {
       <main id="top">
         <Hero pick={picks[0]} session={session} mode={mode} loading={loading && !picks.length} />
         <AskBar controller={controller} voice={initial.voice} inputRef={askInput} />
-        <SceneBar session={session} mode={mode} genres={genres} onSession={setSession} onMode={setMode} />
+        <SceneBar session={session} mode={mode} genres={initial.genres} onSession={setSession} onMode={setMode} />
         {notice && (
           <p className="notice page-notice" role="alert">
             {notice}
@@ -198,19 +194,19 @@ function Home({ initial }: { initial: AppState }) {
           ))}
         </Rail>
         {initial.couch && <CouchPanel couch={couch} session={session} />}
-        <Browse catalog={initial.catalog} />
+        <Browse />
       </main>
-      <Footer titles={initial.catalog.length} posters={posters.size > 0} playable={media.size} />
-      <DetailsSheet id={detailsId} picks={picks} session={session} onClose={() => setDetailsId(null)} />
-      {playing && playingItem && (
+      <Footer titles={initial.catalog_size} posters={posters.size > 0} playable={media.size} />
+      <DetailsSheet item={details} picks={picks} session={session} onClose={() => setDetails(null)} />
+      {playing && (
         <Player
-          key={playing.id}
-          item={playingItem}
+          key={playing.item.id}
+          item={playing.item}
           startAt={playing.startAt}
-          directPlay={media.get(playing.id)?.direct_play ?? true}
+          directPlay={media.get(playing.item.id)?.direct_play ?? true}
           remote={remoteForPlayer}
           onProgress={(position, duration) => {
-            flicksApi.saveProgress(playing.id, position, duration).catch(() => {
+            flicksApi.saveProgress(playing.item.id, position, duration).catch(() => {
               // Progress is best effort; the next save retries.
             });
           }}

@@ -9,6 +9,7 @@ from .intent import SystemOneInterpreter
 from .media import MediaLibrary
 from .posters import PosterLibrary
 from .repositories import RatingsRepository, WatchHistoryRepository
+from .search import TitleIndex
 from .tagging import TaggedDecision, load_tags
 from .voice import LocalWhisper
 
@@ -17,6 +18,7 @@ from .voice import LocalWhisper
 class Services:
     catalog: list
     ids: frozenset
+    titles: TitleIndex
     recommender: Recommender
     ratings: RatingsRepository
     history: WatchHistoryRepository
@@ -38,7 +40,7 @@ def build_services(settings, *, speech=None, system_one=None):
     couch = CouchManager(settings.couch_host, settings.couch_port, posters=posters,
                          static_dir=settings.static_dir) if settings.couch else None
     return Services(
-        catalog=catalog, ids=ids,
+        catalog=catalog, ids=ids, titles=TitleIndex(catalog),
         recommender=Recommender(catalog, decision=decision),
         ratings=RatingsRepository(database),
         history=WatchHistoryRepository(database),

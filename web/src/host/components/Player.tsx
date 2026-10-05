@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { mediaUrl } from '../../api/flicks';
-import type { Content, PlayerState } from '../../api/types';
+import type { PlayerState, TitleRef } from '../../api/types';
 import { Icon } from '../../components/Icon';
 import { cx } from '../../lib/cx';
 
@@ -10,7 +10,7 @@ const CHROME_HIDE_MS = 2500;
 const MEDIA_ERR_SRC_NOT_SUPPORTED = 4; // HTMLMediaElement.error.code (spec value; not every environment defines MediaError)
 
 interface PlayerProps {
-  item: Content;
+  item: TitleRef;
   startAt: number;
   directPlay: boolean;
   /** Couch-mode remote commands for this title; applied whenever `version` changes. */

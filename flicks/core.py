@@ -81,6 +81,12 @@ def dot(a, b):
 
 
 class TasteModel(Protocol):
+    """Per-title taste in [0, 1] and familiarity in [0, 1] or None for a set of ratings.
+
+    A model may also return `evidence` and `negative_evidence` term lists from `scores`, or provide a
+    separate `explain(feedback, ids)` so the (usually costlier) evidence is built only for the titles
+    actually shown.
+    """
     def scores(self, feedback: dict[str, int]) -> dict[str, dict]: ...
 
 
@@ -101,21 +107,31 @@ class TfidfTaste:
         self.vectors = {key: unit({t: (1+math.log(n))*(1+math.log((1+len(catalog))/(1+df[t])))
                                   for t, n in row.items()}) for key, row in counts.items()}
 
-    def scores(self, feedback):
+    def _profile(self, feedback):
+        """(liked centroid, signed profile): the unit vectors every score is a cosine against."""
         def centroid(sign):
-            selected = [self.vectors[k] for k, v in feedback.items() if v == sign and k in self.vectors]
             total = Counter()
-            for vector in selected:
-                total.update(vector)
+            for key, value in feedback.items():
+                if value == sign and key in self.vectors:
+                    total.update(self.vectors[key])
             return unit(total)
         positive, negative = centroid(1), centroid(-1)
         profile = unit({t: positive.get(t, 0)-0.7*negative.get(t, 0) for t in positive.keys() | negative.keys()})
+        return positive, profile
+
+    def scores(self, feedback):
+        positive, profile = self._profile(feedback)
+        return {key: dict(taste=(dot(vector, profile)+1)/2 if profile else 0.5,
+                          familiarity=dot(vector, positive) if positive else None)
+                for key, vector in self.vectors.items()}
+
+    def explain(self, feedback, ids):
+        """The terms that raised (`evidence`) or lowered (`negative_evidence`) each title's taste score."""
+        _, profile = self._profile(feedback)
         result = {}
-        for key, vector in self.vectors.items():
-            contributions = sorted(((t, v*profile.get(t, 0)) for t, v in vector.items()), key=lambda x: -x[1])
-            result[key] = dict(taste=(dot(vector, profile)+1)/2 if profile else 0.5,
-                               familiarity=dot(vector, positive) if positive else None,
-                               evidence=[t for t, value in contributions if value > 0][:4],
+        for key in ids:
+            contributions = sorted(((t, v*profile.get(t, 0)) for t, v in self.vectors[key].items()), key=lambda x: -x[1])
+            result[key] = dict(evidence=[t for t, value in contributions if value > 0][:4],
                                negative_evidence=[t for t, value in reversed(contributions) if value < 0][:4])
         return result
 
@@ -136,22 +152,32 @@ class Recommender:
         self.catalog = catalog
         self.taste = taste or TfidfTaste(catalog)
         self.decision = decision or HeuristicDecision()
+        self.genres = frozenset(g for item in catalog for g in item.genres)
 
     def recommend(self, feedback, session, mode='session', limit=12):
         if mode not in ('session', 'baseline'):
             raise ValueError('Unknown ranking mode')
-        genres = {g for item in self.catalog for g in item.genres}
-        if set(session.excluded_genres) - genres:
+        if set(session.excluded_genres) - self.genres:
             raise ValueError('Unknown excluded genre for this catalogue')
         scores = self.taste.scores(feedback)
-        result = []
+        excluded = set(session.excluded_genres)
+        ranked = []
         for item in self.catalog:
             # Hard constraints belong to the application, never to a future model.
-            if item.id in feedback or item.minutes > session.minutes or set(item.genres).intersection(session.excluded_genres):
+            if item.id in feedback or item.minutes > session.minutes or excluded.intersection(item.genres):
                 continue
             taste = scores[item.id]
             factors = self.decision.factors(item, taste, session) if mode == 'session' else {'taste': taste['taste']}
-            result.append(dict(content=asdict(item), score=sum(factors.values()), factors=factors,
-                               evidence=taste['evidence'], negative_evidence=taste.get('negative_evidence', []),
+            ranked.append((-sum(factors.values()), item.id, item, factors))
+        ranked.sort(key=lambda row: (row[0], row[1]))
+        top = ranked[:limit]
+        # Evidence is the costly part of a score, so it is built only for the titles returned.
+        explain = getattr(self.taste, 'explain', None)
+        explained = explain(feedback, [row[1] for row in top]) if explain else {}
+        result = []
+        for negative_score, key, item, factors in top:
+            taste = {**scores[key], **explained.get(key, {})}
+            result.append(dict(content=asdict(item), score=-negative_score, factors=factors,
+                               evidence=taste.get('evidence', []), negative_evidence=taste.get('negative_evidence', []),
                                familiarity=taste['familiarity']))
-        return sorted(result, key=lambda r: (-r['score'], r['content']['id']))[:limit]
+        return result

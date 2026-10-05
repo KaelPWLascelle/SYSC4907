@@ -2,7 +2,7 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import { MOODS } from '../api/types';
-import { ALPHA, GAMMA, appState, pick } from '../test/fixtures';
+import { ALPHA, CATALOG, GAMMA, appState, pick } from '../test/fixtures';
 import { mockFetch } from '../test/fetchMock';
 import { App } from './App';
 
@@ -10,6 +10,7 @@ function setup(state = appState()) {
   return mockFetch({
     'GET /api/state': () => [200, state],
     'GET /api/history': () => [200, { items: [] }],
+    'GET /api/titles': () => [200, { items: CATALOG, total: CATALOG.length }],
     'POST /api/recommend': body => {
       const mood = (body as { session: { mood: string } }).session.mood;
       const order = mood === 'tense' ? [GAMMA, ALPHA] : [ALPHA, GAMMA];

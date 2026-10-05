@@ -864,3 +864,13 @@
   width: calc(var(--progress) * 100%);
   background: var(--accent);
 }
+
+/* Browse paging */
+.browse > .hint {
+  margin: -6px 0 14px;
+}
+.more {
+  display: flex;
+  justify-content: center;
+  margin-top: 28px;
+}

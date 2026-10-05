@@ -102,6 +102,7 @@ class PlaybackApiTests(unittest.TestCase):
         self.assertTrue(saved.json()['resumable'])
         [item] = self.client.get('/api/history').json()['items']
         self.assertEqual((item['content_id'], item['position_seconds'], item['completed']), ('m033', 120.5, False))
+        self.assertEqual(item['content']['title'], 'A Trip to the Moon')  # clients do not hold the catalogue
         self.assertEqual(self.client.delete('/api/history/m033').status_code, 204)
         self.assertEqual(self.client.get('/api/history').json(), {'items': []})
 
