@@ -25,8 +25,10 @@ def state(svc: Services = Depends(services)):
         'tagged': svc.tagged,
         'collaborative': svc.collaborative,
         'couch': svc.couch is not None,
+        'podcasts': svc.podcasts is not None,
         'posters': svc.posters.ids() if svc.posters else [],
-        'media': [{'id': f.content_id, 'direct_play': f.direct_play} for f in svc.media.files.values()],
+        'media': [{'id': f.content_id, 'direct_play': f.direct_play, 'audio': f.audio}
+                  for f in [*svc.media.files.values(), *(svc.podcasts.media() if svc.podcasts else ())]],
     }
 
 

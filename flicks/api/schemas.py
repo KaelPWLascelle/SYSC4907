@@ -22,6 +22,7 @@ class SessionIn(Body):
     intensity: Number = 0.5
     novelty: Number = 0.3
     excluded_genres: list[StrictStr] = Field(default_factory=list)
+    medium: StrictStr = 'any'
 
     def to_domain(self):
         return Session(**self.model_dump())  # raises ValueError for out-of-range values

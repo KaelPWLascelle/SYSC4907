@@ -15,7 +15,7 @@ router = APIRouter()
 @router.api_route('/media/{content_id}', methods=['GET', 'HEAD'])
 def media(content_id: str, svc: Services = Depends(services)):
     # The path comes from the startup scan, never from the request; FileResponse serves Range requests.
-    file = svc.media.get(content_id)
+    file = svc.media.get(content_id) or (svc.podcasts.file(content_id) if svc.podcasts else None)
     if file is None or not file.path.is_file():
         raise HTTPException(404, 'This title has no playable file')
     return FileResponse(file.path, media_type=file.media_type, headers={'Cache-Control': 'private, no-cache'})

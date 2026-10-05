@@ -28,7 +28,8 @@ CODE_LENGTH = 8
 MAX_FAILED_JOINS = 10
 MAX_GUESTS = 8
 SESSION_SECONDS = 3 * 60 * 60
-PUBLIC_FIELDS = ('id', 'title', 'year', 'minutes', 'genres', 'moods', 'intensity', 'description')
+PUBLIC_FIELDS = ('id', 'title', 'year', 'kind', 'minutes', 'genres', 'moods', 'intensity', 'description')
+OPTIONAL_PUBLIC_FIELDS = ('series',)  # a podcast episode's show
 PLAYER_ACTIONS = ('play', 'pause', 'stop', 'select')
 
 
@@ -95,8 +96,8 @@ class CouchSession:
     def __init__(self, shortlist, clock=time.monotonic, seconds=SESSION_SECONDS, posters=()):
         if len(shortlist) < 2:
             raise CouchError('Couch mode needs at least two titles to vote on; widen the scene settings')
-        self.items = [{**{k: row['content'][k] for k in PUBLIC_FIELDS}, 'poster': row['content']['id'] in posters}
-                      for row in shortlist]
+        self.items = [{**{k: row['content'][k] for k in PUBLIC_FIELDS}, **{k: row['content'].get(k) for k in OPTIONAL_PUBLIC_FIELDS},
+                       'poster': row['content']['id'] in posters} for row in shortlist]
         self.order = {item['id']: rank for rank, item in enumerate(self.items)}  # Flicks' ranking
         self.clock, self.expires = clock, clock() + seconds
         self.code, self.failed_joins = new_code(), 0

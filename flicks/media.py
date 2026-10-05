@@ -23,9 +23,13 @@ class MediaFile:
     size: int
 
     @property
+    def audio(self):
+        return self.media_type.startswith('audio/')
+
+    @property
     def direct_play(self):
         """False for containers some browsers cannot play (MKV, MOV); the UI warns instead of failing silently."""
-        return self.path.suffix.lower() in DIRECT_PLAY
+        return self.path.suffix.lower() in DIRECT_PLAY or self.audio
 
 
 def normalize(title):

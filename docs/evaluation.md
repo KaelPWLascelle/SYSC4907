@@ -9,8 +9,8 @@ measured yet (whether the recommendations are good), and sets out how to measure
 
 | Suite | Count | Covers |
 |---|---:|---|
-| Backend (`pytest`) | 135 | Ranking and explanations, hard constraints, validation, migrations, the request guard, range-request streaming, watch history, posters, couch rules and the guest server over a real socket, command parsing, System One validation, catalogue search, the MovieLens importer (offline fixtures), and collaborative filtering (neighbour build, predictions, blend, leakage-free evaluation split) |
-| Interface (Vitest) | 41 | The voice and command state machine (cancellation, stale results, permissions), couch phone flows, the player, the couch panel, server-side browsing, and the main screens |
+| Backend (`pytest`) | 154 | Ranking and explanations, hard constraints, validation, migrations, the request guard, range-request streaming, watch history, posters, couch rules and the guest server over a real socket, command parsing, System One validation, catalogue search, the MovieLens and podcast importers (offline fixtures), podcast downloads (with a fake network), and collaborative filtering (neighbour build, predictions, blend, leakage-free evaluation split) |
+| Interface (Vitest) | 46 | The voice and command state machine (cancellation, stale results, permissions), couch phone flows, the player (video and audio), the couch panel, server-side browsing, podcast downloads, and the main screens |
 
 Regression tests for bugs found during manual testing (a stale poll overwriting a vote, a background
 tab not loading the couch session) were each checked to fail with the bug reintroduced. CI runs the

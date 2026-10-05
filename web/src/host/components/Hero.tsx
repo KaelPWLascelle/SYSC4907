@@ -1,10 +1,11 @@
-import type { Mode, Recommendation, Session } from '../../api/types';
+import { isEpisode, type Mode, type Recommendation, type Session } from '../../api/types';
 import { Icon } from '../../components/Icon';
 import { Poster } from '../../components/Poster';
 import { RateButtons } from '../../components/RateButtons';
-import { capitalize, runtime, timestamp } from '../../lib/format';
+import { capitalize, subtitle, timestamp } from '../../lib/format';
 import { useLibrary } from '../library';
 import { reasons } from '../reasons';
+import { DownloadButton } from './DownloadButton';
 
 interface HeroProps {
   pick: Recommendation | undefined;
@@ -36,6 +37,8 @@ export function Hero({ pick, session, mode, loading }: HeroProps) {
   const item = pick.content;
   const hasPoster = library.posters.has(item.id);
   const progress = library.progress.get(item.id);
+  const playable = library.media.has(item.id);
+  const episode = isEpisode(item);
   return (
     <section className="hero" aria-labelledby="hero-title" aria-live="polite">
       {hasPoster && (
@@ -48,7 +51,8 @@ export function Hero({ pick, session, mode, loading }: HeroProps) {
           <p className="eyebrow">{mode === 'baseline' ? 'Top pick for your taste' : 'Top pick for tonight'}</p>
           <h1 id="hero-title">{item.title}</h1>
           <p className="hero-meta">
-            {item.year} · {runtime(item.minutes)} · {item.genres.map(capitalize).join(' · ')}
+            {episode && 'Podcast · '}
+            {subtitle(item)} · {item.genres.map(capitalize).join(' · ')}
           </p>
           <p className="hero-description">{item.description}</p>
           <ul className="reasons" aria-label="Why this pick">
@@ -57,15 +61,16 @@ export function Hero({ pick, session, mode, loading }: HeroProps) {
             ))}
           </ul>
           <div className="hero-actions">
-            {library.media.has(item.id) && (
+            {playable && (
               <button type="button" className="button button-primary" onClick={() => library.play(item)}>
                 <Icon name="play" />
                 {progress?.resumable ? `Resume from ${timestamp(progress.position_seconds)}` : 'Play'}
               </button>
             )}
+            {episode && !playable && <DownloadButton item={item} />}
             <button
               type="button"
-              className={library.media.has(item.id) ? 'button button-quiet' : 'button button-primary'}
+              className={playable || episode ? 'button button-quiet' : 'button button-primary'}
               onClick={() => library.openDetails(item)}
             >
               <Icon name="info" />

@@ -879,3 +879,7 @@
   justify-content: center;
   margin-top: 28px;
 }
+.download-error {
+  flex-basis: 100%;
+  margin: 0;
+}

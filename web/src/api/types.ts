@@ -2,6 +2,9 @@
 
 export const MOODS = ['any', 'relaxing', 'uplifting', 'curious', 'tense', 'reflective'] as const;
 export type Mood = (typeof MOODS)[number];
+export const MEDIUMS = ['any', 'watch', 'listen'] as const;
+/** Anything, something to watch, or something to listen to (podcast episodes). */
+export type Medium = (typeof MEDIUMS)[number];
 export type Mode = 'session' | 'baseline';
 export type Rating = 1 | -1;
 
@@ -16,7 +19,12 @@ export interface Content {
   moods: Exclude<Mood, 'any'>[];
   intensity: number;
   description: string;
+  /** The show a podcast episode belongs to; absent or null for films. */
+  series?: string | null;
 }
+
+/** Podcast episodes are the only audio titles. */
+export const isEpisode = (item: { kind: string }) => item.kind === 'episode';
 
 export interface VoiceStatus {
   available: boolean;
@@ -29,6 +37,8 @@ export interface MediaEntry {
   id: string;
   /** False for containers some browsers cannot play (MKV, MOV). */
   direct_play: boolean;
+  /** A downloaded podcast episode rather than a video. */
+  audio: boolean;
 }
 
 /** A title the player and couch remote can refer to; Content and CouchItem both satisfy it. */
@@ -48,6 +58,8 @@ export interface AppState {
   /** Recommendations also use public ratings (item-to-item collaborative filtering). */
   collaborative: boolean;
   couch: boolean;
+  /** A podcast catalogue is loaded: episodes can be recommended, downloaded and played. */
+  podcasts: boolean;
   posters: string[];
   media: MediaEntry[];
 }
@@ -58,6 +70,7 @@ export interface Session {
   intensity: number;
   novelty: number;
   excluded_genres: string[];
+  medium: Medium;
 }
 
 export interface Recommendation {
@@ -116,6 +129,24 @@ export interface TitlesResponse {
   total: number;
 }
 
+// ---------- podcasts ----------
+
+export type DownloadStatus =
+  | { state: 'remote' }
+  | { state: 'queued' }
+  | { state: 'downloading'; received: number; total: number | null }
+  | { state: 'ready'; size: number }
+  | { state: 'failed'; error: string };
+
+export interface EpisodeInfo {
+  id: string;
+  show: string;
+  /** The show's or episode's own page, for attribution; empty when the feed has none. */
+  link: string;
+  published: string;
+  download: DownloadStatus;
+}
+
 // ---------- couch mode ----------
 
 export type PlayerAction = 'play' | 'pause' | 'stop' | 'select';
@@ -130,6 +161,9 @@ export interface CouchItem {
   id: string;
   title: string;
   year: number;
+  kind: string;
+  /** The show, for a podcast episode. */
+  series: string | null;
   minutes: number;
   genres: string[];
   moods: string[];

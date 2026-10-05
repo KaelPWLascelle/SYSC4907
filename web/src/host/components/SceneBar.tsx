@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import { MOODS, type Mode, type Session } from '../../api/types';
+import { type Medium, MOODS, type Mode, type Session } from '../../api/types';
 import { RadioChips, ToggleChips } from '../../components/Chips';
 import { capitalize, runtime } from '../../lib/format';
 
@@ -9,18 +9,25 @@ const MODE_OPTIONS = [
   { value: 'session', label: 'Taste + scene' },
   { value: 'baseline', label: 'Taste only' },
 ] as const;
+const MEDIUM_OPTIONS: { value: Medium; label: string }[] = [
+  { value: 'any', label: 'Either' },
+  { value: 'watch', label: 'Watch' },
+  { value: 'listen', label: 'Listen' },
+];
 const TIME_PRESETS = [45, 90, 120, 180];
 
 interface SceneBarProps {
   session: Session;
   mode: Mode;
   genres: string[];
+  /** Offer watch / listen when a podcast catalogue is loaded. */
+  podcasts?: boolean;
   onSession: (session: Session) => void;
   onMode: (mode: Mode) => void;
 }
 
 /** The scene: mood, time, intensity, discovery, genres to avoid, and the ranking lens. */
-export function SceneBar({ session, mode, genres, onSession, onMode }: SceneBarProps) {
+export function SceneBar({ session, mode, genres, podcasts = false, onSession, onMode }: SceneBarProps) {
   // The field keeps what the user typed; only valid minutes (1-600) reach the session.
   const [minutesDraft, setMinutesDraft] = useState<string | null>(null);
   const minutesText = minutesDraft ?? String(session.minutes);
@@ -29,6 +36,18 @@ export function SceneBar({ session, mode, genres, onSession, onMode }: SceneBarP
 
   return (
     <section className="scene" aria-label="Set the scene">
+      {podcasts && (
+        <div className="scene-group">
+          <span className="scene-label">Watch or listen</span>
+          <RadioChips
+            label="Watch or listen"
+            className="segmented"
+            options={MEDIUM_OPTIONS}
+            value={session.medium}
+            onChange={medium => set({ medium })}
+          />
+        </div>
+      )}
       <div className="scene-group">
         <span className="scene-label" id="mood-label">
           Mood

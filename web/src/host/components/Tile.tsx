@@ -1,11 +1,11 @@
 import type { CSSProperties } from 'react';
 
-import type { Content } from '../../api/types';
+import { type Content, isEpisode } from '../../api/types';
 import { Icon } from '../../components/Icon';
 import { Poster } from '../../components/Poster';
 import { RateButtons } from '../../components/RateButtons';
 import { cx } from '../../lib/cx';
-import { runtime, timestamp } from '../../lib/format';
+import { subtitle, timestamp } from '../../lib/format';
 import { useLibrary } from '../library';
 
 interface TileProps {
@@ -39,10 +39,16 @@ export function Tile({ item, rank, resume = false }: TileProps) {
         onClick={() => (resumeAt !== null ? library.play(item) : library.openDetails(item))}
       >
         <Poster item={item} hasPoster={library.posters.has(item.id)} />
-        {playable && (
+        {playable ? (
           <span className="tile-badge" aria-hidden="true">
             <Icon name="play" /> {resumeAt !== null ? timestamp(resumeAt) : 'Ready'}
           </span>
+        ) : (
+          isEpisode(item) && (
+            <span className="tile-badge" aria-hidden="true">
+              <Icon name="headphones" /> Podcast
+            </span>
+          )
         )}
         {progress?.resumable && (
           <span
@@ -54,9 +60,7 @@ export function Tile({ item, rank, resume = false }: TileProps) {
       </button>
       <div className="tile-info">
         <h3 className="tile-title">{item.title}</h3>
-        <p className="tile-sub">
-          {item.year} · {runtime(item.minutes)}
-        </p>
+        <p className="tile-sub">{subtitle(item)}</p>
       </div>
       <RateButtons
         title={item.title}

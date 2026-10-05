@@ -1,4 +1,4 @@
-"""Genre vocabulary and genre-based mood/intensity estimates for imported catalogues.
+"""Genre vocabulary and genre-based mood/intensity estimates for imported catalogues (films and podcasts).
 
 Public datasets have genres but not the mood and intensity labels the scene reranker uses. These
 estimates are a transparent baseline: each genre suggests moods (strongest first) and an intensity,
@@ -14,6 +14,15 @@ GENRE_NAMES = {
     'Drama': 'drama', 'Fantasy': 'fantasy', 'Film-Noir': 'film-noir', 'Horror': 'horror',
     'Musical': 'musical', 'Mystery': 'mystery', 'Romance': 'romance', 'Sci-Fi': 'science-fiction',
     'Thriller': 'thriller', 'War': 'war', 'Western': 'western',
+}
+
+# Apple Podcasts top-level category -> catalogue genre (https://podcasters.apple.com/support/1691-apple-podcasts-categories).
+PODCAST_CATEGORIES = {
+    'Arts': 'arts', 'Business': 'business', 'Comedy': 'comedy', 'Education': 'education', 'Fiction': 'fiction',
+    'Government': 'government', 'Health & Fitness': 'health-and-fitness', 'History': 'history',
+    'Kids & Family': 'family', 'Leisure': 'leisure', 'Music': 'music', 'News': 'news',
+    'Religion & Spirituality': 'religion-and-spirituality', 'Science': 'science', 'Society & Culture': 'society-and-culture',
+    'Sports': 'sports', 'Technology': 'technology', 'True Crime': 'true-crime', 'TV & Film': 'tv-and-film',
 }
 
 # genre -> (moods, strongest first; intensity 0-1)
@@ -36,6 +45,24 @@ PROFILES = {
     'thriller': (('tense',), 0.75),
     'war': (('reflective', 'tense'), 0.8),
     'western': (('tense', 'reflective'), 0.6),
+    # Podcast categories (spoken audio is gentler than film at the same subject; True Crime is the exception)
+    'arts': (('reflective', 'relaxing'), 0.25),
+    'business': (('curious',), 0.35),
+    'education': (('curious', 'reflective'), 0.25),
+    'fiction': (('curious', 'tense'), 0.5),
+    'government': (('curious', 'reflective'), 0.4),
+    'health-and-fitness': (('uplifting', 'curious'), 0.3),
+    'history': (('curious', 'reflective'), 0.4),
+    'leisure': (('relaxing', 'uplifting'), 0.2),
+    'music': (('relaxing', 'uplifting'), 0.25),
+    'news': (('curious', 'tense'), 0.5),
+    'religion-and-spirituality': (('reflective', 'relaxing'), 0.2),
+    'science': (('curious',), 0.3),
+    'society-and-culture': (('reflective', 'curious'), 0.35),
+    'sports': (('uplifting',), 0.55),
+    'technology': (('curious',), 0.35),
+    'true-crime': (('tense', 'curious'), 0.7),
+    'tv-and-film': (('curious', 'uplifting'), 0.35),
 }
 MOOD_ORDER = ('relaxing', 'uplifting', 'curious', 'tense', 'reflective')  # stable tie-break
 

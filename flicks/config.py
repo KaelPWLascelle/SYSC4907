@@ -9,6 +9,8 @@ DEFAULT_STATIC = PACKAGE/'static'
 HOME = Path.home()/'.flicks'
 DEFAULT_DB = HOME/'feedback.sqlite3'
 DEFAULT_POSTERS = HOME/'posters'
+DEFAULT_PODCASTS = HOME/'catalogs'/'podcasts.json'
+DEFAULT_PODCAST_DOWNLOADS = HOME/'podcasts'
 
 
 @dataclass(frozen=True)
@@ -22,6 +24,9 @@ class Settings:
     tags: Path | None = None
     # Item-to-item neighbours for collaborative filtering (flicks.datasets.neighbours); None: content only.
     neighbours: Path | None = None
+    # A podcast catalogue (flicks.datasets.podcasts) shown alongside the films; None: films only.
+    podcasts: Path | None = None
+    podcast_downloads: Path = DEFAULT_PODCAST_DOWNLOADS
     couch: bool = False
     couch_host: str | None = None
     couch_port: int = 8770

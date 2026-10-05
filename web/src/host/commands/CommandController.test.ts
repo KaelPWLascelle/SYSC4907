@@ -3,7 +3,14 @@ import type { CommandResponse, VoiceStatus } from '../../api/types';
 import { CommandController, type CommandDeps } from './CommandController';
 
 const flush = () => new Promise(resolve => setTimeout(resolve, 0));
-const SESSION = { mood: 'any' as const, minutes: 120, intensity: 0.5, novelty: 0.3, excluded_genres: [] };
+const SESSION = {
+  mood: 'any' as const,
+  minutes: 120,
+  intensity: 0.5,
+  novelty: 0.3,
+  excluded_genres: [],
+  medium: 'any' as const,
+};
 const LIKE: CommandResponse = {
   command: { intent: 'feedback', summary: 'Like Arrival', id: 'm001', value: 1 },
   session: SESSION,
