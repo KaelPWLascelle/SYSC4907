@@ -210,7 +210,7 @@ class HttpBackend:
 
 
 def state_text(state):
-    """Canonical text of a state. Must match JSON.stringify in static/student.js for word features."""
+    """Canonical text of a state. Must match JSON.stringify in web/src/lib/student.ts for word features."""
     return state if isinstance(state, str) else json.dumps(state, ensure_ascii=False, separators=(',', ':'))
 
 

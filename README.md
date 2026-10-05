@@ -1,195 +1,159 @@
-# Flicks · SYSC 4907
+# Flicks
 
-> **Flicks** is the project name going forward (formerly "Kevin"). The Python package, command and UI are all `flicks`; ratings saved under `~/.kevin/` are picked up automatically.
+[![CI](https://github.com/KaelPWLascelle/SYSC4907/actions/workflows/flicks.yml/badge.svg)](https://github.com/KaelPWLascelle/SYSC4907/actions/workflows/flicks.yml)
 
-## Project Title
-Development of a Streaming Video Player Integrated with Local AI-Based Movie Recommendation Considering User Personal Interests
+**A streaming app whose recommendations never leave your device.** Flicks learns your taste from the
+films you like and pass on, reads the evening you describe (mood, time, intensity), and explains
+every pick. It plays your own video files, remembers where you stopped, and lets everyone on the
+couch vote from their phones. No accounts, no cloud, no tracking.
 
-## Project Overview
-This project develops a privacy-focused streaming video player with an on-device AI recommendation engine. The system analyzes local user interactions (watch history, ratings, and genre preferences) to recommend movies and videos without requiring cloud processing.
+Flicks is a SYSC 4907 capstone project at Carleton University, supervised by Dr. Huang
+([project proposal](docs/proposal.md)).
 
-### Problem Statement
-Current platforms rely heavily on cloud recommendation systems, which can create:
-- Privacy concerns due to extensive user tracking
-- Offline limitations when internet access is unavailable
-- Generic recommendations that do not deeply reflect personal interests
+## Features
 
-This project addresses these issues through local-first data processing and recommendations.
+- **Personal recommendations, computed locally.** A TF-IDF taste profile built from your ratings,
+  reranked for the current scene, with every score broken down into its factors.
+- **Streaming-style interface.** A top pick for tonight, a ranked rail, continue watching, browse
+  and search, and a "why this pick" sheet for any title.
+- **Playback of your own files.** MP4 and WebM stream with seeking; progress is saved and resumed.
+- **Ask Flicks.** Type or say "something relaxing under 90 minutes, no horror" and preview the
+  change before it applies. Speech is transcribed on the device by Whisper.
+- **Couch mode.** Phones on your Wi-Fi scan a QR code, vote with hidden ballots, and act as a remote
+  for the TV.
+- **Installable.** Runs in its own window from Chrome or Edge.
 
-## Objectives
+## Quick start
 
-### Primary Objective
-Design and implement a streaming video player with an integrated local AI recommendation system that personalizes suggestions based on user interests.
-
-### Secondary Objectives
-- Collect and analyze local user data (watch history, ratings, preferences)
-- Build recommendation models (content-based and/or collaborative filtering)
-- Provide a user-friendly interface for playback, library management, ratings, and recommendations
-- Support offline operation with optional metadata fetching from public APIs
-- Evaluate recommendation quality and performance using metrics like precision/recall
-
-## Methodology
-
-### System Architecture
-- **Video Player Module**: Playback for local files (e.g., MP4, MKV) and URL streams
-- **Data Management Module**: Local SQLite storage for watch logs, ratings, and preferences
-- **AI Recommendation Engine**: Local ML pipeline using features such as genre similarity, rating patterns, and viewing frequency
-- **User Interface**: Desktop/web interface for browsing, playback, rating, and recommended content
-
-### Technologies and Tools
-- **Languages**: Python (primary), JavaScript/HTML (if web UI is selected)
-- **Video/Media**: VLC/FFmpeg bindings, MoviePy, or OpenCV
-- **AI/ML**: scikit-learn and/or TensorFlow Lite
-- **Data**: SQLite
-- **UI**: Streamlit, PyQt, Tkinter, or Electron
-- **Workflow**: Jupyter for prototyping and Git for version control
-
-## Expected Outcomes
-- Cross-platform prototype (Windows/Linux/Mac)
-- Personalized recommendation demonstrations (e.g., action/drama preference profiles)
-- Target metrics: recommendation hit rate >70%, playback latency <2 seconds
-- Open-source codebase with implementation and usage guidance
-- Final report with architecture, evaluation, and future expansion opportunities
-
-## Budget and Resources
-- Low-cost implementation using open-source tools and free/public datasets (e.g., MovieLens)
-- Optional metadata API usage (e.g., TMDB free tier)
-- Team structure suitable for 3-4 contributors with roles across AI, frontend, and testing
-- Academic supervision under Dr. Huang
-
-## Flicks recommendation MVP
-
-Flicks v0.4 is a working, local-first streaming app for the recommendation concept.
-It includes a streaming-style web UI (top-pick hero, ranked rail, continue watching, browse grid
-and a “why this pick” sheet), 36 bundled movie/short-film records, one-tap like/pass ratings,
-playback of your own video files with resume, a TF-IDF taste profile with an explainable scene
-reranker, optional local Whisper voice commands, and couch mode for choosing together. No API keys
-or accounts; nothing leaves the device. Architecture decisions are recorded in [docs/adr](docs/adr/README.md).
-
-### Set up (once)
-
-Requires Python 3.10+ and, to build the interface, Node 20+. From the repository root:
+You need Python 3.10+ and Node 20+ (Node is only needed to build the interface).
 
 ```sh
 python3 -m venv .venv
-.venv/bin/pip install -e ".[dev]"        # Flicks + FastAPI/uvicorn + test tools
-npm --prefix web ci                      # interface dependencies (developers only)
-npm --prefix web run build               # builds the interface into flicks/static/
+.venv/bin/pip install -e ".[dev]"
+npm --prefix web ci
+npm --prefix web run build
+.venv/bin/flicks
 ```
 
-On Windows use `.venv\Scripts\pip` and `.venv\Scripts\flicks`.
+Open <http://127.0.0.1:8765>. On Windows, use `.venv\Scripts\pip` and `.venv\Scripts\flicks`.
 
-### Run
+Ratings and watch progress are stored in `~/.flicks/feedback.sqlite3` and survive restarts. Use
+`--db` for a separate profile.
+
+## Using Flicks
+
+### Play your films
 
 ```sh
-.venv/bin/flicks                                  # open http://127.0.0.1:8765
-.venv/bin/flicks --media ~/Movies                 # play your own files (repeat --media for more folders)
-.venv/bin/flicks --db .local/demo.sqlite3 --port 8766   # a separate demo profile
+.venv/bin/flicks --media ~/Movies --media /Volumes/Films
 ```
 
-Stop with Ctrl+C. Ratings and watch progress survive restarts in `~/.flicks/feedback.sqlite3`
-(ratings from before the rename, in `~/.kevin/`, are picked up automatically).
+Name files the way Jellyfin and Plex do, `A Trip to the Moon (1902).mp4` (optionally inside a folder
+of the same name), or by content ID (`m033.webm`). MP4 (H.264/AAC) and WebM play in every browser;
+MKV and MOV may not, and Flicks says so instead of failing silently. Public-domain films such as
+*A Trip to the Moon*, *Sherlock Jr.* and *The General* make good demo material.
 
-**Playing films.** Point `--media` at folders of video files named like Jellyfin/Plex libraries,
-`A Trip to the Moon (1902).mp4` (optionally inside a folder of the same name), or by content ID
-(`m033.webm`). MP4 (H.264/AAC) and WebM play in every browser; MKV and MOV may not, and the app
-says so. Public-domain films such as *A Trip to the Moon*, *Sherlock Jr.* and *The General* are good
-demo material. See [ADR 0005](docs/adr/0005-video-playback.md).
-
-**Posters (optional, one-time).** Without them, Flicks draws title cards. To cache real posters:
+### Add posters (optional)
 
 ```sh
-.venv/bin/python -m flicks.posters      # ~6 MB into ~/.flicks/posters; only titles and years are sent, once
+.venv/bin/python -m flicks.posters
 ```
 
-Posters are looked up on English Wikipedia when you run this command, and never while you browse.
-They are copyrighted, so they stay in your local cache and out of git. `posters.json` in the cache
-records each image's source page.
+This caches posters for the catalogue from English Wikipedia (about 6 MB, once). Only titles and
+years are sent, and only when you run the command. Posters are copyrighted, so they stay in your
+local cache and out of git. Without them, Flicks draws title cards.
 
-**Install as an app.** In Chrome or Edge, use “Install Flicks” in the address bar for its own window
-and dock icon ([ADR 0006](docs/adr/0006-installable-app.md)).
+### Ask Flicks
 
-All computation and data stay on the machine running Flicks. The server binds only to loopback; the
-one exception is opt-in [couch mode](docs/couch.md), which opens a separate, couch-only server on
-your home network while a session runs. Once set up, everything works without internet access.
+Press <kbd>/</kbd> and type a request, or record one if voice is set up. Flicks shows exactly what it
+understood (mood, time limit, genres to avoid, or a rating) and changes nothing until you press
+Apply. See [voice commands](docs/voice.md) to enable on-device speech.
 
-### Develop the interface
-
-Run the API and the Vite dev server side by side; edits reload instantly:
+### Couch mode
 
 ```sh
-.venv/bin/flicks --dev            # API on :8765, also accepting the dev server's origin
-npm --prefix web run dev          # http://localhost:5173, proxies /api, /posters and /media
+.venv/bin/flicks --couch
 ```
 
-The interface lives in `web/` (React + TypeScript, [ADR 0004](docs/adr/0004-react-vite-frontend.md));
+Press **Start a couch session**. Phones on the same Wi-Fi scan the QR code, swipe through a shortlist
+built from your scene, and the group pick appears on the TV. Any phone can then play, pause or stop
+the film. Guests reach a separate server that cannot see your ratings or history, and names and
+votes are forgotten when the session ends. See [how couch mode works](docs/couch.md).
+
+### Command-line options
+
+| Option | Default | Purpose |
+|---|---|---|
+| `--media DIR` | none | Folder of video files to play; repeat for more folders |
+| `--db FILE` | `~/.flicks/feedback.sqlite3` | Ratings and watch history |
+| `--port N` | `8765` | Local port for the app |
+| `--posters DIR` | `~/.flicks/posters` | Poster cache from `python -m flicks.posters` |
+| `--couch` | off | Allow couch sessions on your home network |
+| `--couch-host ADDR` | detected | Home-network address phones connect to |
+| `--couch-port N` | `8770` | Port for the couch guest server |
+| `--voice-model DIR` | none | Local Whisper model for speech ([voice setup](docs/voice.md)) |
+| `--tags FILE` | none | System One catalogue tags ([System One](docs/system-one.md)) |
+| `--system-one-url URL` | none | Local System One server for free-text requests |
+| `--catalog FILE` | bundled | Your own catalogue ([format](flicks/data/README.md)) |
+| `--dev` | off | Accept requests from the Vite dev server |
+
+## How it works
+
+```
+Browser (React)  ──HTTP──▶  FastAPI on 127.0.0.1  ──▶  recommender · repositories (SQLite) · media library
+Phones on Wi-Fi  ──HTTP──▶  couch guest server (only during a session, couch routes only)
+```
+
+The server binds to loopback, so the app is reachable only from this machine. Couch mode is the one
+opt-in exception, and it runs as a separate server with no access to your data. Security rules
+(Host and Origin checks, JSON-only requests, size limits, a strict Content Security Policy) are
+enforced in one place and covered by tests.
+
+See [architecture](docs/architecture.md) for the components, the ranking model and the API, and the
+[architecture decision records](docs/adr/README.md) for why the stack is FastAPI, SQLite and React.
+
+## Project layout
+
+```
+flicks/            Python package: recommender, API, storage, media, couch mode, voice, System One
+  api/             FastAPI apps, routes and the request guard
+  data/            Bundled demo catalogue
+web/               React + TypeScript interface (built into flicks/static/)
+tests/             Backend tests (pytest)
+scripts/           Voice-model download and icon generation
+docs/              Architecture, decision records, feature guides, evaluation
+```
+
+## Development
+
+Run the API and the interface dev server side by side; changes reload instantly:
+
+```sh
+.venv/bin/flicks --dev
+npm --prefix web run dev        # http://localhost:5173
+```
+
+Checks (CI runs them on every push, with the Python tests on Linux, Windows and macOS):
+
+```sh
+.venv/bin/python -m pytest
+.venv/bin/ruff check flicks tests scripts
+npm --prefix web run lint
+npm --prefix web test
+npm --prefix web run build
+```
+
 `flicks/static/` is build output and is not committed.
 
-### Try the concept
+## Documentation
 
-1. In **Browse & rate**, like **Arrival** and **Moon**, then pass on **Alien** (tap again to clear).
-2. In the scene bar, pick **Curious**, set 2h, medium intensity, and low Discovery. Picks update live.
-3. Switch to **Relaxing** and low intensity and watch the hero and the ranked rail change.
-4. Flip the **Lens** between **Taste + scene** and **Taste only** to compare.
-5. Open any poster, or **Why this pick**, to see the weighted factors and shared taste terms.
-6. Try 45 minutes for short films, or 10 minutes for the empty state.
-7. Press <kbd>/</kbd> and type “something tense, no horror”, then Preview and Apply.
-8. Reload or restart: your ratings remain.
-
-To start completely fresh without deleting anything, supply a new `--db` path.
-Session controls are intentionally temporary and return to defaults on reload.
-
-### Voice commands and typed assistant
-
-The **Just ask Flicks** panel accepts typed requests such as “relaxing, 90 minutes,
-no horror” and “Like Arrival”. Preview the proposed changes, then Apply. Genre
-exclusions are hard constraints in both ranking modes.
-
-For local microphone transcription and audio-file uploads, follow
-[the voice setup and command guide](docs/voice.md). This adds optional
-faster-whisper dependencies and an explicitly downloaded model. Recordings stay
-on-device and are not saved by Flicks. No cloud speech API or wake word is used.
-
-### Couch mode (prototype)
-
-Start Flicks with `--couch` and press **Start a couch session**. Phones on the same Wi-Fi scan the QR
-code, vote on a shortlist with hidden votes, and act as a remote. Guests reach a separate
-local-network server that exposes only couch routes. Your ratings and history are never reachable
-from the network, and names and votes are forgotten when the session ends. See
-[how couch mode works and what it guarantees](docs/couch.md).
-
-### System One models (experimental)
-
-Flicks can ask a System One decision model (Laya, Kev, or TypeSafe's Jev) typed questions:
-tag the catalogue at build time from public text only, fall back to a **local** model for free-text
-commands the rules do not understand, and distil the teacher into a small student that also runs
-in the browser. User text is never sent to a non-local backend; the code refuses it.
-
-```sh
-.venv/bin/python -m flicks.tagging --out work/tags.json
-.venv/bin/python -m flicks.distill --tags work/tags.json --export-laya work/laya-data --student work/student.json
-.venv/bin/flicks --tags work/tags.json --system-one-url lexical
-```
-
-These commands use an offline keyword stand-in (not a model). See
-[System One design, privacy rules, results and next steps](docs/system-one.md) for running Laya
-locally, Jev for catalogue-only tagging, and the fine-tuning path.
-
-### Verify
-
-```sh
-.venv/bin/python -m pytest                 # backend: API, security rules, migrations, playback, couch
-.venv/bin/ruff check flicks tests scripts  # backend lint
-npm --prefix web run lint && npm --prefix web test && npm --prefix web run build
-.venv/bin/python -m flicks.evaluate        # deterministic ranking demonstration
-```
-
-Backend tests cover ranking, explanations, validation, persistence and migrations, the request
-guard (host, origin, content type and size), range-request streaming, watch history, and the couch
-guest server over a real socket. Interface tests cover the command/voice state machine, the couch
-flows (including stale-poll protection), the player, and the main screens. CI runs Python 3.10/3.12
-on Linux, Windows and macOS, plus lint, the interface build, and a packaging check.
-
-See [architecture and scoring](docs/architecture.md),
-[data provenance and schema](flicks/data/README.md), and
-[validation, limitations, and next iteration](docs/validation.md).
+| Document | Contents |
+|---|---|
+| [Architecture](docs/architecture.md) | Components, data flow, security model, ranking model, API |
+| [Decision records](docs/adr/README.md) | Why the project is built the way it is |
+| [Voice commands](docs/voice.md) | On-device speech setup and the supported commands |
+| [Couch mode](docs/couch.md) | Joining, voting, the remote, and what is guaranteed |
+| [System One](docs/system-one.md) | Typed-decision models for tagging and command fallback |
+| [Evaluation](docs/evaluation.md) | What has been verified, measured results, and the evaluation plan |
+| [Catalogue format](flicks/data/README.md) | The demo catalogue and how to bring your own |
+| [Proposal](docs/proposal.md) | The original project proposal |

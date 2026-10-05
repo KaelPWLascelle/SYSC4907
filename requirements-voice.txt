@@ -1,2 +1,0 @@
-# Optional on-device speech; the recommendation app still runs without these.
-faster-whisper==1.2.1

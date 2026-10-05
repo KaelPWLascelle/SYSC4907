@@ -1,14 +1,22 @@
+# Python
 __pycache__/
 *.py[cod]
 .venv/
-*.sqlite3
-*.sqlite3-*
 .coverage
-.local/
-work/
 build/
 dist/
 *.egg-info/
 
-# Frontend build output (web/ -> npm run build); never committed, see docs/adr/0004.
+# Local data: databases, models, experiment output
+*.sqlite3
+*.sqlite3-*
+.local/
+work/
+
+# Interface build output (npm --prefix web run build); see docs/adr/0004
 flicks/static/
+
+# Editors and OS
+.DS_Store
+.idea/
+.vscode/

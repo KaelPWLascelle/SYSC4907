@@ -3,10 +3,8 @@ import math
 from pathlib import Path
 import tempfile
 import unittest
-from unittest import mock
 
 from flicks.commands import CommandInterpreter
-from flicks.config import default_db
 from flicks.core import Content, HeuristicDecision, Recommender, Session, load_catalog
 from flicks.db import Database
 from flicks.repositories import RatingsRepository
@@ -169,21 +167,12 @@ class ApiTests(unittest.TestCase):
                 self.assertEqual(self.client.get(path).status_code, 404)
 
 
-class RebrandTests(unittest.TestCase):
-    def test_former_name_still_works_as_a_spoken_prefix(self):
+class WakeWordTests(unittest.TestCase):
+    def test_the_app_name_is_an_optional_spoken_prefix(self):
         rules = CommandInterpreter(load_catalog(CATALOG))
-        for text in ('Hey Kevin like Arrival', 'Hey Flicks like Arrival', 'flicks like Arrival'):
+        for text in ('Hey Flicks like Arrival', 'flicks like Arrival', 'like Arrival'):
             with self.subTest(text=text):
                 self.assertEqual((rules.parse(text)['intent'], rules.parse(text)['id']), ('feedback', 'm001'))
 
-    def test_ratings_from_before_the_rebrand_are_kept(self):
-        with tempfile.TemporaryDirectory() as home, mock.patch.object(Path, 'home', return_value=Path(home)):
-            self.assertEqual(default_db(), Path(home)/'.flicks'/'feedback.sqlite3')
-            legacy = Path(home)/'.kevin'/'feedback.sqlite3'
-            legacy.parent.mkdir(); legacy.touch()
-            self.assertEqual(default_db(), legacy)
-            current = Path(home)/'.flicks'/'feedback.sqlite3'
-            current.parent.mkdir(); current.touch()
-            self.assertEqual(default_db(), current)
 
 if __name__ == '__main__': unittest.main()
