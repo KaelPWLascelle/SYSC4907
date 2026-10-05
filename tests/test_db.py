@@ -1,3 +1,4 @@
+from contextlib import closing
 from pathlib import Path
 import sqlite3
 import tempfile
@@ -9,6 +10,16 @@ from flicks.db import SCHEMA_VERSION, Database
 from flicks.repositories import COMPLETE_FRACTION, RESUME_MIN_SECONDS, RatingsRepository, WatchHistoryRepository
 
 
+def execute(path, *statements):
+    """Run statements in one committed transaction and close the connection.
+
+    `with sqlite3.connect(...)` only commits; it leaves the file open, and Windows then refuses to
+    delete the temporary directory.
+    """
+    with closing(sqlite3.connect(path)) as connection, connection:
+        return [connection.execute(statement).fetchall() for statement in statements]
+
+
 class MigrationTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -18,21 +29,21 @@ class MigrationTests(unittest.TestCase):
         self.temp.cleanup()
 
     def tables(self):
-        with sqlite3.connect(self.path) as connection:
-            return {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
+        [rows] = execute(self.path, "SELECT name FROM sqlite_master WHERE type = 'table'")
+        return {row[0] for row in rows}
 
     def test_fresh_database_gets_the_whole_schema(self):
         database = Database(self.path)
         self.assertEqual(database.version(), SCHEMA_VERSION)
         self.assertEqual(self.tables(), {'feedback', 'watch_history'})
 
-    def test_mvp_database_keeps_its_ratings(self):
-        # Exactly what FeedbackStore created before migrations existed (user_version 0).
+    def test_a_database_from_before_migrations_keeps_its_ratings(self):
+        # Exactly the schema the app created before migrations existed (user_version 0).
         self.path.parent.mkdir(parents=True)
-        with sqlite3.connect(self.path) as connection:
-            connection.execute('CREATE TABLE IF NOT EXISTS feedback (content_id TEXT PRIMARY KEY, value INTEGER NOT NULL '
-                               'CHECK(value IN (-1,1)), updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)')
-            connection.execute("INSERT INTO feedback (content_id, value) VALUES ('m001', 1), ('m008', -1)")
+        execute(self.path,
+                'CREATE TABLE IF NOT EXISTS feedback (content_id TEXT PRIMARY KEY, value INTEGER NOT NULL '
+                'CHECK(value IN (-1,1)), updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)',
+                "INSERT INTO feedback (content_id, value) VALUES ('m001', 1), ('m008', -1)")
         database = Database(self.path)
         self.assertEqual(database.version(), SCHEMA_VERSION)
         self.assertEqual(RatingsRepository(database).all(), {'m001': 1, 'm008': -1})
@@ -44,8 +55,7 @@ class MigrationTests(unittest.TestCase):
 
     def test_refuses_a_database_from_a_newer_version(self):
         Database(self.path)
-        with sqlite3.connect(self.path) as connection:
-            connection.execute(f'PRAGMA user_version = {SCHEMA_VERSION + 1}')
+        execute(self.path, f'PRAGMA user_version = {SCHEMA_VERSION + 1}')
         with self.assertRaisesRegex(RuntimeError, 'newer Flicks'):
             Database(self.path)
 
