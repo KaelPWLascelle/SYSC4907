@@ -40,5 +40,6 @@ export const pick = (item: Content, score = 0.6): Recommendation => ({
   evidence: ['quiet'],
   negative_evidence: [],
   because: [],
+  popular: false,
   familiarity: null,
 });

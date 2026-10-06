@@ -43,7 +43,7 @@ The reasons behind each major choice are in the [decision records](adr/README.md
 | `couch.py`, `qr.py` | Couch-session rules (joining, hidden votes, results, player state) and the QR encoder |
 | `posters.py` | The one-time poster fetch and the read-only poster cache |
 | `search.py` | In-memory title lookup and search ([ADR 0007](adr/0007-catalogue-artifact.md)) |
-| `collaborative.py` | Item-to-item collaborative filtering and the content/collaborative blend ([ADR 0008](adr/0008-collaborative-filtering.md)) |
+| `collaborative.py` | Item-to-item collaborative filtering, the content/collaborative blend and the popularity prior ([ADR 0008](adr/0008-collaborative-filtering.md), [0009](adr/0009-popularity-prior.md)) |
 | `datasets/` | Build-time tools: the MovieLens importer, neighbour precomputation, and the offline evaluation |
 | `net.py` | Outbound HTTP for the explicit one-time commands (posters, imports); the app itself never uses it |
 | `systemone.py`, `tagging.py`, `distill.py` | System One client, catalogue tagging and the distilled student |
@@ -142,6 +142,23 @@ Titles no rated film points to keep their TF-IDF taste. Similarity is adjusted c
 shrunk by n/(n + 10), top 30 per film. Discovery still uses TF-IDF familiarity, because it measures
 theme distance rather than preference. Recommendations name the liked films that contributed
 (`because`).
+
+### Popularity prior (when the neighbour file has popularity)
+
+A new user has no ratings, so neither taste model knows anything about them. The neighbour file
+also records how many MovieLens raters liked each film, and taste starts from that
+([ADR 0009](adr/0009-popularity-prior.md)):
+
+```
+popularity(i) = log(1 + likes(i)) / log(1 + max likes)
+w             = s / (s + number of likes and passes)
+taste(i)      = w·popularity(i) + (1 − w)·taste_hybrid(i)
+```
+
+With no ratings, picks are the most widely liked films that fit the scene; each rating moves weight
+to the user's own taste. A pick is marked `popular` when the prior supplied at least half of its
+taste score, and only then does the interface call it a crowd favourite. The strength s is tuned
+offline (docs/evaluation.md).
 
 ### Session reranking
 

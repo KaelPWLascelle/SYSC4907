@@ -7,10 +7,14 @@ so a harsh rater's 3 and a generous rater's 4 count alike. It is shrunk toward z
 rated both (n / (n + SHRINK)), so two films one person loved do not look identical. Each film keeps
 its K most similar catalogue films with positive similarity.
 
+The file also records each film's popularity (how many raters liked it, rating >= LIKE), for the
+popularity prior that new users start from (docs/adr/0009-popularity-prior.md).
+
 The app reads the result with flicks/collaborative.py and needs no NumPy. The user's own ratings are
 never part of this computation: only the public dataset is (docs/adr/0008-collaborative-filtering.md).
 """
 import argparse
+from collections import Counter
 import csv
 from dataclasses import dataclass
 import json
@@ -25,6 +29,7 @@ SHRINK = 10.0
 MIN_CO_RATERS = 2
 BLOCK = 1024
 DECIMALS = 4
+LIKE = 4.0
 
 
 @dataclass(frozen=True)
@@ -89,16 +94,22 @@ def build(ratings, catalogue_ids, k=K, shrink=SHRINK):
     return neighbours
 
 
+def popularity(ratings, catalogue_ids, like=LIKE):
+    """{item: number of raters who liked it} for catalogue items with at least one like."""
+    return dict(Counter(r.item for r in ratings if r.value >= like and r.item in catalogue_ids))
+
+
 def sidecar(catalogue: Path) -> Path:
     """Where the app looks for a catalogue's neighbours: movielens-small.json -> movielens-small.neighbours.json."""
     return catalogue.with_suffix('.neighbours.json')
 
 
-def write(neighbours, path: Path, source: str, catalogue_ids):
+def write(neighbours, path: Path, source: str, catalogue_ids, likes=None):
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix('.json.tmp')
     payload = {'format': ItemNeighbours.FORMAT, 'k': K, 'shrink': SHRINK, 'source': source,
-               'neighbours': {item: [[j, s] for j, s in pairs] for item, pairs in sorted(neighbours.items())}}
+               'neighbours': {item: [[j, s] for j, s in pairs] for item, pairs in sorted(neighbours.items())},
+               'popularity': dict(sorted((likes or {}).items()))}
     tmp.write_text(json.dumps(payload, separators=(',', ':')) + '\n', encoding='utf-8')
     # Validate against the catalogue, not the items that have neighbours: a film can be someone's
     # neighbour without having enough raters for a list of its own. Never write a file the app would reject.
@@ -114,9 +125,10 @@ def main(argv=None):
     if args.catalog == DEFAULT_CATALOG:
         parser.error('the bundled catalogue has no ratings dataset; use an imported catalogue')
     catalogue_ids = {item.id for item in load_catalog(args.catalog)}
-    neighbours = build(read_ratings(args.ratings), catalogue_ids)
+    ratings = read_ratings(args.ratings)
+    neighbours = build(ratings, catalogue_ids)
     out = sidecar(args.catalog)
-    write(neighbours, out, str(args.ratings), catalogue_ids)
+    write(neighbours, out, str(args.ratings), catalogue_ids, popularity(ratings, catalogue_ids))
     print(f'{len(neighbours)} of {len(catalogue_ids)} titles have neighbours -> {out}')
 
 

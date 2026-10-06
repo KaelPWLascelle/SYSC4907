@@ -1,8 +1,9 @@
-"""Item-to-item collaborative filtering at runtime (docs/adr/0008-collaborative-filtering.md).
+"""Taste from public ratings at runtime: item-to-item collaborative filtering and a popularity prior.
 
-Neighbours are precomputed from a public ratings dataset (flicks/datasets/neighbours.py). Here the
-user's own likes and dislikes are only looked up against them, on this device; nothing is sent
-anywhere and the user's ratings never influence the shared neighbour file.
+Neighbours and popularity are precomputed from a public ratings dataset (flicks/datasets/neighbours.py;
+docs/adr/0008-collaborative-filtering.md, docs/adr/0009-popularity-prior.md). Here the user's own likes
+and dislikes are only looked up against them, on this device; nothing is sent anywhere and the user's
+ratings never influence the shared file.
 """
 import json
 import math
@@ -10,12 +11,16 @@ from pathlib import Path
 
 
 class ItemNeighbours:
-    """{item: [(neighbour, similarity), ...]} restricted to a catalogue, validated on load."""
+    """{item: [(neighbour, similarity), ...]} restricted to a catalogue, validated on load.
+
+    `popularity` is {item: number of public likes}, empty for files written before it was added.
+    """
 
     FORMAT = 'flicks-neighbours-v1'
 
-    def __init__(self, neighbours):
+    def __init__(self, neighbours, popularity=None):
         self.neighbours = neighbours
+        self.popularity = popularity or {}
 
     @classmethod
     def load(cls, path: Path, catalogue_ids):
@@ -34,7 +39,13 @@ class ItemNeighbours:
                 kept.append((pair[0], float(pair[1])))
             if kept:
                 neighbours[item] = kept
-        return cls(neighbours)
+        popularity = data.get('popularity', {})
+        if not isinstance(popularity, dict):
+            raise ValueError(f'{path} contains invalid popularity')
+        for item, likes in popularity.items():
+            if type(likes) is not int or likes < 0:
+                raise ValueError(f'{path} contains invalid popularity for {item}')
+        return cls(neighbours, {item: likes for item, likes in popularity.items() if item in catalogue_ids and likes})
 
     def __len__(self):
         return len(self.neighbours)
@@ -109,3 +120,48 @@ def blend(content_scores, predictions, strength=HybridTaste.BLEND):
             weight = support / (support + strength)
             scores[item] = {**scores[item], 'taste': weight * (prediction + 1) / 2 + (1 - weight) * scores[item]['taste']}
     return scores
+
+
+class PopularityPrior:
+    """A taste model that starts from what the public liked most and gives way as the user rates titles.
+
+    taste = w·popularity + (1 - w)·inner taste, with w = strength / (strength + ratings): a new user
+    sees widely liked films (the strongest single predictor on held-out MovieLens ratings) and each
+    like or pass shifts the ranking toward their own taste. `popular` marks the titles where the prior
+    supplied at least half of the taste score, so the interface can say so honestly.
+    """
+
+    # Chosen on development users for the best mean NDCG@10 over profiles of 3 likes, 10 likes and full
+    # histories, on top of the tuned collaborative blend (python -m flicks.datasets.evaluation).
+    STRENGTH = 2.0
+
+    def __init__(self, inner, popularity, strength=STRENGTH):
+        self.inner = inner
+        self.popularity = popularity_scores(popularity)
+        self.strength = strength
+
+    def scores(self, feedback):
+        return with_prior(self.inner.scores(feedback), self.popularity, feedback, self.strength)
+
+    def explain(self, feedback, ids):
+        return self.inner.explain(feedback, ids) if hasattr(self.inner, 'explain') else {}
+
+
+def popularity_scores(likes):
+    """{item: public likes} -> {item: score in (0, 1]}, log-scaled so the head does not swamp the rest."""
+    top = max(likes.values(), default=0)
+    return {item: math.log1p(count) / math.log1p(top) for item, count in likes.items() if count > 0} if top else {}
+
+
+def with_prior(scores, popularity, feedback, strength=PopularityPrior.STRENGTH):
+    """Taste scores pulled toward popularity by strength / (strength + number of ratings).
+
+    Shared by PopularityPrior and the offline evaluation, so both rank exactly the same way.
+    """
+    weight = strength / (strength + sum(1 for value in feedback.values() if value in (1, -1)))
+    result = {}
+    for item, score in scores.items():
+        prior = weight * popularity.get(item, 0.0)
+        personal = (1 - weight) * score['taste']
+        result[item] = {**score, 'taste': prior + personal, 'popular': prior > 0 and prior >= personal}
+    return result
