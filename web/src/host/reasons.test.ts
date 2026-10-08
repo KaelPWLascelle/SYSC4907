@@ -14,6 +14,7 @@ const row = (
   evidence: string[] = [],
   intensity = 0.2,
   because: string[] = [],
+  popular = false,
 ): Recommendation => ({
   content: {
     id: 'm1',
@@ -32,6 +33,7 @@ const row = (
   evidence,
   negative_evidence: [],
   because,
+  popular,
   familiarity: null,
 });
 
@@ -45,6 +47,15 @@ test('only claims the factors that scored', () => {
 test('collaborative evidence leads the reasons', () => {
   const reasonsList = reasons(row({ taste: 0.4 }, [], 0.2, ['Star Wars', 'Alien']), session);
   expect(reasonsList[0]).toBe('Fans of Star Wars also like this');
+});
+
+test('says when popularity carried a pick, and only then', () => {
+  expect(reasons(row({ taste: 0.5 }, [], 0.5, [], true), session)[0]).toBe('Crowd favourite');
+  expect(reasons(row({ taste: 0.5 }, [], 0.5, ['Alien'], true), session).slice(0, 2)).toEqual([
+    'Fans of Alien also like this',
+    'Crowd favourite',
+  ]);
+  expect(reasons(row({ taste: 0.5 }), session)).not.toContain('Crowd favourite');
 });
 
 test('an open mood never produces a mood reason', () => {

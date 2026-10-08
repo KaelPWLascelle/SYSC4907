@@ -1,0 +1,25 @@
+# Weekly update PRs for each dependency ecosystem, grouped so routine bumps arrive as one PR each.
+# Major versions get their own PRs: they are the ones that break things (PyAV 19, for example).
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      python:
+        update-types: [minor, patch]
+  - package-ecosystem: npm
+    directory: /web
+    schedule:
+      interval: weekly
+    groups:
+      web:
+        update-types: [minor, patch]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ['*']

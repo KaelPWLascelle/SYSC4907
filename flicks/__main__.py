@@ -56,7 +56,8 @@ def main(argv=None):
     services = build_services(settings, speech=LocalWhisper(args.voice_model), system_one=system_one)
     if services.media.unmatched:
         print(f'Media: {len(services.media.unmatched)} file(s) did not match a catalogue title, e.g. {services.media.unmatched[0].name}')
-    mode = 'content + collaborative' if services.collaborative else 'content'
+    mode = ' + '.join(['content', *(['collaborative'] if services.collaborative else []),
+                        *(['popularity prior'] if services.popularity_prior else [])])
     episodes = f' · podcast episodes: {len(services.podcasts.index)}' if services.podcasts else ''
     print(f'Flicks: http://127.0.0.1:{settings.port} · ratings: {settings.db} · {mode} recommendations · '
           f'playable titles: {len(services.media.files)}{episodes}', flush=True)

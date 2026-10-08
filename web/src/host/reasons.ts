@@ -14,9 +14,10 @@ export const FACTORS: Record<string, { label: string; max: number }> = {
  * (not from editorial labels), so the chips never claim something the ranking did not use.
  */
 export function reasons(row: Recommendation, session: Session): string[] {
-  const { content, factors, evidence, because } = row;
+  const { content, factors, evidence, because, popular } = row;
   const list: string[] = [];
   if (because.length) list.push(`Fans of ${because[0]} also like this`);
+  if (popular) list.push('Crowd favourite');
   if (session.mood !== 'any' && (factors.mood ?? 0) >= 0.19) list.push(`${capitalize(session.mood)} mood`);
   if ((factors.intensity ?? 0) >= 0.135) {
     list.push(content.intensity < 0.35 ? 'Easygoing' : content.intensity > 0.65 ? 'Full throttle' : 'Right intensity');

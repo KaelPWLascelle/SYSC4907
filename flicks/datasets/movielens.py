@@ -233,15 +233,16 @@ def import_movielens(out: Path = DEFAULT_OUT, cache: Path = DEFAULT_CACHE, log=p
 
 
 def _build_neighbours(catalogue: Path, ratings: Path, catalogue_ids, log):
-    """Collaborative-filtering neighbours next to the catalogue, when NumPy (the datasets extra) is installed."""
+    """Collaborative-filtering neighbours and popularity next to the catalogue, when NumPy (the datasets extra) is installed."""
     if importlib.util.find_spec('numpy') is None:
         log('Skipping collaborative filtering: pip install -e ".[datasets]" and re-run to add it')
         return None
-    built = neighbours.build(neighbours.read_ratings(ratings), catalogue_ids)
+    rows = neighbours.read_ratings(ratings)
+    built = neighbours.build(rows, catalogue_ids)
     if not built:
         return None
     path = neighbours.sidecar(catalogue)
-    neighbours.write(built, path, str(ratings), catalogue_ids)
+    neighbours.write(built, path, str(ratings), catalogue_ids, neighbours.popularity(rows, catalogue_ids))
     log(f'Collaborative filtering: {len(built)} titles have neighbours -> {path}')
     return str(path)
 

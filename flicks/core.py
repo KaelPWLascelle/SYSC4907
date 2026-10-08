@@ -189,6 +189,8 @@ class Recommender:
             factors = self.decision.factors(item, taste, session) if mode == 'session' else {'taste': taste['taste']}
             ranked.append((-sum(factors.values()), item.id, item, factors))
         ranked.sort(key=lambda row: (row[0], row[1]))
+        if session.medium == 'any':
+            ranked = self._alternate_media(ranked)
         top, per_series = [], Counter()
         for row in ranked:
             series = row[2].series
@@ -206,5 +208,21 @@ class Recommender:
             taste = {**scores[key], **explained.get(key, {})}
             result.append(dict(content=asdict(item), score=-negative_score, factors=factors,
                                evidence=taste.get('evidence', []), negative_evidence=taste.get('negative_evidence', []),
-                               because=taste.get('because', []), familiarity=taste['familiarity']))
+                               because=taste.get('because', []), popular=taste.get('popular', False),
+                               familiarity=taste['familiarity']))
         return result
+
+    @staticmethod
+    def _alternate_media(ranked):
+        """For "either": the best films and the best episodes in turn, led by whichever ranks higher.
+
+        Film and episode scores rest on different evidence (public popularity and collaborative patterns
+        exist for films only), so they are compared within each medium, not across them.
+        """
+        video = [row for row in ranked if not row[2].audio]
+        audio = [row for row in ranked if row[2].audio]
+        if not video or not audio:
+            return ranked
+        first, second = (video, audio) if (video[0][0], video[0][1]) <= (audio[0][0], audio[0][1]) else (audio, video)
+        merged = [row for pair in zip(first, second, strict=False) for row in pair]
+        return merged + first[len(second):] + second[len(first):]

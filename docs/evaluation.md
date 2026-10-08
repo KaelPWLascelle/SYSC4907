@@ -9,8 +9,8 @@ measured yet (whether the recommendations are good), and sets out how to measure
 
 | Suite | Count | Covers |
 |---|---:|---|
-| Backend (`pytest`) | 154 | Ranking and explanations, hard constraints, validation, migrations, the request guard, range-request streaming, watch history, posters, couch rules and the guest server over a real socket, command parsing, System One validation, catalogue search, the MovieLens and podcast importers (offline fixtures), podcast downloads (with a fake network), and collaborative filtering (neighbour build, predictions, blend, leakage-free evaluation split) |
-| Interface (Vitest) | 46 | The voice and command state machine (cancellation, stale results, permissions), couch phone flows, the player (video and audio), the couch panel, server-side browsing, podcast downloads, and the main screens |
+| Backend (`pytest`) | 163 | Ranking and explanations, hard constraints, validation, migrations, the request guard, range-request streaming, watch history, posters, couch rules and the guest server over a real socket, command parsing, System One validation, catalogue search, the MovieLens and podcast importers (offline fixtures), podcast downloads (with a fake network), collaborative filtering (neighbour build, predictions, blend, leakage-free evaluation split) and the popularity prior |
+| Interface (Vitest) | 47 | The voice and command state machine (cancellation, stale results, permissions), couch phone flows, the player (video and audio), the couch panel, server-side browsing, podcast downloads, and the main screens |
 
 Regression tests for bugs found during manual testing (a stale poll overwriting a vote, a background
 tab not loading the couch session) were each checked to fail with the bug reintroduced. CI runs the
@@ -93,6 +93,10 @@ actually liked, using held-out MovieLens ratings:
 - **New users too:** each model is also evaluated with only 3 or 10 of a user's likes, because
   Flicks' own users start with few. The blend is tuned for the mean over these profile sizes
   (mean NDCG@10 by strength: 0.25: 0.0480, 0.5: 0.0496, 1.0: 0.0514, 2.0: 0.0530, 4.0: 0.0516, 8.0: 0.0450, 16.0: 0.0359, 32.0: 0.0287; chosen: 2.0).
+- **Popularity prior:** its strength is then tuned the same way, on top of the chosen blend (mean
+  NDCG@10 by strength: 0.125: 0.0551, 0.25: 0.0564, 0.5: 0.0595, 1.0: 0.0646, 2.0: 0.0685, 4.0: 0.0681,
+  8.0: 0.0676, 16.0: 0.0684; chosen: 2.0, the smallest of a flat top). Popularity is counted from the
+  training ratings only, like the neighbours.
 - **Sampled HR@10** ranks the held-out film among 100 random unrated films. It is common in the
   literature but optimistic (Krichene & Rendle, 2020), so the full-catalogue figures are the ones
   to quote.
@@ -105,7 +109,8 @@ actually liked, using held-out MovieLens ratings:
 | popularity | 0.127 ± 0.036 | 0.072 | 0.771 |
 | content (TF-IDF) | 0.015 ± 0.013 | 0.010 | 0.257 |
 | collaborative (item-item) | 0.043 ± 0.022 | 0.018 | 0.158 |
-| **hybrid (blend 2.0)** | **0.050 ± 0.024** | **0.026** | 0.359 |
+| hybrid (blend 2.0) | 0.050 ± 0.024 | 0.026 | 0.359 |
+| **hybrid + popularity prior (2.0)** | **0.136 ± 0.037** | **0.078** | 0.786 |
 
 **Test users, 10 likes** (323 users)
 
@@ -115,7 +120,8 @@ actually liked, using held-out MovieLens ratings:
 | popularity | 0.127 ± 0.036 | 0.072 | 0.771 |
 | content (TF-IDF) | 0.031 ± 0.019 | 0.026 | 0.313 |
 | collaborative (item-item) | 0.084 ± 0.030 | 0.045 | 0.406 |
-| **hybrid (blend 2.0)** | **0.102 ± 0.033** | **0.059** | 0.564 |
+| hybrid (blend 2.0) | 0.102 ± 0.033 | 0.059 | 0.564 |
+| **hybrid + popularity prior (2.0)** | **0.133 ± 0.037** | **0.082** | 0.811 |
 
 **Test users, full history** (323 users)
 
@@ -125,20 +131,26 @@ actually liked, using held-out MovieLens ratings:
 | popularity | 0.127 ± 0.036 | 0.072 | 0.771 |
 | content (TF-IDF) | 0.025 ± 0.017 | 0.020 | 0.353 |
 | collaborative (item-item) | 0.099 ± 0.033 | 0.054 | 0.650 |
-| **hybrid (blend 2.0)** | **0.105 ± 0.034** | **0.054** | 0.681 |
+| hybrid (blend 2.0) | 0.105 ± 0.034 | 0.054 | 0.681 |
+| **hybrid + popularity prior (2.0)** | **0.108 ± 0.034** | **0.058** | 0.746 |
 
 **Reading the results.**
 - **Collaborative filtering roughly triples or quadruples quality.** At every profile size, the
   hybrid is 3–4× better than the content model alone: HR@10 0.105 against 0.025 with full histories,
   and 0.050 against 0.015 for a new user with 3 likes.
-- **Popularity is still the strongest single baseline,** as is common on MovieLens: held-out liked
-  films skew popular. For users with 10 or more likes the hybrid is within the margin of error of
-  popularity; for new users popularity is clearly ahead. A popularity prior for users with few
-  ratings is the next step. Popularity alone is not personal, since everyone gets the same list.
-- **On the proposal's "hit rate above 70%" target:** on the sampled protocol the hybrid reaches
-  0.68 with full histories and popularity 0.77. On the full catalogue, the stricter and more honest
-  measure, no model is near 70%. The target needs to be stated with a protocol before it can be
-  claimed.
+- **Popularity is a strong baseline,** as is common on MovieLens: held-out liked films skew popular.
+  Without the prior, popularity clearly beats the hybrid for new users (0.127 against 0.050 with 3
+  likes).
+- **The popularity prior closes that gap.** Starting from popularity and giving way to the user's
+  own taste as they rate (ADR 0009) nearly triples the hybrid's hit rate with 3 likes (0.136 against
+  0.050) and raises it with 10 likes (0.133 against 0.102). It now matches or edges past popularity
+  at 3 and 10 likes, though within the margin of error, while staying personal: the list changes with
+  every rating. With full histories the prior has little weight and popularity remains slightly
+  ahead (0.127 against 0.108, also within the margin).
+- **On the proposal's "hit rate above 70%" target:** on the sampled protocol the hybrid with the
+  prior reaches 0.75 to 0.81, depending on the profile size, and popularity 0.77. On the full
+  catalogue, the stricter and more honest measure, no model is near 70%. The target needs to be
+  stated with a protocol before it can be claimed.
 
 ## Speech recognition smoke test
 
@@ -178,8 +190,8 @@ samples do not establish an accuracy rate.
    candidates. Measure the preferred list, time to choose, precision@5, NDCG@5 (graded), coverage
    and constraint violations. Report participant counts and uncertainty.
 4. **Tuning.** Tune weights on development participants only and report final results on others.
-5. **Model comparisons.** Done offline for content, collaborative and hybrid models (above). Next:
-   a popularity prior for new users, local embeddings, and System One tags, with the same protocol.
+5. **Model comparisons.** Done offline for content, collaborative and hybrid models and the
+   popularity prior (above). Next: local embeddings and System One tags, with the same protocol.
 6. **Speech.** Collect consented recordings from the team (varied voices, accents and noise). Measure
    word error rate, exact command match, rejection rate and latency. Keep recordings out of git.
 

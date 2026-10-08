@@ -76,7 +76,9 @@ intensity are estimated from genres. MovieLens is for non-commercial research us
 With the `datasets` extra installed (`.venv/bin/pip install -e ".[dev,datasets]"`), the MovieLens import
 also precomputes which films the same people liked (`movielens-small.neighbours.json`). Flicks then
 blends those patterns with its content model, entirely on your device ("Fans of *The Empire Strikes
-Back* also like this"). To measure recommendation quality on held-out MovieLens ratings:
+Back* also like this"). Until you have rated a few films, picks start from the films MovieLens raters
+liked most, and your own taste takes over as you rate. To measure recommendation quality on held-out
+MovieLens ratings:
 
 ```sh
 .venv/bin/python -m flicks.datasets.evaluation

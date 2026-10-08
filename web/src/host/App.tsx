@@ -180,7 +180,9 @@ function Home({ initial }: { initial: AppState }) {
     : !picks.length && !loading
       ? 'Nothing fits yet. Add time, drop an avoided genre, or clear a rating.'
       : coldStart
-        ? `Like a few ${initial.podcasts ? 'titles' : 'films'} below and Flicks learns your taste. Until then, picks follow your scene.`
+        ? `Like a few ${initial.podcasts ? 'titles' : 'films'} below and Flicks learns your taste. Until then, picks ${
+            picks.some(p => p.popular) ? 'start from crowd favourites' : 'follow your scene'
+          }.`
         : 'Shaped by your ratings and this scene. Open any title to see why it ranks where it does.';
 
   return (

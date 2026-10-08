@@ -5,10 +5,18 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from flicks.collaborative import CollaborativeTaste, HybridTaste, ItemNeighbours, blend
+from flicks.collaborative import (
+    CollaborativeTaste,
+    HybridTaste,
+    ItemNeighbours,
+    PopularityPrior,
+    blend,
+    popularity_scores,
+    with_prior,
+)
 from flicks.core import Content, Recommender, Session
 from flicks.datasets import evaluation
-from flicks.datasets.neighbours import Rating
+from flicks.datasets.neighbours import Rating, popularity
 from helpers import app_client
 
 HAS_NUMPY = importlib.util.find_spec('numpy') is not None
@@ -68,6 +76,40 @@ class PredictionTests(unittest.TestCase):
         self.assertTrue(math.isclose(sum(top[0]['factors'].values()), top[0]['score']))
 
 
+class PopularityPriorTests(unittest.TestCase):
+    def test_popularity_is_log_scaled_to_the_most_liked_title(self):
+        scores = popularity_scores({'a': 99, 'b': 9, 'c': 0})
+        self.assertEqual(scores['a'], 1.0)
+        self.assertAlmostEqual(scores['b'], math.log(10) / math.log(100))
+        self.assertNotIn('c', scores)
+        self.assertEqual(popularity_scores({}), {})
+
+    def test_prior_gives_way_as_the_user_rates_titles(self):
+        content = {'a': {'taste': 0.5, 'familiarity': None}, 'b': {'taste': 0.9, 'familiarity': 0.2}}
+        prior = {'a': 1.0}
+        new = with_prior(content, prior, {}, strength=2.0)              # no ratings: popularity alone
+        self.assertEqual((new['a']['taste'], new['b']['taste']), (1.0, 0.0))
+        self.assertEqual((new['a']['popular'], new['b']['popular']), (True, False))
+        rated = with_prior(content, prior, {'x': 1, 'y': -1}, strength=2.0)  # a pass counts as a rating
+        self.assertAlmostEqual(rated['a']['taste'], 0.5 * 1.0 + 0.5 * 0.5)
+        self.assertAlmostEqual(rated['b']['taste'], 0.5 * 0.9)
+        self.assertEqual(rated['b']['familiarity'], 0.2)                     # only taste changes
+        settled = with_prior(content, prior, {str(n): 1 for n in range(18)}, strength=2.0)
+        self.assertAlmostEqual(settled['a']['taste'], 0.1 * 1.0 + 0.9 * 0.5)
+        self.assertFalse(settled['a']['popular'])                           # mostly the user's own taste now
+        self.assertEqual(with_prior(content, prior, {'x': 0}, strength=2.0), new)  # not a like or a pass
+
+    def test_new_users_start_from_the_most_liked_titles(self):
+        catalog = [item(key) for key in 'abcde']
+        taste = PopularityPrior(HybridTaste(StubContent(), NEIGHBOURS, {}), {'c': 50, 'e': 5}, strength=1.0)
+        top = Recommender(catalog, taste=taste).recommend({}, Session(), 'baseline')
+        self.assertEqual([p['content']['id'] for p in top[:2]], ['c', 'e'])
+        self.assertTrue(top[0]['popular'])
+        self.assertEqual(top[0]['evidence'], ['quiet'])                     # the inner model still explains
+        liked = Recommender(catalog, taste=taste).recommend({'a': 1, 'd': 1}, Session(), 'baseline')
+        self.assertFalse(next(p for p in liked if p['content']['id'] == 'c')['popular'])  # own taste outweighs it now
+
+
 class NeighbourFileTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -76,13 +118,24 @@ class NeighbourFileTests(unittest.TestCase):
     def tearDown(self):
         self.temp.cleanup()
 
-    def write(self, neighbours, fmt=ItemNeighbours.FORMAT):
-        self.path.write_text(json.dumps({'format': fmt, 'neighbours': neighbours}), encoding='utf-8')
+    def write(self, neighbours, fmt=ItemNeighbours.FORMAT, **extra):
+        self.path.write_text(json.dumps({'format': fmt, 'neighbours': neighbours, **extra}), encoding='utf-8')
 
     def test_loads_and_ignores_titles_no_longer_in_the_catalogue(self):
         self.write({'a': [['b', 0.5]], 'gone': [['b', 0.5]]})
         loaded = ItemNeighbours.load(self.path, {'a', 'b'})
         self.assertEqual((len(loaded), loaded.get('a'), loaded.get('gone')), (1, [('b', 0.5)], []))
+
+    def test_loads_popularity_when_present(self):
+        self.write({'a': [['b', 0.5]]}, popularity={'a': 3, 'b': 0, 'gone': 9})
+        self.assertEqual(ItemNeighbours.load(self.path, {'a', 'b'}).popularity, {'a': 3})
+        self.write({'a': [['b', 0.5]]})                                      # files from before popularity
+        self.assertEqual(ItemNeighbours.load(self.path, {'a', 'b'}).popularity, {})
+        for bad in ([3], {'a': -1}, {'a': 1.5}, {'a': True}, {'a': '3'}):
+            with self.subTest(popularity=bad):
+                self.write({'a': [['b', 0.5]]}, popularity=bad)
+                with self.assertRaises(ValueError):
+                    ItemNeighbours.load(self.path, {'a', 'b'})
 
     def test_rejects_malformed_files(self):
         for neighbours, fmt in (({'a': [['b', 0.5]]}, 'other'), ({'a': [['b', 0]]}, None), ({'a': [['b', 1.5]]}, None),
@@ -126,11 +179,20 @@ class BuildTests(unittest.TestCase):
         from flicks.datasets.neighbours import build, sidecar, write
         neighbours = build(self.ratings(), {'x', 'y'})
         self.assertEqual(set(neighbours), {'x', 'y'})
+        likes = popularity(self.ratings(), {'x', 'y'})
         with tempfile.TemporaryDirectory() as folder:
             catalogue = Path(folder)/'cat.json'
             self.assertEqual(sidecar(catalogue).name, 'cat.neighbours.json')
-            write(neighbours, sidecar(catalogue), 'test', {'x', 'y', 'unrated'})
-            self.assertEqual(ItemNeighbours.load(sidecar(catalogue), {'x', 'y'}).get('x'), neighbours['x'])
+            write(neighbours, sidecar(catalogue), 'test', {'x', 'y', 'unrated'}, likes)
+            loaded = ItemNeighbours.load(sidecar(catalogue), {'x', 'y'})
+            self.assertEqual((loaded.get('x'), loaded.popularity), (neighbours['x'], likes))
+
+
+class PopularityCountTests(unittest.TestCase):
+    def test_counts_likes_of_catalogue_titles_only(self):
+        ratings = [Rating('1', 'x', 5.0), Rating('2', 'x', 4.0), Rating('3', 'x', 3.5), Rating('1', 'y', 2.0),
+                   Rating('1', 'gone', 5.0)]
+        self.assertEqual(popularity(ratings, {'x', 'y'}), {'x': 2})
 
 
 class EvaluationTests(unittest.TestCase):
@@ -160,14 +222,26 @@ class ApiTests(unittest.TestCase):
             path = Path(folder)/'n.json'
             path.write_text(json.dumps({'format': ItemNeighbours.FORMAT, 'neighbours': {'m001': [['m004', 0.9]]}}),
                             encoding='utf-8')
-            with app_client(Path(folder), neighbours=path) as (client, _):
+            with app_client(Path(folder), neighbours=path) as (client, services):
                 self.assertTrue(client.get('/api/state').json()['collaborative'])
                 client.post('/api/feedback', json={'id': 'm001', 'value': 1})
                 picks = client.post('/api/recommend', json={'session': {'minutes': 200}, 'mode': 'baseline'}).json()['recommendations']
                 moon = next(p for p in picks if p['content']['id'] == 'm004')
                 self.assertEqual(moon['because'], ['Arrival'])
+                self.assertFalse(services.popularity_prior)                  # no popularity in this file
             with app_client(Path(folder)/'plain') as (client, _):
                 self.assertFalse(client.get('/api/state').json()['collaborative'])
+
+    def test_a_new_user_is_shown_the_most_liked_titles_first(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder)/'n.json'
+            path.write_text(json.dumps({'format': ItemNeighbours.FORMAT, 'neighbours': {'m001': [['m004', 0.9]]},
+                                        'popularity': {'m004': 40, 'm001': 2}}), encoding='utf-8')
+            with app_client(Path(folder), neighbours=path) as (client, services):
+                self.assertTrue(services.popularity_prior)
+                picks = client.post('/api/recommend', json={'session': {'minutes': 200}, 'mode': 'baseline'}).json()['recommendations']
+                self.assertEqual((picks[0]['content']['id'], picks[0]['popular']), ('m004', True))
+                self.assertFalse(picks[-1]['popular'])
 
 
 if __name__ == '__main__':

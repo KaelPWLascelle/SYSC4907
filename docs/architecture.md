@@ -45,7 +45,7 @@ The reasons behind each major choice are in the [decision records](adr/README.md
 | `couch.py`, `qr.py` | Couch-session rules (joining, hidden votes, results, player state) and the QR encoder |
 | `posters.py` | The one-time poster fetch and the read-only poster cache |
 | `search.py` | In-memory title lookup and search ([ADR 0007](adr/0007-catalogue-artifact.md)) |
-| `collaborative.py` | Item-to-item collaborative filtering and the content/collaborative blend ([ADR 0008](adr/0008-collaborative-filtering.md)) |
+| `collaborative.py` | Item-to-item collaborative filtering, the content/collaborative blend and the popularity prior ([ADR 0008](adr/0008-collaborative-filtering.md), [0009](adr/0009-popularity-prior.md)) |
 | `datasets/` | Build-time tools: the MovieLens and podcast importers, neighbour precomputation, and the offline evaluation |
 | `net.py` | Outbound HTTP for explicit, user-requested actions: posters, imports, and episode downloads |
 | `systemone.py`, `tagging.py`, `distill.py` | System One client, catalogue tagging and the distilled student |
@@ -149,6 +149,24 @@ shrunk by n/(n + 10), top 30 per film. Discovery still uses TF-IDF familiarity, 
 theme distance rather than preference. Recommendations name the liked films that contributed
 (`because`).
 
+### Popularity prior (when the neighbour file has popularity)
+
+A new user has no ratings, so neither taste model knows anything about them. The neighbour file
+also records how many MovieLens raters liked each film, and taste starts from that
+([ADR 0009](adr/0009-popularity-prior.md)):
+
+```
+popularity(i) = log(1 + likes(i)) / log(1 + max likes)
+w             = s / (s + number of likes and passes)
+taste(i)      = w·popularity(i) + (1 − w)·taste_hybrid(i)
+```
+
+With no ratings, picks are the most widely liked films that fit the scene; each rating moves weight
+to the user's own taste. The prior covers only the film catalogue the ratings describe; podcast episodes
+keep their own taste, since no data is not the same as unpopular. A pick is marked `popular` when the prior supplied at least half of its
+taste score, and only then does the interface call it a crowd favourite. The strength s is tuned
+offline (docs/evaluation.md).
+
 ### Session reranking
 
 Hard constraints come first and apply in both modes: rated titles, titles longer than the available
@@ -164,7 +182,10 @@ loaded) are removed. The rest are scored:
 
 Without likes, discovery is a neutral 0.5. Results are sorted by score, then by content ID for
 stability, and the top 12 are returned, with at most two episodes of any one podcast (a show's
-episodes share genres and moods, so they would otherwise fill the row). The "taste only" lens ranks by taste alone. Scores are
+episodes share genres and moods, so they would otherwise fill the row). In "either" mode the best
+films and the best episodes alternate, led by whichever scores higher: their scores rest on different
+evidence (public popularity and collaborative patterns exist for films only), so they are compared
+within each medium rather than across. The "taste only" lens ranks by taste alone. Scores are
 ranking signals in [0, 1], not probabilities, and the factors shown in the interface add up to the
 score exactly.
 

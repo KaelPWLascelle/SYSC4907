@@ -4,6 +4,7 @@ import tempfile
 import unittest
 from urllib import error
 
+from flicks.collaborative import ItemNeighbours, with_prior
 from flicks.core import Content, Recommender, Session, load_catalog
 from flicks.datasets import podcasts as importer
 from flicks.podcasts import FORMAT, Episode, PodcastIndex, PodcastLibrary, episodes_path, sniff_audio
@@ -154,6 +155,16 @@ class IndexTests(unittest.TestCase):
                 PodcastIndex.load(self.write(folder, {'a': bad}), {'a'})
 
 
+class PriorCoverageTests(unittest.TestCase):
+    def test_titles_the_public_ratings_do_not_cover_keep_their_own_taste(self):
+        scores = {'film': {'taste': 0.5, 'familiarity': None}, 'episode': {'taste': 0.6, 'familiarity': None}}
+        new = with_prior(scores, {'film': 1.0}, {}, strength=2.0, covered={'film'})
+        self.assertEqual(new['film'], {'taste': 1.0, 'familiarity': None, 'popular': True})
+        self.assertEqual(new['episode'], {'taste': 0.6, 'familiarity': None, 'popular': False})
+        everything = with_prior(scores, {'film': 1.0}, {}, strength=2.0)
+        self.assertEqual(everything['episode']['taste'], 0.0)              # without coverage: no data reads as unpopular
+
+
 class SniffTests(unittest.TestCase):
     def test_recognises_audio_containers_and_nothing_else(self):
         self.assertEqual(sniff_audio(b'ID3\x04'), '.mp3')
@@ -263,6 +274,17 @@ class RankingTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             Session(medium='read')
 
+    def test_either_alternates_the_best_films_and_episodes(self):
+        films = [Content(f'm{n}', f'F{n}', 2020, 'movie', 100, ['history'], ['rome'], ['curious'], 0.4, 'About Rome')
+                 for n in range(4)]
+        shows = [Content(f'p{n}', f'E{n}', 2026, 'episode', 60, ['history'], ['rome'], ['curious'], 0.4, 'About Rome',
+                         series=f'Show {n}') for n in range(2)]
+        picks = Recommender(films + shows).recommend({}, Session())
+        kinds = [p['content']['kind'] for p in picks]
+        self.assertEqual(kinds, ['movie', 'episode', 'movie', 'episode', 'movie', 'movie'])  # ties: films lead by ID
+        only_films = Recommender(films).recommend({}, Session())
+        self.assertEqual([p['content']['id'] for p in only_films], ['m0', 'm1', 'm2', 'm3'])
+
     def test_picks_hold_at_most_two_episodes_of_one_show(self):
         catalog = [episode(f'p{n}') for n in range(5)] + [
             Content('q1', 'Q', 2026, 'episode', 60, ['science'], ['space'], ['curious'], 0.3, 'Space', series='Other'),
@@ -321,6 +343,23 @@ class ApiTests(unittest.TestCase):
             with app_client(Path(folder)/'plain') as (client, _):
                 self.assertFalse(client.get('/api/state').json()['podcasts'])
                 self.assertEqual(client.get('/api/podcasts/downloads').status_code, 404)
+
+    def test_the_film_popularity_prior_does_not_bury_episodes(self):
+        with tempfile.TemporaryDirectory() as folder:
+            out, episode_ids = self.catalogue(folder)
+            neighbours = Path(folder)/'n.json'
+            neighbours.write_text(json.dumps({'format': ItemNeighbours.FORMAT, 'neighbours': {'m001': [['m004', 0.9]]},
+                                              'popularity': {'m004': 40, 'm001': 2}}), encoding='utf-8')
+            with app_client(Path(folder), podcasts=out, neighbours=neighbours,
+                            podcast_downloads=Path(folder)/'downloads') as (client, svc):
+                self.assertTrue(svc.popularity_prior)
+                picks = client.post('/api/recommend', json={'session': {'minutes': 200}}).json()['recommendations']
+                ids = [p['content']['id'] for p in picks]
+                self.assertEqual(ids[0], 'm004')                       # the most-liked film leads
+                self.assertIn(episode_ids[0], ids[:4])                 # an episode is right behind it
+                episode = next(p for p in picks if p['content']['id'] == episode_ids[0])
+                self.assertFalse(episode['popular'])
+                self.assertAlmostEqual(episode['factors']['taste'], 0.55 * 0.5)  # its own neutral taste, not 0
 
     def test_a_podcast_catalogue_may_not_reuse_film_ids(self):
         with tempfile.TemporaryDirectory() as folder:

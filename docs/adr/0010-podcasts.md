@@ -25,6 +25,10 @@ user-run commands; playing a podcast needs its audio, which lives on the publish
 - **Episodes are titles like films.** They are ranked by the same models; the scene adds a
   watch / listen / either choice as a hard constraint. At most two episodes of one show appear in
   the picks, since a show's episodes share genres and moods.
+- **Film-only evidence stays with films.** The popularity prior (ADR 0009) applies only to the film
+  catalogue the public ratings describe; episodes keep their own taste rather than scoring as if
+  nobody liked them. Because film and episode scores rest on different evidence, "either" alternates
+  the best of each medium instead of comparing them on one scale.
 - **Behave like a podcast app, not a re-host.** Episodes are never altered, re-encoded or shared;
   downloads stay in `~/.flicks/podcasts`, out of git. The details sheet names the show and links to
   its page.
