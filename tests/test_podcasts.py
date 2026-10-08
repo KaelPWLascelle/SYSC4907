@@ -282,6 +282,11 @@ class RankingTests(unittest.TestCase):
         picks = Recommender(films + shows).recommend({}, Session())
         kinds = [p['content']['kind'] for p in picks]
         self.assertEqual(kinds, ['movie', 'episode', 'movie', 'episode', 'movie', 'movie'])  # ties: films lead by ID
+        # One show with more equally good episodes than the cap allows, ranked ahead of every other title.
+        crowded = [Content(f'a{n}', f'A{n}', 2026, 'episode', 60, ['history'], ['rome'], ['curious'], 0.4, 'About Rome',
+                           series='Crowded') for n in range(4)]
+        mixed = Recommender(films + crowded + shows).recommend({}, Session())
+        self.assertEqual([p['content']['kind'] for p in mixed][:6], ['episode', 'movie'] * 3)  # the cap leaves no gaps
         only_films = Recommender(films).recommend({}, Session())
         self.assertEqual([p['content']['id'] for p in only_films], ['m0', 'm1', 'm2', 'm3'])
 

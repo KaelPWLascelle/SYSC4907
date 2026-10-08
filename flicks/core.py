@@ -189,17 +189,10 @@ class Recommender:
             factors = self.decision.factors(item, taste, session) if mode == 'session' else {'taste': taste['taste']}
             ranked.append((-sum(factors.values()), item.id, item, factors))
         ranked.sort(key=lambda row: (row[0], row[1]))
+        ranked = self._cap_series(ranked)
         if session.medium == 'any':
             ranked = self._alternate_media(ranked)
-        top, per_series = [], Counter()
-        for row in ranked:
-            series = row[2].series
-            if series is not None and per_series[series] >= self.MAX_PER_SERIES:
-                continue
-            per_series[series] += 1
-            top.append(row)
-            if len(top) == limit:
-                break
+        top = ranked[:limit]
         # Evidence is the costly part of a score, so it is built only for the titles returned.
         explain = getattr(self.taste, 'explain', None)
         explained = explain(feedback, [row[1] for row in top]) if explain else {}
@@ -211,6 +204,17 @@ class Recommender:
                                because=taste.get('because', []), popular=taste.get('popular', False),
                                familiarity=taste['familiarity']))
         return result
+
+    @classmethod
+    def _cap_series(cls, ranked):
+        """Drop a show's episodes beyond its best MAX_PER_SERIES; films (no series) are never capped."""
+        kept, per_series = [], Counter()
+        for row in ranked:
+            series = row[2].series
+            if series is None or per_series[series] < cls.MAX_PER_SERIES:
+                per_series[series] += 1
+                kept.append(row)
+        return kept
 
     @staticmethod
     def _alternate_media(ranked):
