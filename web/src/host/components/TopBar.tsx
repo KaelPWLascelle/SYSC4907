@@ -33,8 +33,8 @@ export function Footer({ titles, posters, playable }: { titles: number; posters:
         <strong>flicks</strong> · SYSC 4907
       </span>
       <span>
-        {titles} titles · {playable} playable · local taste profile + explainable scene ranking · nothing leaves this
-        device
+        {titles} titles · {playable} playable · local taste profile + explainable scene ranking · your ratings and
+        history never leave this device
       </span>
       {posters && <span>Posters: Wikipedia, cached locally for personal use</span>}
     </footer>

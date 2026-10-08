@@ -65,8 +65,21 @@ when combining datasets; ratings attach to IDs. Unknown old IDs are ignored by
 the ranker. Use a separate database for unrelated catalogues to avoid collisions.
 Mood values: relaxing, uplifting, curious, tense, reflective. Intensity is a finite
 number in [0,1]; runtime is a positive integer. Text arrays must be nonempty.
-Startup validation rejects invalid catalogues. `kind` is extensible (episode,
-podcast, lecture, etc.), though cross-domain ranking has not been evaluated.
+Startup validation rejects invalid catalogues. `kind` is extensible; `episode` marks
+podcast episodes, which may also have a `series` (the show's name). Cross-domain
+ranking (films and episodes together) has not been evaluated.
+
+## Podcasts
+
+`python -m flicks.datasets.podcasts` builds `~/.flicks/catalogs/podcasts.json` from
+RSS feeds (nine long-form starter shows, or `--feed URL` / `--feeds FILE`). Episode
+IDs are `pod` plus a hash of the feed URL and the episode's GUID, so they are stable
+across imports and never collide with film IDs. Genres are the shows' Apple Podcasts
+categories; moods and intensity are estimated from them (`flicks/datasets/genres.py`).
+Beside the catalogue, `podcasts.episodes.json` (format `flicks-podcasts-v1`) records
+each episode's show, page and audio URL, plus which feeds failed and why episodes were
+skipped. Episodes belong to their publishers: they are downloaded only on request, for
+personal listening, and stay out of git.
 
 For a larger study, obtain a licensed dataset, record its version, source, license,
 and checksum, and separate objective metadata from experimental annotations.

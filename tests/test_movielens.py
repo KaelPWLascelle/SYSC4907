@@ -99,7 +99,8 @@ class GenreTests(unittest.TestCase):
             genres.estimate(['short'])
 
     def test_every_mapped_genre_has_a_profile(self):
-        self.assertEqual(set(genres.GENRE_NAMES.values()), set(genres.PROFILES))
+        # Film genres and podcast categories together: every mapped genre has a profile, and no profile is unused.
+        self.assertEqual(set(genres.GENRE_NAMES.values()) | set(genres.PODCAST_CATEGORIES.values()), set(genres.PROFILES))
 
 
 class WikimediaTests(unittest.TestCase):

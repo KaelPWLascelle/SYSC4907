@@ -1,5 +1,13 @@
 export const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 
+/** "2016 · 1h 56m" for a film, "In Our Time · 50m" for a podcast episode. */
+export function subtitle(item: { kind: string; year: number; minutes: number; series?: string | null }): string {
+  return `${item.kind === 'episode' ? (item.series ?? 'Podcast') : item.year} · ${runtime(item.minutes)}`;
+}
+
+/** 52_428_800 -> "50 MB". */
+export const megabytes = (bytes: number) => `${Math.round(bytes / 1_048_576)} MB`;
+
 /** 116 -> "1h 56m", 45 -> "45m", 120 -> "2h". */
 export function runtime(minutes: number): string {
   if (minutes < 60) return `${minutes}m`;

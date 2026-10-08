@@ -17,10 +17,13 @@ function library(feedback: Library['feedback'] = {}): Library {
     media: new Map(),
     feedback,
     progress: new Map(),
+    downloads: new Map(),
     ratingBusy: false,
     rate: vi.fn(),
     openDetails: vi.fn(),
     play: vi.fn(),
+    download: vi.fn(),
+    removeDownload: vi.fn(),
   };
 }
 

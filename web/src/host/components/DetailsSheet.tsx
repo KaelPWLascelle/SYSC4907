@@ -1,12 +1,14 @@
-import { type CSSProperties, useEffect, useRef } from 'react';
+import { type CSSProperties, useEffect, useRef, useState } from 'react';
 
-import type { Content, Recommendation, Session } from '../../api/types';
+import { flicksApi } from '../../api/flicks';
+import { type Content, type EpisodeInfo, isEpisode, type Recommendation, type Session } from '../../api/types';
 import { Icon } from '../../components/Icon';
 import { Poster } from '../../components/Poster';
 import { RateButtons } from '../../components/RateButtons';
-import { capitalize, runtime, timestamp } from '../../lib/format';
+import { capitalize, subtitle, timestamp } from '../../lib/format';
 import { useLibrary } from '../library';
 import { FACTORS, reasons } from '../reasons';
+import { DownloadButton } from './DownloadButton';
 
 interface DetailsSheetProps {
   item: Content | null;
@@ -32,6 +34,25 @@ export function DetailsSheet({ item, picks, session, onClose }: DetailsSheetProp
   const media = item ? library.media.get(item.id) : undefined;
   const progress = item ? library.progress.get(item.id) : undefined;
   const rating = item ? library.feedback[item.id] : undefined;
+  const episode = item !== null && isEpisode(item);
+
+  // The show's own page, for attribution. Loaded per episode; a failure just leaves the link out.
+  const [info, setInfo] = useState<EpisodeInfo | null>(null);
+  const itemId = item?.id;
+  useEffect(() => {
+    if (!itemId || !episode) return;
+    let current = true;
+    flicksApi.podcasts.episode(itemId).then(
+      next => {
+        if (current) setInfo(next);
+      },
+      () => undefined,
+    );
+    return () => {
+      current = false;
+    };
+  }, [itemId, episode]);
+  const showPage = info?.id === itemId ? info?.link : undefined;
 
   return (
     <dialog
@@ -59,7 +80,8 @@ export function DetailsSheet({ item, picks, session, onClose }: DetailsSheetProp
             </p>
             <h2 id="details-title">{item.title}</h2>
             <p className="hero-meta">
-              {item.year} · {runtime(item.minutes)} · {item.genres.map(capitalize).join(' · ')}
+              {episode && 'Podcast · '}
+              {subtitle(item)} · {item.genres.map(capitalize).join(' · ')}
             </p>
             <p className="details-description">{item.description}</p>
             {pick && (
@@ -82,8 +104,19 @@ export function DetailsSheet({ item, picks, session, onClose }: DetailsSheetProp
                       Start over
                     </button>
                   )}
+                  {episode && (
+                    <button
+                      type="button"
+                      className="button button-quiet"
+                      onClick={() => library.removeDownload(item.id)}
+                    >
+                      <Icon name="remove" />
+                      Remove download
+                    </button>
+                  )}
                 </>
               )}
+              {episode && !media && <DownloadButton item={item} />}
               <RateButtons
                 title={item.title}
                 rating={rating}
@@ -92,6 +125,19 @@ export function DetailsSheet({ item, picks, session, onClose }: DetailsSheetProp
                 onRate={value => library.rate(item.id, value)}
               />
             </div>
+            {episode && (
+              <p className="fine">
+                From the show’s public feed. Flicks downloads an episode only when you ask, for your own listening.
+                {showPage && (
+                  <>
+                    {' '}
+                    <a href={showPage} target="_blank" rel="noopener noreferrer">
+                      Visit {item.series ?? 'the show'}’s page
+                    </a>
+                  </>
+                )}
+              </p>
+            )}
             {media && !media.direct_play && (
               <p className="notice">
                 This file’s format (MKV or MOV) may not play in every browser. MP4 (H.264/AAC) or WebM always works.

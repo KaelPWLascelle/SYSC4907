@@ -7,7 +7,7 @@ from ..config import Settings
 from ..services import Services
 from ..voice import AUDIO_TYPES, MAX_AUDIO_BYTES
 from . import errors
-from .routes import assistant, couch, library, playback
+from .routes import assistant, couch, library, playback, podcasts
 from .security import GuardPolicy, RawBody, RequestGuard
 
 HOSTS = frozenset({'127.0.0.1', 'localhost'})
@@ -31,6 +31,8 @@ def create_app(settings: Settings, services: Services) -> FastAPI:
         app.include_router(router)
     if services.couch is not None:  # absent unless started with --couch: the routes simply do not exist
         app.include_router(couch.router)
+    if services.podcasts is not None:  # likewise absent without a podcast catalogue
+        app.include_router(podcasts.router)
 
     static = settings.static_dir
 

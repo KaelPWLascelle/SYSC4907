@@ -14,6 +14,7 @@ import { SceneBar } from './components/SceneBar';
 import { Tile } from './components/Tile';
 import { Footer, TopBar } from './components/TopBar';
 import { useCouchHost } from './hooks/useCouchHost';
+import { useDownloads } from './hooks/useDownloads';
 import { useHistory } from './hooks/useHistory';
 import { useRecommendations } from './hooks/useRecommendations';
 import { type Library, LibraryContext } from './library';
@@ -50,9 +51,17 @@ function Home({ initial }: { initial: AppState }) {
   const recommendations = useRecommendations(session, mode, feedback);
   const history = useHistory();
   const couch = useCouchHost(initial.couch);
+  const podcasts = useDownloads(initial.podcasts);
 
   const posters = useMemo(() => new Set(initial.posters), [initial.posters]);
-  const media = useMemo(() => new Map(initial.media.map(entry => [entry.id, entry])), [initial.media]);
+  // Videos come from the startup scan; episodes are playable once downloaded, so they follow the downloads.
+  const media = useMemo(() => {
+    const playable = new Map(initial.media.filter(entry => !entry.audio).map(entry => [entry.id, entry]));
+    for (const [id, status] of podcasts.downloads) {
+      if (status.state === 'ready') playable.set(id, { id, direct_play: true, audio: true });
+    }
+    return playable;
+  }, [initial.media, podcasts.downloads]);
   const progress = useMemo(() => new Map(history.items.map(p => [p.content_id, p])), [history.items]);
 
   // ---------- assistant ----------
@@ -114,9 +123,22 @@ function Home({ initial }: { initial: AppState }) {
     [progress],
   );
 
+  const { downloads, download, remove: removeDownload } = podcasts;
   const library = useMemo<Library>(
-    () => ({ posters, media, feedback, progress, ratingBusy, rate, openDetails: setDetails, play }),
-    [posters, media, feedback, progress, ratingBusy, rate, play],
+    () => ({
+      posters,
+      media,
+      feedback,
+      progress,
+      downloads,
+      ratingBusy,
+      rate,
+      openDetails: setDetails,
+      play,
+      download: id => void download(id),
+      removeDownload: id => void removeDownload(id),
+    }),
+    [posters, media, feedback, progress, downloads, ratingBusy, rate, play, download, removeDownload],
   );
 
   // ---------- couch remote -> player ----------
@@ -158,9 +180,9 @@ function Home({ initial }: { initial: AppState }) {
     : !picks.length && !loading
       ? 'Nothing fits yet. Add time, drop an avoided genre, or clear a rating.'
       : coldStart
-        ? picks.some(p => p.popular)
-          ? 'Like a few films below and Flicks learns your taste. Until then, picks start from crowd favourites.'
-          : 'Like a few films below and Flicks learns your taste. Until then, picks follow your scene.'
+        ? `Like a few ${initial.podcasts ? 'titles' : 'films'} below and Flicks learns your taste. Until then, picks ${
+            picks.some(p => p.popular) ? 'start from crowd favourites' : 'follow your scene'
+          }.`
         : 'Shaped by your ratings and this scene. Open any title to see why it ranks where it does.';
 
   return (
@@ -172,14 +194,21 @@ function Home({ initial }: { initial: AppState }) {
       <main id="top">
         <Hero pick={picks[0]} session={session} mode={mode} loading={loading && !picks.length} />
         <AskBar controller={controller} voice={initial.voice} inputRef={askInput} />
-        <SceneBar session={session} mode={mode} genres={initial.genres} onSession={setSession} onMode={setMode} />
-        {notice && (
+        <SceneBar
+          session={session}
+          mode={mode}
+          genres={initial.genres}
+          podcasts={initial.podcasts}
+          onSession={setSession}
+          onMode={setMode}
+        />
+        {(notice || podcasts.error) && (
           <p className="notice page-notice" role="alert">
-            {notice}
+            {notice || podcasts.error}
           </p>
         )}
         {continueWatching.length > 0 && (
-          <Rail id="continue" title="Continue watching">
+          <Rail id="continue" title={initial.podcasts ? 'Pick up where you left off' : 'Continue watching'}>
             {continueWatching.map(item => (
               <Tile key={item.id} item={item} resume />
             ))}
@@ -206,6 +235,7 @@ function Home({ initial }: { initial: AppState }) {
           item={playing.item}
           startAt={playing.startAt}
           directPlay={media.get(playing.item.id)?.direct_play ?? true}
+          audio={media.get(playing.item.id)?.audio ?? false}
           remote={remoteForPlayer}
           onProgress={(position, duration) => {
             flicksApi.saveProgress(playing.item.id, position, duration).catch(() => {

@@ -211,7 +211,7 @@ function VoteCard({ item }: { item: CouchItem }) {
       <Poster item={item} hasPoster={item.poster} eager />
       <div className="couch-card-body">
         <p className="meta">
-          {item.year} / {item.minutes} MIN
+          {item.kind === 'episode' ? `PODCAST · ${item.series ?? ''}` : item.year} / {item.minutes} MIN
         </p>
         <h2>{item.title}</h2>
         <p className="description">{item.description}</p>

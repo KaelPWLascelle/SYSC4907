@@ -55,3 +55,23 @@
   font-size: 16px;
   background: rgba(0, 0, 0, 0.65);
 }
+
+/* Podcast episodes: the title's art above the browser's audio controls */
+.player-audio {
+  background: radial-gradient(circle at 50% 35%, #1c1c22, #000 70%);
+}
+.player-listen {
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 28px;
+  height: 100%;
+  padding: 96px var(--gutter) 48px;
+}
+.poster-listen {
+  width: min(320px, 60vw);
+  box-shadow: var(--shadow);
+}
+.player-audio-controls {
+  width: min(560px, 86vw);
+}

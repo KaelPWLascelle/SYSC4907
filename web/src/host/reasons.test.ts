@@ -1,7 +1,14 @@
 import type { Recommendation, Session } from '../api/types';
 import { reasons } from './reasons';
 
-const session: Session = { mood: 'relaxing', minutes: 120, intensity: 0.2, novelty: 0.3, excluded_genres: [] };
+const session: Session = {
+  mood: 'relaxing',
+  minutes: 120,
+  intensity: 0.2,
+  novelty: 0.3,
+  excluded_genres: [],
+  medium: 'any',
+};
 const row = (
   factors: Record<string, number>,
   evidence: string[] = [],

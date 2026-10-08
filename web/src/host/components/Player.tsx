@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { type SyntheticEvent, useCallback, useEffect, useRef, useState } from 'react';
 
 import { mediaUrl } from '../../api/flicks';
 import type { PlayerState, TitleRef } from '../../api/types';
 import { Icon } from '../../components/Icon';
+import { Poster } from '../../components/Poster';
 import { cx } from '../../lib/cx';
 
 const SAVE_EVERY_MS = 10_000;
@@ -13,6 +14,8 @@ interface PlayerProps {
   item: TitleRef;
   startAt: number;
   directPlay: boolean;
+  /** A podcast episode: an audio player over the title's art instead of a video. */
+  audio?: boolean;
   /** Couch-mode remote commands for this title; applied whenever `version` changes. */
   remote: { state: PlayerState['state']; version: number } | null;
   onProgress: (position: number, duration: number) => void;
@@ -21,9 +24,18 @@ interface PlayerProps {
 }
 
 /** Full-screen playback of a local file over HTTP range requests (docs/adr/0005-video-playback.md). */
-export function Player({ item, startAt, directPlay, remote, onProgress, onPlayback, onClose }: PlayerProps) {
+export function Player({
+  item,
+  startAt,
+  directPlay,
+  audio = false,
+  remote,
+  onProgress,
+  onPlayback,
+  onClose,
+}: PlayerProps) {
   const dialog = useRef<HTMLDialogElement>(null);
-  const video = useRef<HTMLVideoElement>(null);
+  const video = useRef<HTMLMediaElement | null>(null);
   const lastSave = useRef(0);
   const [error, setError] = useState('');
   const [autoplayBlocked, setAutoplayBlocked] = useState(false);
@@ -72,15 +84,57 @@ export function Player({ item, startAt, directPlay, remote, onProgress, onPlayba
     setChromeVisible(true);
     clearTimeout(hideTimer.current);
     hideTimer.current = setTimeout(() => {
-      if (video.current && !video.current.paused) setChromeVisible(false);
+      if (video.current && !video.current.paused && !audio) setChromeVisible(false);
     }, CHROME_HIDE_MS);
   };
   useEffect(() => () => clearTimeout(hideTimer.current), []);
 
+  // The same element behaviour for <video> and <audio>.
+  const media = {
+    ref: (node: HTMLMediaElement | null) => {
+      video.current = node;
+    },
+    src: mediaUrl(item.id),
+    controls: true,
+    autoPlay: true,
+    onLoadedMetadata: (event: SyntheticEvent<HTMLMediaElement>) => {
+      const node = event.currentTarget;
+      // Whether to resume is decided once, by the server's `resumable` rule; only guard a stale position
+      // past the end of the file (e.g. the file was replaced with a shorter cut).
+      if (startAt > 0 && startAt < node.duration) node.currentTime = startAt;
+    },
+    onTimeUpdate: () => {
+      if (Date.now() - lastSave.current >= SAVE_EVERY_MS) save();
+    },
+    onPlay: () => {
+      setAutoplayBlocked(false);
+      showChrome();
+      onPlayback?.('playing');
+    },
+    onPause: () => {
+      save();
+      setChromeVisible(true);
+      onPlayback?.('paused');
+    },
+    onEnded: save,
+    onError: (event: SyntheticEvent<HTMLMediaElement>) => {
+      const code = event.currentTarget.error?.code;
+      setError(
+        code === MEDIA_ERR_SRC_NOT_SUPPORTED
+          ? audio
+            ? 'This browser can’t play this episode’s audio format.'
+            : `This browser can’t play this file${directPlay ? '' : ' (MKV or MOV)'}. Convert it to MP4 (H.264/AAC) or WebM.`
+          : audio
+            ? 'The episode could not be played. Try removing the download and downloading it again.'
+            : 'The file could not be played. Check that it is still in your media folder.',
+      );
+    },
+  };
+
   return (
     <dialog
       ref={dialog}
-      className={cx('player', !chromeVisible && 'player-idle')}
+      className={cx('player', audio && 'player-audio', !chromeVisible && 'player-idle')}
       aria-label={`Playing ${item.title}`}
       onCancel={event => {
         event.preventDefault(); // Escape: save progress first, then close
@@ -97,49 +151,21 @@ export function Player({ item, startAt, directPlay, remote, onProgress, onPlayba
     >
       <header className="player-bar">
         <div>
-          <p className="eyebrow">Now playing</p>
+          <p className="eyebrow">{audio ? 'Now listening' : 'Now playing'}</p>
           <h2>{item.title}</h2>
         </div>
         <button type="button" className="round" aria-label="Close player" onClick={close}>
           <Icon name="close" />
         </button>
       </header>
-      <video
-        ref={video}
-        className="player-video"
-        src={mediaUrl(item.id)}
-        controls
-        autoPlay
-        playsInline
-        onLoadedMetadata={event => {
-          const node = event.currentTarget;
-          // Whether to resume is decided once, by the server's `resumable` rule; only guard a stale position
-          // past the end of the file (e.g. the file was replaced with a shorter cut).
-          if (startAt > 0 && startAt < node.duration) node.currentTime = startAt;
-        }}
-        onTimeUpdate={() => {
-          if (Date.now() - lastSave.current >= SAVE_EVERY_MS) save();
-        }}
-        onPlay={() => {
-          setAutoplayBlocked(false);
-          showChrome();
-          onPlayback?.('playing');
-        }}
-        onPause={() => {
-          save();
-          setChromeVisible(true);
-          onPlayback?.('paused');
-        }}
-        onEnded={save}
-        onError={event => {
-          const code = event.currentTarget.error?.code;
-          setError(
-            code === MEDIA_ERR_SRC_NOT_SUPPORTED
-              ? `This browser can’t play this file${directPlay ? '' : ' (MKV or MOV)'}. Convert it to MP4 (H.264/AAC) or WebM.`
-              : 'The file could not be played. Check that it is still in your media folder.',
-          );
-        }}
-      />
+      {audio ? (
+        <div className="player-listen">
+          <Poster item={item} hasPoster={false} className="poster poster-listen" eager />
+          <audio className="player-audio-controls" {...media} />
+        </div>
+      ) : (
+        <video className="player-video" playsInline {...media} />
+      )}
       {(error || autoplayBlocked) && (
         <div className="player-message" role="alert">
           {error || (

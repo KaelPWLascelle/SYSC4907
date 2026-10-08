@@ -4,6 +4,8 @@ import type {
   AppState,
   CommandResponse,
   CouchHostView,
+  DownloadStatus,
+  EpisodeInfo,
   Mode,
   PlayerAction,
   Progress,
@@ -43,6 +45,15 @@ export const flicksApi = {
   saveProgress: (id: string, position_seconds: number, duration_seconds: number) =>
     request<Progress>(`/api/history/${encodeURIComponent(id)}`, json('PUT', { position_seconds, duration_seconds })),
   clearProgress: (id: string) => request<undefined>(`/api/history/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+
+  podcasts: {
+    downloads: () => request<{ downloads: Record<string, DownloadStatus> }>('/api/podcasts/downloads'),
+    episode: (id: string) => request<EpisodeInfo>(`/api/podcasts/${encodeURIComponent(id)}`),
+    download: (id: string) =>
+      request<DownloadStatus>(`/api/podcasts/${encodeURIComponent(id)}/download`, json('POST', {})),
+    remove: (id: string) =>
+      request<undefined>(`/api/podcasts/${encodeURIComponent(id)}/download`, { method: 'DELETE' }),
+  },
 
   couch: {
     view: () => request<CouchHostView>('/api/couch'),

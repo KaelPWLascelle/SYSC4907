@@ -4,7 +4,8 @@ import { posterUrl } from '../api/flicks';
 import { hue } from '../lib/format';
 
 interface PosterProps {
-  item: { id: string; title: string; year: number };
+  /** A podcast episode's card names its show where a film's names its year. */
+  item: { id: string; title: string; year?: number; series?: string | null };
   /** A cached poster exists for this title (from /api/state or the couch view). */
   hasPoster: boolean;
   className?: string;
@@ -28,7 +29,9 @@ export function Poster({ item, hasPoster, className = 'poster', eager = false }:
       ) : (
         <div className="poster-fallback" style={{ '--hue': hue(item.id) } as CSSProperties}>
           <span className="poster-fallback-title">{item.title}</span>
-          <span className="poster-fallback-year">{item.year}</span>
+          {(item.series ?? item.year) !== undefined && (
+            <span className="poster-fallback-year">{item.series ?? item.year}</span>
+          )}
         </div>
       )}
     </div>

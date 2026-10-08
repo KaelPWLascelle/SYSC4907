@@ -129,19 +129,24 @@ class PopularityPrior:
     sees widely liked films (the strongest single predictor on held-out MovieLens ratings) and each
     like or pass shifts the ranking toward their own taste. `popular` marks the titles where the prior
     supplied at least half of the taste score, so the interface can say so honestly.
+
+    `covered` is the set of titles the public ratings describe (the film catalogue the file was built
+    for). Other titles, such as podcast episodes, keep their own taste: no data is not the same as
+    unpopular. None means every title is covered.
     """
 
     # Chosen on development users for the best mean NDCG@10 over profiles of 3 likes, 10 likes and full
     # histories, on top of the tuned collaborative blend (python -m flicks.datasets.evaluation).
     STRENGTH = 2.0
 
-    def __init__(self, inner, popularity, strength=STRENGTH):
+    def __init__(self, inner, popularity, strength=STRENGTH, covered=None):
         self.inner = inner
         self.popularity = popularity_scores(popularity)
         self.strength = strength
+        self.covered = None if covered is None else frozenset(covered)
 
     def scores(self, feedback):
-        return with_prior(self.inner.scores(feedback), self.popularity, feedback, self.strength)
+        return with_prior(self.inner.scores(feedback), self.popularity, feedback, self.strength, self.covered)
 
     def explain(self, feedback, ids):
         return self.inner.explain(feedback, ids) if hasattr(self.inner, 'explain') else {}
@@ -153,14 +158,18 @@ def popularity_scores(likes):
     return {item: math.log1p(count) / math.log1p(top) for item, count in likes.items() if count > 0} if top else {}
 
 
-def with_prior(scores, popularity, feedback, strength=PopularityPrior.STRENGTH):
+def with_prior(scores, popularity, feedback, strength=PopularityPrior.STRENGTH, covered=None):
     """Taste scores pulled toward popularity by strength / (strength + number of ratings).
 
-    Shared by PopularityPrior and the offline evaluation, so both rank exactly the same way.
+    Titles outside `covered` (when given) are left as they are. Shared by PopularityPrior and the
+    offline evaluation, so both rank exactly the same way.
     """
     weight = strength / (strength + sum(1 for value in feedback.values() if value in (1, -1)))
     result = {}
     for item, score in scores.items():
+        if covered is not None and item not in covered:
+            result[item] = {**score, 'popular': False}
+            continue
         prior = weight * popularity.get(item, 0.0)
         personal = (1 - weight) * score['taste']
         result[item] = {**score, 'taste': prior + personal, 'popular': prior > 0 and prior >= personal}

@@ -7,4 +7,5 @@ export const DEFAULT_SESSION: Session = {
   intensity: 0.5,
   novelty: 0.3,
   excluded_genres: [],
+  medium: 'any',
 };

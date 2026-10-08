@@ -17,6 +17,8 @@ Flicks is a SYSC 4907 capstone project at Carleton University, supervised by Dr.
 - **Streaming-style interface.** A top pick for tonight, a ranked rail, continue watching, browse
   and search, and a "why this pick" sheet for any title.
 - **Playback of your own files.** MP4 and WebM stream with seeking; progress is saved and resumed.
+- **Long-form podcasts.** Episodes from public feeds are recommended alongside films ("Watch",
+  "Listen" or either), downloaded only when you ask, and played and resumed locally.
 - **Ask Flicks.** Type or say "something relaxing under 90 minutes, no horror" and preview the
   change before it applies. Speech is transcribed on the device by Whisper.
 - **Couch mode.** Phones on your Wi-Fi scan a QR code, vote with hidden ballots, and act as a remote
@@ -84,6 +86,19 @@ MovieLens ratings:
 
 See [evaluation](docs/evaluation.md) for the protocol and results.
 
+### Add podcasts (optional)
+
+```sh
+.venv/bin/python -m flicks.datasets.podcasts                       # nine long-form starter shows
+.venv/bin/python -m flicks.datasets.podcasts --feed https://example.com/feed.xml   # or your own feeds
+```
+
+This reads the feeds (only their URLs are requested) and writes about 400 episodes of 20 minutes or
+more to `~/.flicks/catalogs/podcasts.json`, which Flicks then loads automatically. Choose **Listen**
+in the scene for something to listen to. An episode is downloaded from its publisher only when you
+press **Download episode**, into `~/.flicks/podcasts`, for your own listening; Flicks never alters or
+shares it. See [ADR 0010](docs/adr/0010-podcasts.md).
+
 ### Add posters (optional)
 
 ```sh
@@ -126,6 +141,8 @@ votes are forgotten when the session ends. See [how couch mode works](docs/couch
 | `--tags FILE` | none | System One catalogue tags ([System One](docs/system-one.md)) |
 | `--system-one-url URL` | none | Local System One server for free-text requests |
 | `--catalog FILE` | bundled | Your own catalogue ([format](flicks/data/README.md)) |
+| `--podcasts FILE` | `~/.flicks/catalogs/podcasts.json` if present | Podcast catalogue from `python -m flicks.datasets.podcasts` |
+| `--podcast-downloads DIR` | `~/.flicks/podcasts` | Where downloaded episodes are kept |
 | `--dev` | off | Accept requests from the Vite dev server |
 
 ## How it works
@@ -136,7 +153,8 @@ Phones on Wi-Fi  ──HTTP──▶  couch guest server (only during a session,
 ```
 
 The server binds to loopback, so the app is reachable only from this machine. Couch mode is the one
-opt-in exception, and it runs as a separate server with no access to your data. Security rules
+opt-in exception, and it runs as a separate server with no access to your data. The only remote
+request the running app makes is downloading a podcast episode you asked for. Security rules
 (Host and Origin checks, JSON-only requests, size limits, a strict Content Security Policy) are
 enforced in one place and covered by tests.
 
@@ -146,9 +164,10 @@ See [architecture](docs/architecture.md) for the components, the ranking model a
 ## Project layout
 
 ```
-flicks/            Python package: recommender, API, storage, media, couch mode, voice, System One
+flicks/            Python package: recommender, API, storage, media, podcasts, couch mode, voice, System One
   api/             FastAPI apps, routes and the request guard
   data/            Bundled demo catalogue
+  datasets/        MovieLens and podcast importers, neighbours, offline evaluation
 web/               React + TypeScript interface (built into flicks/static/)
 tests/             Backend tests (pytest)
 scripts/           Voice-model download and icon generation

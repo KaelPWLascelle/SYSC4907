@@ -10,6 +10,9 @@ from typing import Protocol
 STOP_WORDS = frozenset(['a', 'an', 'and', 'are', 'as', 'at', 'be', 'by', 'for', 'from', 'has', 'her', 'his', 'in', 'into', 'is', 'it', 'its', 'of', 'on', 'or', 'that', 'the', 'their', 'them', 'they', 'this', 'to', 'two', 'while', 'who', 'with'])
 
 MOODS = ('any', 'relaxing', 'uplifting', 'curious', 'tense', 'reflective')
+# What the scene asks for: anything, something to watch, or something to listen to (podcast episodes).
+MEDIUMS = ('any', 'watch', 'listen')
+AUDIO_KINDS = frozenset({'episode'})
 
 @dataclass(frozen=True)
 class Content:
@@ -23,6 +26,11 @@ class Content:
     moods: list[str]
     intensity: float
     description: str
+    series: str | None = None  # the show a podcast episode belongs to
+
+    @property
+    def audio(self):
+        return self.kind in AUDIO_KINDS
 
 
 def load_catalog(path: Path) -> list[Content]:
@@ -46,6 +54,8 @@ def load_catalog(path: Path) -> list[Content]:
                 raise ValueError('Genres, tags and moods must be nonempty text arrays')
         if any(m not in MOODS[1:] for m in item.moods):
             raise ValueError('Unknown catalogue mood')
+        if item.series is not None and (not isinstance(item.series, str) or not item.series.strip()):
+            raise ValueError('Series must be nonempty text when present')
         ids.add(item.id)
         result.append(item)
     return result
@@ -57,6 +67,7 @@ class Session:
     intensity: float = 0.5
     novelty: float = 0.3
     excluded_genres: tuple[str, ...] = ()
+    medium: str = 'any'
 
     def __post_init__(self):
         if not isinstance(self.excluded_genres, (list, tuple)) or len(self.excluded_genres) > 20 or any(not isinstance(g, str) or not g.strip() or len(g) > 50 for g in self.excluded_genres):
@@ -64,6 +75,8 @@ class Session:
         object.__setattr__(self, 'excluded_genres', tuple(sorted(set(self.excluded_genres))))
         if self.mood not in MOODS:
             raise ValueError('Unknown mood')
+        if self.medium not in MEDIUMS:
+            raise ValueError('Medium must be any, watch or listen')
         if type(self.minutes) is not int or not 1 <= self.minutes <= 600:
             raise ValueError('Available time must be an integer from 1 to 600')
         for value in (self.intensity, self.novelty):
@@ -148,6 +161,10 @@ class HeuristicDecision:
 
 
 class Recommender:
+    # Picks per show: one podcast's episodes often score alike (same genres and moods), and a row of
+    # six episodes of one show is not a set of recommendations.
+    MAX_PER_SERIES = 2
+
     def __init__(self, catalog, taste: TasteModel | None = None, decision: DecisionLayer | None = None):
         self.catalog = catalog
         self.taste = taste or TfidfTaste(catalog)
@@ -166,11 +183,23 @@ class Recommender:
             # Hard constraints belong to the application, never to a future model.
             if item.id in feedback or item.minutes > session.minutes or excluded.intersection(item.genres):
                 continue
+            if (session.medium == 'watch' and item.audio) or (session.medium == 'listen' and not item.audio):
+                continue
             taste = scores[item.id]
             factors = self.decision.factors(item, taste, session) if mode == 'session' else {'taste': taste['taste']}
             ranked.append((-sum(factors.values()), item.id, item, factors))
         ranked.sort(key=lambda row: (row[0], row[1]))
-        top = ranked[:limit]
+        if session.medium == 'any':
+            ranked = self._alternate_media(ranked)
+        top, per_series = [], Counter()
+        for row in ranked:
+            series = row[2].series
+            if series is not None and per_series[series] >= self.MAX_PER_SERIES:
+                continue
+            per_series[series] += 1
+            top.append(row)
+            if len(top) == limit:
+                break
         # Evidence is the costly part of a score, so it is built only for the titles returned.
         explain = getattr(self.taste, 'explain', None)
         explained = explain(feedback, [row[1] for row in top]) if explain else {}
@@ -182,3 +211,18 @@ class Recommender:
                                because=taste.get('because', []), popular=taste.get('popular', False),
                                familiarity=taste['familiarity']))
         return result
+
+    @staticmethod
+    def _alternate_media(ranked):
+        """For "either": the best films and the best episodes in turn, led by whichever ranks higher.
+
+        Film and episode scores rest on different evidence (public popularity and collaborative patterns
+        exist for films only), so they are compared within each medium, not across them.
+        """
+        video = [row for row in ranked if not row[2].audio]
+        audio = [row for row in ranked if row[2].audio]
+        if not video or not audio:
+            return ranked
+        first, second = (video, audio) if (video[0][0], video[0][1]) <= (audio[0][0], audio[0][1]) else (audio, video)
+        merged = [row for pair in zip(first, second, strict=False) for row in pair]
+        return merged + first[len(second):] + second[len(first):]

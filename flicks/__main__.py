@@ -5,7 +5,7 @@ from pathlib import Path
 import uvicorn
 
 from .api.app import create_app
-from .config import DEFAULT_CATALOG, DEFAULT_DB, DEFAULT_POSTERS, Settings
+from .config import DEFAULT_CATALOG, DEFAULT_DB, DEFAULT_PODCAST_DOWNLOADS, DEFAULT_PODCASTS, DEFAULT_POSTERS, Settings
 from .services import build_services
 from .systemone import DecisionClient, HttpBackend, LexicalBackend
 from .voice import LocalWhisper
@@ -22,6 +22,9 @@ def parse_args(argv=None):
                         help='Folder of video files to play; repeatable. Name files "Title (Year).mp4" or by content ID')
     parser.add_argument('--posters', type=Path, default=DEFAULT_POSTERS, help=f'Local poster cache from python -m flicks.posters (default {DEFAULT_POSTERS})')
     parser.add_argument('--voice-model', type=Path, help='Local faster-whisper model directory; no runtime downloads')
+    parser.add_argument('--podcasts', type=Path, help=f'Podcast catalogue (default: {DEFAULT_PODCASTS} when present)')
+    parser.add_argument('--podcast-downloads', type=Path, default=DEFAULT_PODCAST_DOWNLOADS,
+                        help=f'Where downloaded episodes are kept (default {DEFAULT_PODCAST_DOWNLOADS})')
     parser.add_argument('--neighbours', type=Path, help='Collaborative-filtering neighbours (default: <catalog>.neighbours.json when present)')
     parser.add_argument('--tags', type=Path, help='System One tag file from python -m flicks.tagging (soft mood/intensity)')
     parser.add_argument('--system-one-url', help='Local System One server for free-text commands, e.g. http://127.0.0.1:8000 (laya-serve), or "lexical" for the offline stand-in')
@@ -42,6 +45,8 @@ def main(argv=None):
     args = parse_args(argv)
     settings = Settings(db=args.db, catalog=args.catalog, port=args.port, poster_dir=args.posters,
                         media_dirs=tuple(args.media), tags=args.tags, neighbours=args.neighbours or _sidecar(args.catalog),
+                        podcasts=args.podcasts or (DEFAULT_PODCASTS if DEFAULT_PODCASTS.is_file() else None),
+                        podcast_downloads=args.podcast_downloads,
                         couch=args.couch, couch_host=args.couch_host,
                         couch_port=args.couch_port, extra_origins=VITE_DEV_ORIGINS if args.dev else ())
     if args.system_one_url == 'lexical':  # offline demo of the fallback path; not a model
@@ -53,8 +58,9 @@ def main(argv=None):
         print(f'Media: {len(services.media.unmatched)} file(s) did not match a catalogue title, e.g. {services.media.unmatched[0].name}')
     mode = ' + '.join(['content', *(['collaborative'] if services.collaborative else []),
                         *(['popularity prior'] if services.popularity_prior else [])])
+    episodes = f' · podcast episodes: {len(services.podcasts.index)}' if services.podcasts else ''
     print(f'Flicks: http://127.0.0.1:{settings.port} · ratings: {settings.db} · {mode} recommendations · '
-          f'playable titles: {len(services.media.files)}', flush=True)
+          f'playable titles: {len(services.media.files)}{episodes}', flush=True)
     try:
         uvicorn.run(create_app(settings, services), host='127.0.0.1', port=settings.port, log_level='warning')
     finally:
