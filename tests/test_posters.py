@@ -80,20 +80,64 @@ class PosterLibraryTests(unittest.TestCase):
         self.assertFalse(plausible({'description': '2016 novel'}, item('m001')))
         self.assertFalse(plausible({}, item('m001')))
 
-    def test_fetch_writes_the_manifest_and_rejects_non_images(self):
-        catalog = [item('m001'), item('m002', 'Contact', 1997)]
-        pages = {'m001': ('Arrival (film)', 'https://upload.example/a.jpg', 'A.jpg'), 'm002': ('Contact', 'https://upload.example/c', 'C.jpg')}
-        bodies = {'https://upload.example/a.jpg': JPEG, 'https://upload.example/c': b'<html>'}
-        with mock.patch.object(posters, 'find_poster', side_effect=lambda it: pages[it.id]), \
-                mock.patch.object(posters, '_get', side_effect=lambda url, limit: bodies[url]), \
-                mock.patch.object(posters.time, 'sleep'):
-            found, missing = posters.fetch(catalog, self.dir, log=lambda *_: None)
-        self.assertEqual((found, missing), (1, 1))
+    def test_episodes_may_share_their_show_artwork(self):
+        write_cache(self.dir, {'p1': {'file': 'show-0123456789ab.jpg'}, 'p2': {'file': 'show-0123456789ab.jpg'},
+                               'p3': {'file': 'show-../../x.jpg'}, 'p4': {'file': 'show-nothex.jpg'}},
+                    {'show-0123456789ab.jpg': JPEG})
+        self.assertEqual(PosterLibrary(self.dir, {'p1', 'p2', 'p3', 'p4'}).ids(), ['p1', 'p2'])
+
+    def test_fetch_downloads_each_image_once_and_rejects_non_images(self):
+        jobs = [posters.Job('m001', 'Arrival', 'https://upload.example/a.jpg', 'm001', 'https://en.wikipedia.org/wiki/Arrival_(film)'),
+                posters.Job('m002', 'Contact', 'https://upload.example/c', 'm002', None),
+                posters.Job('p1', 'Episode 1', 'https://cdn.example/show.png', 'show-0123456789ab', 'https://show.example'),
+                posters.Job('p2', 'Episode 2', 'https://cdn.example/show.png', 'show-0123456789ab', 'https://show.example')]
+        bodies = {'https://upload.example/a.jpg': JPEG, 'https://upload.example/c': b'<html>', 'https://cdn.example/show.png': PNG}
+        calls = []
+
+        def fetch(url, limit, accept='*/*'):
+            calls.append(url)
+            return bodies[url]
+
+        with mock.patch.object(posters, '_get', side_effect=fetch):
+            found, missing = posters.fetch(jobs, self.dir, log=lambda *_: None)
+        self.assertEqual((found, missing), (3, 1))
+        self.assertEqual(sorted(calls), sorted(bodies))                  # the show's artwork is fetched once
         manifest = json.loads((self.dir/'posters.json').read_text(encoding='utf-8'))
-        self.assertEqual(set(manifest['posters']), {'m001'})
-        self.assertEqual(manifest['posters']['m001']['page'], 'https://en.wikipedia.org/wiki/Arrival_%28film%29')
+        self.assertEqual(set(manifest['posters']), {'m001', 'p1', 'p2'})
+        self.assertEqual(manifest['posters']['p2']['file'], 'show-0123456789ab.png')
         self.assertEqual((self.dir/'m001.jpg').read_bytes(), JPEG)
-        self.assertEqual(PosterLibrary(self.dir, {'m001', 'm002'}).ids(), ['m001'])
+        self.assertEqual(PosterLibrary(self.dir, {'m001', 'm002', 'p1', 'p2'}).ids(), ['m001', 'p1', 'p2'])
+        with mock.patch.object(posters, '_get', side_effect=fetch):     # cached titles are not fetched again
+            posters.fetch(jobs, self.dir, log=lambda *_: None)
+        self.assertEqual(calls.count('https://upload.example/a.jpg'), 1)
+
+    def test_a_busy_server_is_retried_and_unused_files_are_pruned(self):
+        attempts = []
+
+        def busy_then_ok(url, limit, accept='*/*'):
+            attempts.append(url)
+            if len(attempts) < 3:
+                raise posters.error.HTTPError(url, 429, 'Too Many Requests', {'Retry-After': '0'}, None)
+            return JPEG
+
+        (self.dir/'m009.jpg').write_bytes(JPEG)                         # left over from an earlier run
+        jobs = [posters.Job('m001', 'Arrival', 'https://upload.example/a.jpg', 'm001', None)]
+        with mock.patch.object(posters, '_get', side_effect=busy_then_ok), mock.patch.object(posters.time, 'sleep'):
+            self.assertEqual(posters.fetch(jobs, self.dir, log=lambda *_: None), (1, 0))
+        self.assertEqual(len(attempts), 3)
+        self.assertEqual(sorted(p.name for p in self.dir.iterdir()), ['m001.jpg', 'posters.json'])
+
+    def test_page_images_are_looked_up_in_batches_following_redirects(self):
+        def fetch_json(url, params):
+            titles = params['titles'].split('|')
+            return {'query': {'normalized': [{'from': 'jumanji (film)', 'to': 'Jumanji (film)'}],
+                              'redirects': [{'from': 'Toy Story 1', 'to': 'Toy Story'}],
+                              'pages': [{'title': 'Toy Story', 'thumbnail': {'source': 'https://upload.example/ts.jpg?utm=x'}},
+                                        {'title': 'Jumanji (film)', 'thumbnail': {'source': 'https://upload.example/j.jpg'}},
+                                        {'title': 'Nothing', 'missing': True}][:len(titles) + 1]}}
+        found = posters.wikipedia_page_images(['Toy Story 1', 'jumanji (film)', 'Nothing'], fetch_json, log=lambda *_: None)
+        self.assertEqual(found, {'Toy Story 1': ('https://upload.example/ts.jpg', 'https://en.wikipedia.org/wiki/Toy_Story'),
+                                 'jumanji (film)': ('https://upload.example/j.jpg', 'https://en.wikipedia.org/wiki/Jumanji_%28film%29')})
 
 
 class PosterServingTests(unittest.TestCase):

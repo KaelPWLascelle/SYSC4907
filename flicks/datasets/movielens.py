@@ -202,6 +202,15 @@ def _enrich(cache: Path, imdb_ids, log):
     return films, intros
 
 
+def wikipedia_articles(cache: Path = DEFAULT_CACHE):
+    """{catalogue ID: English Wikipedia article} from the import's caches, for poster lookups; {} if never imported."""
+    folder, films = cache/DATASET, _load(cache/'wikidata-films.json')
+    if not (folder/'links.csv').is_file() or not films:
+        return {}
+    return {f'ml{movie_id}': films[imdb]['article'] for movie_id, imdb in read_links(folder).items()
+            if (films.get(imdb) or {}).get('article')}
+
+
 def import_movielens(out: Path = DEFAULT_OUT, cache: Path = DEFAULT_CACHE, log=print):
     folder = download(cache, log)
     movies, skipped = read_movies(folder)

@@ -23,6 +23,7 @@ RSS = """<?xml version="1.0" encoding="UTF-8"?>
   <itunes:category text="History"/>
   <itunes:category text="Society &amp; Culture"><itunes:category text="Philosophy"/></itunes:category>
   <itunes:keywords>Rome, Empires</itunes:keywords>
+  <itunes:image href="https://example.com/art.jpg"/>
   <item>
     <title>The Fall of Rome</title>
     <guid>ep-1</guid>
@@ -86,7 +87,8 @@ class FeedParsingTests(unittest.TestCase):
         self.assertEqual(first['tags'], ['rome', 'empires'])
         self.assertEqual(first['description'], 'How an empire ended & what came next.')
         self.assertEqual(first_entry, {'show': 'Deep History', 'feed': FEED, 'link': 'https://example.com/show',
-                                       'audio': 'https://cdn.example.com/1.mp3', 'type': 'audio/mpeg', 'published': '2026-09-01'})
+                                       'audio': 'https://cdn.example.com/1.mp3', 'type': 'audio/mpeg', 'published': '2026-09-01',
+                                       'image': 'https://example.com/art.jpg'})
         self.assertEqual(second['title'], 'Bonus: Rome Q&A')
         self.assertEqual(dict(skipped), {'trailer': 1, 'shorter than 20 minutes': 1, 'not audio (e.g. a video episode)': 1,
                                          'no duration': 1, 'no audio file': 1})

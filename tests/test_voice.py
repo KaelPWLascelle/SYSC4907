@@ -37,8 +37,62 @@ class CommandTests(unittest.TestCase):
         self.assertEqual(self.parser.parse('Like WALL E')['id'], 'm005')
 
     def test_ambiguous_and_unknown_commands_never_invent_actions(self):
-        for text in ['like it', 'like Paddington or Paddington 2', 'delete everything', 'play Arrival', 'relaxing and tense', 'not relaxing', 'not under 90 minutes', 'like Arrivall', '1 hour 30 minutes', '90.5 minutes', '-20 minutes']:
+        for text in ['like it', 'like Paddington or Paddington 2', 'delete everything', 'play Arrival or Alien', 'relaxing and tense', 'not relaxing', 'not under 90 minutes', 'like Arrivall', '1 hour 30 minutes', '90.5 minutes', '-20 minutes']:
             with self.subTest(text=text): self.assertEqual(self.parser.parse(text)['intent'], 'unknown')
+
+    def test_play_names_one_title(self):
+        for text, expected in [('play Arrival', 'm001'), ('watch the general', 'm036'), ('put on mad max fury road', 'm027'),
+                               ('Flicks, play grand budapest', 'm019')]:
+            with self.subTest(text=text):
+                result = self.parser.parse(text)
+                self.assertEqual((result['intent'], result['id']), ('play', expected))
+                self.assertEqual(result['content']['id'], expected)
+        for text in ['play toy', 'play paddington 3', 'play Arrivall', 'play something good']:  # too loose; no such title; a typo
+            with self.subTest(text=text):
+                self.assertNotEqual(self.parser.parse(text)['intent'], 'play')
+
+    def test_titles_sharing_a_name_are_told_apart_by_year_or_by_what_can_play(self):
+        from dataclasses import replace
+        remake = replace(self.catalog[35], id='m099', year=1998)               # a second "The General"
+        parser = CommandInterpreter([*self.catalog, remake], playable=lambda content_id: content_id == 'm036')
+        self.assertEqual(parser.parse('play the general')['id'], 'm036')     # the one that can be played
+        self.assertEqual(parser.parse('play the general 1998')['id'], 'm099')
+        ambiguous = parser.parse('like the general')
+        self.assertEqual(ambiguous['intent'], 'unknown')
+        self.assertIn('(1926, 1998)', ambiguous['summary'])
+        self.assertEqual(parser.parse('like the general 1926')['id'], 'm036')
+
+    def test_more_like_a_title_lists_similar_titles(self):
+        result = self.parser.parse('more like Blade Runner')
+        self.assertEqual((result['intent'], result['similar'], result['summary']), ('search', 'm007', 'Show titles like Blade Runner'))
+        self.assertEqual(self.parser.parse('something like Paddingtonn')['intent'], 'unknown')
+
+    def test_disliking_a_genre_avoids_it_rather_than_rating_a_title(self):
+        for text in ['I hate horror', 'I dont like musicals', 'I did not like horror movies']:
+            with self.subTest(text=text):
+                result = self.parser.parse(text)
+                self.assertEqual(result['intent'], 'session')
+                self.assertEqual(len(result['patch']['excluded_genres']), 1)
+        self.assertEqual(self.parser.parse('I hate Alien')['intent'], 'feedback')     # a title is still a title
+
+    def test_everyday_requests_become_searches(self):
+        result = self.parser.parse('find me science fiction from the 2010s')
+        self.assertEqual((result['intent'], result['query']), ('search', 'find me science fiction from the 2010s'))
+        self.assertIn('Science fiction', result['summary'])
+        self.assertIn('2010s', result['summary'])
+        self.assertTrue(result['fallback'])
+        self.assertEqual(self.parser.parse('zzzz qqqq')['intent'], 'unknown')
+
+    def test_requests_that_describe_what_to_find_search_rather_than_change_the_scene(self):
+        scary = self.parser.parse('scary films under 2 hours')
+        self.assertEqual(scary['intent'], 'search')
+        self.assertIn('Horror', scary['summary'])
+        self.assertIn('up to 119 min', scary['summary'])
+        self.assertFalse(scary['fallback'])                                  # a rule's reading: no model overrides it
+        penguins = self.parser.parse('watch something about penguins')      # "watch" but not a title
+        self.assertEqual((penguins['intent'], penguins['query']), ('search', 'watch something about penguins'))
+        self.assertEqual(self.parser.parse('relaxing, under 90 minutes, no horror')['intent'], 'session')
+        self.assertEqual(self.parser.parse('play Arrival or Alien')['summary'], 'Name one title to play, for example “play Arrival”.')
 
     def test_invalid_values(self):
         for text in ['', None, ['hello'], 'x'*501, '700 minutes', 'under 1 minute']:

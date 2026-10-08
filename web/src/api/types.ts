@@ -99,12 +99,19 @@ export interface RecommendResponse {
 }
 
 export interface Command {
-  intent: 'feedback' | 'session' | 'unknown';
+  /** feedback rates a title; session changes the scene; play and search change nothing stored. */
+  intent: 'feedback' | 'session' | 'play' | 'search' | 'unknown';
   summary: string;
   note?: string;
   id?: string;
   value?: number;
   patch?: Partial<Session>;
+  /** search: everyday-language catalogue search. */
+  query?: string;
+  /** search: list titles like this one (its ID). */
+  similar?: string;
+  /** play, or search for similar titles: the title named. */
+  content?: Content;
 }
 
 export interface CommandResponse {
@@ -135,6 +142,8 @@ export type TitleFilter = 'all' | 'liked' | 'passed' | 'unrated';
 export interface TitlesResponse {
   items: Content[];
   total: number;
+  /** What the search understood, in plain words: ["Comedy", "1990s", "Films"] or ["Like Alien"]. */
+  understood: string[];
 }
 
 // ---------- podcasts ----------

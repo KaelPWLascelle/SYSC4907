@@ -12,6 +12,8 @@ Flicks is a SYSC 4907 capstone project at Carleton University, supervised by Dr.
 
 ## Features
 
+- **Search in everyday words.** "funny films from the 90s", "tom hanks" or "history podcasts":
+  Flicks reads decades, lengths, genres and moods, then matches titles, people and plots.
 - **Personal recommendations, computed locally.** A TF-IDF taste profile built from your ratings,
   reranked for the current scene, with every score broken down into its factors.
 - **Streaming-style interface.** A top pick for tonight, a ranked rail, continue watching, browse
@@ -119,15 +121,24 @@ of a film (such as a later score) can still be protected. See [ADR 0011](docs/ad
 .venv/bin/python -m flicks.posters
 ```
 
-This caches posters for the catalogue from English Wikipedia (about 6 MB, once). Only titles and
-years are sent, and only when you run the command. Posters are copyrighted, so they stay in your
-local cache and out of git. Without them, Flicks draws title cards.
+This caches artwork for the catalogues Flicks loads: Wikipedia poster images for the 3,000 most
+popular films (`--all` for every film; about 25 KB each, fetched politely so it takes a few minutes),
+and each podcast's show artwork. Only titles, years and image addresses are sent, and only when you
+run the command. Artwork is copyrighted, so it stays in your local cache and out of git. Without it,
+Flicks draws title cards.
 
 ### Ask Flicks
 
-Press <kbd>/</kbd> and type a request, or record one if voice is set up. Flicks shows exactly what it
-understood (mood, time limit, genres to avoid, or a rating) and changes nothing until you press
-Apply. See [voice commands](docs/voice.md) to enable on-device speech.
+Press <kbd>/</kbd> and type a request, or record one if voice is set up:
+
+- **Search in everyday words:** "funny films from the 90s", "keaton", "podcasts about Rome", "war
+  films before 1960". Results open in Browse with what Flicks understood shown as chips.
+- **Play a title:** "play The General", "listen to The Gracchi".
+- **Find similar titles:** "more like Alien".
+- **Change the scene or rate:** "relaxing, under 90 minutes, no horror", "I hate musicals", "Like Arrival".
+
+Searches and plays happen at once. Ratings and scene changes are shown first and change nothing
+until you press Apply. See [voice commands](docs/voice.md) to enable on-device speech.
 
 ### Couch mode
 

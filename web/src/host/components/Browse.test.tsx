@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { vi } from 'vitest';
@@ -47,10 +48,16 @@ function catalogServer(catalog: Content[]) {
   return calls;
 }
 
+/** Browse is controlled by the app; this holds its search text the way the app does. */
+function Harness() {
+  const [query, setQuery] = useState('');
+  return <Browse query={query} onQuery={setQuery} similar={null} onClearSimilar={() => {}} />;
+}
+
 function renderBrowse(value = library()) {
   return render(
     <LibraryContext.Provider value={value}>
-      <Browse />
+      <Harness />
     </LibraryContext.Provider>,
   );
 }

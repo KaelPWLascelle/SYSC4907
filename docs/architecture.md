@@ -41,11 +41,11 @@ The reasons behind each major choice are in the [decision records](adr/README.md
 | `media.py` | Maps local video files to catalogue titles |
 | `podcasts.py` | Podcast episodes at runtime: the validated episode index, downloads (one at a time, sniffed as audio) and downloaded files ([ADR 0010](adr/0010-podcasts.md)) |
 | `relay.py`, `archive.py` | Remote media played through Flicks (Range forwarding, forced media type, sniffing), and the validated Internet Archive index ([ADR 0011](adr/0011-streaming.md)) |
-| `commands.py`, `intent.py` | Rule-based command parsing, with an optional local System One fallback |
+| `commands.py`, `intent.py` | Rule-based command parsing (scene, ratings, play, search, similar titles), with an optional local System One fallback |
 | `voice.py` | Optional on-device Whisper transcription with bounded audio decoding |
 | `couch.py`, `qr.py` | Couch-session rules (joining, hidden votes, results, player state) and the QR encoder |
-| `posters.py` | The one-time poster fetch and the read-only poster cache |
-| `search.py` | In-memory title lookup and search ([ADR 0007](adr/0007-catalogue-artifact.md)) |
+| `posters.py` | The one-time artwork fetch (Wikipedia page images in batches, podcast show art) and the read-only cache |
+| `search.py` | In-memory lookup and everyday-language search: reads decades, years, lengths, kinds, genres and moods, then ranks word matches over titles, shows, genres, tags and descriptions ([ADR 0007](adr/0007-catalogue-artifact.md)) |
 | `collaborative.py` | Item-to-item collaborative filtering, the content/collaborative blend and the popularity prior ([ADR 0008](adr/0008-collaborative-filtering.md), [0009](adr/0009-popularity-prior.md)) |
 | `datasets/` | Build-time tools: the MovieLens, podcast and Internet Archive importers, neighbour precomputation, and the offline evaluation |
 | `net.py` | Outbound HTTP for explicit, user-requested actions: posters, imports, streams and downloads; public addresses only |
@@ -211,7 +211,7 @@ All responses are JSON unless noted. Errors have the shape `{"error": "<message>
 | Method and path | Purpose |
 |---|---|
 | `GET /api/state` | Catalogue size and genres, ratings, voice status, posters, couch mode, and every playable title (`remote` when it streams, with its `source` and `page`) |
-| `GET /api/titles` | Search: `q` (words, all must match), `show` (`all`, `liked`, `passed`, `unrated`), `offset`, `limit` (≤ 100) |
+| `GET /api/titles` | Search: `q` (everyday language), `show` (`all`, `liked`, `passed`, `unrated`), `similar` (an ID: titles like it), `offset`, `limit` (≤ 100). Most popular first without a query; `understood` lists what the query was read as |
 | `POST /api/feedback` | `{"id": "m001", "value": 1}`: 1 like, -1 pass, 0 clear |
 | `POST /api/recommend` | `{"session": {...}, "mode": "session" \| "baseline"}`; omitted fields use defaults |
 | `POST /api/command/preview` | `{"text": "...", "session": {...}}`: what a request would change; no side effects |

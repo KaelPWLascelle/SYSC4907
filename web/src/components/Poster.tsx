@@ -4,8 +4,8 @@ import { posterUrl } from '../api/flicks';
 import { hue } from '../lib/format';
 
 interface PosterProps {
-  /** A podcast episode's card names its show where a film's names its year. */
-  item: { id: string; title: string; year?: number; series?: string | null };
+  /** A podcast episode's card names its show where a film's names its year, and shows square art whole. */
+  item: { id: string; title: string; year?: number; kind?: string; series?: string | null };
   /** A cached poster exists for this title (from /api/state or the couch view). */
   hasPoster: boolean;
   className?: string;
@@ -16,16 +16,33 @@ interface PosterProps {
 export function Poster({ item, hasPoster, className = 'poster', eager = false }: PosterProps) {
   // Remember which title failed, so a reused component showing another title tries again.
   const [failedId, setFailedId] = useState<string | null>(null);
+  const loading = eager ? 'eager' : 'lazy';
+  const episode = item.kind === 'episode';
   return (
     <div className={className}>
       {hasPoster && failedId !== item.id ? (
-        <img
-          src={posterUrl(item.id)}
-          alt=""
-          decoding="async"
-          loading={eager ? 'eager' : 'lazy'}
-          onError={() => setFailedId(item.id)}
-        />
+        episode ? (
+          <>
+            <img className="poster-blur" src={posterUrl(item.id)} alt="" decoding="async" loading={loading} />
+            <img
+              className="poster-square"
+              src={posterUrl(item.id)}
+              alt=""
+              decoding="async"
+              loading={loading}
+              onError={() => setFailedId(item.id)}
+            />
+            <span className="poster-caption">{item.title}</span>
+          </>
+        ) : (
+          <img
+            src={posterUrl(item.id)}
+            alt=""
+            decoding="async"
+            loading={loading}
+            onError={() => setFailedId(item.id)}
+          />
+        )
       ) : (
         <div className="poster-fallback" style={{ '--hue': hue(item.id) } as CSSProperties}>
           <span className="poster-fallback-title">{item.title}</span>

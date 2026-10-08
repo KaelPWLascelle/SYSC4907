@@ -22,10 +22,10 @@ MOOD_WORDS = {
 class SystemOneInterpreter:
     name = 'Local command rules + System One'
 
-    def __init__(self, catalog, client: DecisionClient, min_confidence=0.6, min_exclusion=0.8):
+    def __init__(self, catalog, client: DecisionClient, min_confidence=0.6, min_exclusion=0.8, titles=None, playable=None):
         if not client.backend.local:
             raise PrivacyError('The command assistant needs a System One model on this machine (127.0.0.1)')
-        self.rules, self.client = CommandInterpreter(catalog), client
+        self.rules, self.client = CommandInterpreter(catalog, titles, playable), client
         self.min_confidence, self.min_exclusion = min_confidence, min_exclusion
         self.genres = self.rules.genres
         self.questions = {
@@ -39,14 +39,17 @@ class SystemOneInterpreter:
 
     def parse(self, text):
         result = self.rules.parse(text)  # validates length/type and raises ValueError itself
-        if result['intent'] != 'unknown' or result.get('reason') != 'unrecognized':
-            return result  # never let a model override a deliberate refusal (e.g. negation)
+        unread = result['intent'] == 'unknown' and result.get('reason') == 'unrecognized'
+        if not (unread or result.get('fallback')):
+            return result  # never let a model override a rule's reading or a deliberate refusal (e.g. negation)
         clean = normalize(text)
         mentioned = [i for i, g in enumerate(self.genres) if normalize(g) in clean]
         questions = {'mood': self.questions['mood'], **{f'avoid_{i}': self.questions[f'avoid_{i}'] for i in mentioned}}
         try:
             answers = self.client.decide(text, questions, private=True)
         except SystemOneError:
+            if result.get('fallback'):
+                return {**result, 'note': f"{result['note']} The local System One model was unavailable, so this is a search."}
             return {**result, 'note': 'The local System One model was unavailable; only exact commands work.'}
         patch, reasons = {}, []
         mood = answers['mood']
@@ -58,6 +61,8 @@ class SystemOneInterpreter:
             patch['excluded_genres'] = excluded
             reasons.append('avoid ' + ', '.join(excluded))
         if not patch:
+            if result.get('fallback'):
+                return result  # the model had nothing confident to add; the search stands
             return {**result, 'parser': 'rules+systemone',
                     'note': f'The local model was not confident enough to change anything (mood: {mood.value}, {mood.answer_confidence:.0%}).'}
         Session(**patch)  # same validation as manual controls

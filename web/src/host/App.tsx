@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { flicksApi } from '../api/flicks';
-import type { AppState, Content, Mode, Rating, TitleRef } from '../api/types';
+import type { AppState, CommandResponse, Content, Mode, Rating, TitleRef } from '../api/types';
 import { CommandController } from './commands/CommandController';
 import { AskBar } from './components/AskBar';
 import { Browse } from './components/Browse';
@@ -47,6 +47,7 @@ function Home({ initial }: { initial: AppState }) {
   const [ratingBusy, setRatingBusy] = useState(false);
   const [notice, setNotice] = useState('');
   const askInput = useRef<HTMLTextAreaElement>(null);
+  const [browse, setBrowse] = useState<{ query: string; similar: TitleRef | null }>({ query: '', similar: null });
 
   const recommendations = useRecommendations(session, mode, feedback);
   const history = useHistory();
@@ -77,10 +78,7 @@ function Home({ initial }: { initial: AppState }) {
         preview: flicksApi.previewCommand,
         apply: flicksApi.applyCommand,
         transcribe: flicksApi.transcribe,
-        onApplied: result => {
-          setFeedback(result.feedback);
-          setSession(result.session);
-        },
+        onApplied: () => undefined, // replaced below with a handler that sees the latest state
       }),
   );
   useEffect(() => controller.setSession(session), [controller, session]);
@@ -126,6 +124,28 @@ function Home({ initial }: { initial: AppState }) {
     },
     [progress],
   );
+
+  useEffect(() => {
+    controller.setOnApplied(({ command, feedback: saved, session: scene }: CommandResponse) => {
+      setFeedback(saved);
+      setSession(scene);
+      if (command.intent === 'search') {
+        setBrowse(
+          command.similar && command.content
+            ? { query: '', similar: command.content }
+            : { query: command.query ?? '', similar: null },
+        );
+        requestAnimationFrame(() => document.getElementById('browse')?.scrollIntoView?.({ behavior: 'smooth' }));
+      } else if (command.intent === 'play' && command.content) {
+        if (media.has(command.content.id)) {
+          play(command.content);
+        } else {
+          setDetails(command.content);
+          setNotice(`${command.content.title} can’t be played here: there is no file or stream for it.`);
+        }
+      }
+    });
+  });
 
   const { downloads, download, remove: removeDownload } = podcasts;
   const library = useMemo<Library>(
@@ -229,7 +249,12 @@ function Home({ initial }: { initial: AppState }) {
           ))}
         </Rail>
         {initial.couch && <CouchPanel couch={couch} session={session} />}
-        <Browse />
+        <Browse
+          query={browse.query}
+          onQuery={query => setBrowse({ query, similar: null })}
+          similar={browse.similar}
+          onClearSimilar={() => setBrowse({ query: '', similar: null })}
+        />
       </main>
       <Footer titles={initial.catalog_size} posters={posters.size > 0} playable={media.size} />
       <DetailsSheet item={details} picks={picks} session={session} onClose={() => setDetails(null)} />

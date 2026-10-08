@@ -33,8 +33,9 @@ def apply(body: CommandIn, svc: Services = Depends(services)):
     with client_errors():
         if command['intent'] == 'feedback':
             svc.ratings.set(command['id'], command['value'])
-        else:
+        elif command['intent'] == 'session':
             session = Session(**{**asdict(session), **command['patch']})
+        # 'play' and 'search' change nothing stored; the interface plays the title or shows the results.
     return {'command': command, 'session': asdict(session), 'feedback': svc.ratings.all()}
 
 

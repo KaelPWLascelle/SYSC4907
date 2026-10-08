@@ -18,15 +18,17 @@ export function AskBar({ controller, voice, inputRef }: AskBarProps) {
 
   return (
     <section className="ask" aria-labelledby="ask-heading">
-      <div className="ask-head">
-        <h2 id="ask-heading" className="visually-hidden">
-          Ask Flicks
-        </h2>
-        <span className="badge">{voice.available ? 'Whisper · on device' : 'Typed commands ready'}</span>
-        <p className="hint" role="status" aria-live="polite">
-          {state.voiceStatus}
-        </p>
-      </div>
+      <h2 id="ask-heading" className="visually-hidden">
+        Ask Flicks
+      </h2>
+      {voice.available && (
+        <div className="ask-head">
+          <span className="badge">Whisper · on device</span>
+          <p className="hint" role="status" aria-live="polite">
+            {state.voiceStatus}
+          </p>
+        </div>
+      )}
       <form
         className="ask-bar"
         onSubmit={event => {
@@ -34,16 +36,18 @@ export function AskBar({ controller, voice, inputRef }: AskBarProps) {
           void controller.preview();
         }}
       >
-        <button
-          type="button"
-          className="mic"
-          aria-pressed={recording}
-          disabled={!controller.canRecord || !(idle || recording)}
-          onClick={() => void controller.toggleRecord()}
-        >
-          <span aria-hidden="true">{recording ? '■' : '●'}</span>
-          <span className="mic-label">{recording ? 'Stop & transcribe' : 'Record command'}</span>
-        </button>
+        {voice.available && (
+          <button
+            type="button"
+            className="mic"
+            aria-pressed={recording}
+            disabled={!controller.canRecord || !(idle || recording)}
+            onClick={() => void controller.toggleRecord()}
+          >
+            <span aria-hidden="true">{recording ? '■' : '●'}</span>
+            <span className="mic-label">{recording ? 'Stop & transcribe' : 'Record command'}</span>
+          </button>
+        )}
         <label htmlFor="command-text" className="visually-hidden">
           Ask Flicks, or edit the transcript
         </label>
@@ -52,7 +56,7 @@ export function AskBar({ controller, voice, inputRef }: AskBarProps) {
           ref={inputRef}
           rows={1}
           maxLength={500}
-          placeholder="Something relaxing under ninety minutes, no horror…"
+          placeholder="Ask for anything: funny films from the 90s, play The General, no horror…"
           value={state.text}
           disabled={!idle}
           onChange={event => controller.setText(event.target.value)}
@@ -85,25 +89,29 @@ export function AskBar({ controller, voice, inputRef }: AskBarProps) {
               Cancel
             </button>
           )}
-          <label className="link file-pick">
-            Use a recording
-            <input
-              type="file"
-              accept="audio/*"
-              disabled={!voice.available || !idle}
-              onChange={event => {
-                const file = event.target.files?.[0];
-                if (file) controller.transcribeFile(file);
-                event.target.value = '';
-              }}
-            />
-          </label>
+          {voice.available && (
+            <label className="link file-pick">
+              Use a recording
+              <input
+                type="file"
+                accept="audio/*"
+                disabled={!idle}
+                onChange={event => {
+                  const file = event.target.files?.[0];
+                  if (file) controller.transcribeFile(file);
+                  event.target.value = '';
+                }}
+              />
+            </label>
+          )}
         </div>
       </div>
-      <p className="fine">
-        The microphone starts only when you press record. Up to 30 seconds, transcribed on this device, never saved. No
-        wake word.
-      </p>
+      {voice.available && (
+        <p className="fine">
+          The microphone starts only when you press record. Up to 30 seconds, transcribed on this device, never saved.
+          No wake word.
+        </p>
+      )}
     </section>
   );
 }

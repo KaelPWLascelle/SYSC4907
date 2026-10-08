@@ -1,8 +1,14 @@
-"""Bounded, transparent command interpretation. Parsing never changes stored state."""
+"""Bounded, transparent command interpretation. Parsing never changes stored state.
+
+Intents: `feedback` (rate a title), `session` (change the scene), `play` (a title), `search` (everyday
+search, or titles like one), and `unknown`. Every one is shown to the user before it is applied.
+"""
+from dataclasses import asdict
 import re
 import unicodedata
 
 from .core import MOODS, Session
+from .search import GENRE_WORDS, TitleIndex
 
 
 def normalize(text):
@@ -27,12 +33,64 @@ def number_words(text):
     return re.sub(pattern, convert, text)
 
 
+HINT = 'Try “relaxing, 90 minutes”, “no horror”, “Like Arrival”, “play The General” or “funny films from the 90s”.'
+PLAY = re.compile(r'(?:play|watch|start|put on|listen to|resume) (.+)')
+SEARCH_VERBS = re.compile(r'(?:find|search(?: for)?|show me|look for|looking for|any) ')
+NEGATED = re.compile(r'\b(?:no|without|avoid|exclude|not) \w+(?: \w+)?')
+SIMILAR = re.compile(r'(?:show me |find |give me )?(?:more like|something like|similar to|titles like|films like|movies like|shows like) (.+)')
+
+
 class CommandInterpreter:
     name = 'Local command rules'
 
-    def __init__(self, catalog):
+    def __init__(self, catalog, titles: TitleIndex | None = None, playable=None):
         self.catalog = catalog
+        self.titles = titles or TitleIndex(catalog)
+        self.playable = playable or (lambda content_id: False)  # content ID -> can it be played here?
         self.genres = sorted({g for c in catalog for g in c.genres})
+
+    def find_title(self, text, to_play=False):
+        """The one title `text` names, or None. Never a guess between alternatives.
+
+        An exact title wins, narrowed by a year ("the general 1926") and, when playing, by what can be
+        played. Otherwise at least two words must all appear in exactly one title ("grand budapest"); one
+        loose word ("toy") or a list ("Paddington or Paddington 2") is refused rather than resolved.
+        """
+        exact = self.same_name(text)
+        if to_play and len(exact) > 1:
+            exact = [c for c in exact if self.playable(c.id)] or exact
+        if len(exact) == 1:
+            return exact[0]
+        if exact or re.search(r'\b(?:or|and)\b|,', text):
+            return None  # several titles share the name, or several are named: ask rather than guess
+        words = set(self.titles.understand(text).words)
+        if len(words) < 2:
+            return None
+        named = [i for i, title in enumerate(self.titles.title_words) if words <= title]
+        return self.titles.items[named[0]] if len(named) == 1 else None
+
+    def same_name(self, text):
+        """Titles called exactly `text`, or `text` without a trailing year and released that year."""
+        named = re.fullmatch(r'(.+?) ((?:18|19|20)\d\d)', text)
+        if named and (dated := [c for c in self.catalog if normalize(c.title) == named[1] and c.year == int(named[2])]):
+            return dated
+        return [c for c in self.catalog if normalize(c.title) == text]
+
+    def not_found(self, text, verb):
+        """Why `text` named no single title: several share the name, or none matched."""
+        shared = self.same_name(text)
+        if len(shared) > 1:
+            years = ', '.join(str(c.year) for c in sorted(shared, key=lambda c: c.year))
+            title = shared[0].title
+            return self.unknown(f'Several titles are called “{title}” ({years}). Add the year, for example '
+                                f'“{verb} {title} {shared[0].year}”.')
+        return self.unknown(f'I could not find “{text}”. Try its exact title.')
+
+    def genre_named(self, text):
+        """The catalogue genre `text` names ("horror", "scary movies", "musicals"), or None."""
+        words = re.sub(r'\b(?:movies?|films?|shows?|podcasts?)\b', '', text).strip()
+        genres = GENRE_WORDS.get(words) or ((words,) if words in self.genres else ())
+        return genres[0] if len(genres) == 1 and genres[0] in self.genres else None
 
     @staticmethod
     def unknown(message, reason='refused'):
@@ -48,14 +106,33 @@ class CommandInterpreter:
         text = normalize(text)
         text = re.sub(r'^(?:hey )?flicks\b\s*', '', text)
         text = re.sub(r'^please\s+|\s+please$', '', text)
-        feedback = re.fullmatch(r'(?:i )?(like|liked|love|loved|dislike|disliked|hate|hated|did not like|didnt like|clear(?: my)? rating for|clear(?: my)? rating of) (.+)', text)
+        similar = SIMILAR.fullmatch(text)
+        if similar:
+            item = self.find_title(similar[1])
+            if item is None:
+                return self.not_found(similar[1], 'more like')
+            return {'intent': 'search', 'similar': item.id, 'summary': f'Show titles like {item.title}',
+                    'content': asdict(item), 'parser': 'rules'}
+        play = PLAY.fullmatch(text)
+        if play and re.search(r'\b(?:or|and)\b|,', play[1]):
+            return self.unknown('Name one title to play, for example “play Arrival”.')
+        if play and (item := self.find_title(play[1], to_play=True)):
+            return {'intent': 'play', 'id': item.id, 'summary': f'Play {item.title}', 'content': asdict(item),
+                    'parser': 'rules'}
+        feedback = re.fullmatch(r'(?:i )?(like|liked|love|loved|dislike|disliked|hate|hated|did not like|didnt like|dont like|do not like|clear(?: my)? rating for|clear(?: my)? rating of) (.+)', text)
         if feedback:
             verb, title = feedback.groups()
-            candidates = [c for c in self.catalog if normalize(c.title) == title]
-            if len(candidates) != 1:
+            negative = verb in ('dislike', 'disliked', 'hate', 'hated', 'did not like', 'didnt like', 'dont like', 'do not like')
+            genre = self.genre_named(title)
+            if negative and genre and not any(normalize(c.title) == title for c in self.catalog):
+                return {'intent': 'session', 'patch': {'excluded_genres': [genre]}, 'summary': f'Set avoid {genre}.',
+                        'parser': 'rules', 'note': 'Genres you avoid are left out of your picks for this visit.'}
+            item = self.find_title(title)
+            if item is None:
+                if len(self.same_name(title)) > 1:
+                    return self.not_found(title, verb)
                 return self.unknown('Use one exact catalogue title, for example “Like Arrival”. No rating changed.')
-            value = 0 if verb.startswith('clear') else -1 if verb in ('dislike', 'disliked', 'hate', 'hated', 'did not like', 'didnt like') else 1
-            item = candidates[0]
+            value = 0 if verb.startswith('clear') else -1 if negative else 1
             return {'intent': 'feedback', 'id': item.id, 'value': value,
                     'summary': f'{ {1: "Like", -1: "Dislike", 0: "Clear rating for"}[value]} {item.title}', 'parser': 'rules'}
 
@@ -96,7 +173,13 @@ class CommandInterpreter:
         if not patch:
             if text in ('recommend something', 'find my next watch', 'show recommendations', 'recommendations'):
                 return {'intent': 'session', 'patch': {}, 'summary': 'Refresh recommendations with the current session.', 'parser': 'rules'}
-            return self.unknown('Try “relaxing, 90 minutes, low intensity”, “no horror”, or “Like Arrival”. I cannot play media or answer general questions yet.', 'unrecognized')
+            if play and len(self.same_name(play[1])) > 1:
+                return self.not_found(play[1], 'play')
+            # "listen to something about Rome": not a title, so a search ("listen" asks for podcasts).
+            return self.search(text) or self.unknown(f'Nothing matched. {HINT}', 'unrecognized')
+        if self.wants_search(text) and (found := self.search(text)):
+            # "scary movies under 90 minutes" describes what to find; the length becomes a search filter.
+            return {**found, 'fallback': False}
         # Use the same domain validation as manual controls; no model can bypass it.
         Session(**patch)
         labels = []
@@ -107,3 +190,18 @@ class CommandInterpreter:
             else: labels.append(f'{key}: {value}')
         return {'intent': 'session', 'patch': patch, 'summary': 'Set ' + '; '.join(labels) + '.',
                 'parser': 'rules', 'note': 'Only the listed settings will change. Other wording is not interpreted.'}
+
+    def wants_search(self, text):
+        """True when a request describes what to find: a genre it does not negate, films or podcasts, a period, or "find…"."""
+        wanted = self.titles.understand(NEGATED.sub(' ', text))
+        return bool(SEARCH_VERBS.match(text) or wanted.genres or wanted.kind or wanted.years)
+
+    def search(self, text):
+        """A `search` command for an everyday request that matches titles, or None."""
+        _, total, query = self.titles.search(text, limit=1)
+        if not total:
+            return None
+        parts = query.labels() + [f'“{word}”' for word in query.words]
+        # `fallback`: nothing more specific matched, so a local model may still read the request first.
+        return {'intent': 'search', 'query': text, 'summary': 'Search for ' + (' · '.join(parts) or text),
+                'parser': 'rules', 'fallback': True, 'note': f'{total:,} {"title matches" if total == 1 else "titles match"}.'}

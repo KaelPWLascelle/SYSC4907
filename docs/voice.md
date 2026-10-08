@@ -71,14 +71,20 @@ at a time; a second request is asked to retry.
 | "Dislike Alien" / "I did not like Alien" | Pass on *Alien* |
 | "Clear my rating for Arrival" | Remove that rating |
 | "Show recommendations" | Refresh with the current scene |
+| "I hate horror" / "I don't like musicals" | Avoid that genre (a genre, not a title) |
+| "Play The General" / "Listen to The Gracchi" | Play it, or open its details if it cannot be played |
+| "More like Alien" / "Similar to Moon" | List titles like it in Browse |
+| "Funny films from the 90s" / "podcasts about Rome" | Search the catalogue in Browse |
 
 - **Time** is in whole minutes. "Under 90" means strictly below, so up to 89; "90 minutes" and "at
   most 90 minutes" include 90. Use one duration per request.
 - **Intensity:** low, medium and high mean 20%, 50% and 90%.
 - **One mood per request.** Settings you don't mention stay as they are. A new "no …" request
   replaces the list of avoided genres.
-- **Titles must match exactly** (ignoring punctuation and accents). Flicks never guesses from "like
-  it", similar spellings or ambiguous matches, so a misheard word cannot silently become a rating.
+- **Titles must be named unambiguously:** exactly (ignoring punctuation and accents), or by at least
+  two words that appear in only one title ("play grand budapest"). Flicks never guesses from "like
+  it", a single loose word, a list ("Paddington or Paddington 2") or similar spellings, so a misheard
+  word cannot silently become a rating.
 - **"Flicks"** at the start of a request is ignored ("Hey Flicks, no horror").
 
 ## Privacy

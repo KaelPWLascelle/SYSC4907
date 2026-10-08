@@ -43,6 +43,7 @@ class Episode:
     audio: str
     type: str
     published: str
+    image: str = ''     # the episode's or show's artwork, for the poster cache (python -m flicks.posters)
 
 
 class PodcastIndex:
@@ -67,7 +68,8 @@ class PodcastIndex:
                 raise ValueError(f'{path} has an invalid entry for {content_id}')
             if fields['link'] and parse.urlsplit(fields['link']).scheme not in net.WEB_SCHEMES:
                 fields['link'] = ''  # only ever offered as a link to the show's own page
-            episodes[content_id] = Episode(content_id, **fields)
+            image = entry.get('image')
+            episodes[content_id] = Episode(content_id, **fields, image=image if isinstance(image, str) and net.public_web(image) else '')
         return cls(episodes)
 
     def get(self, content_id):

@@ -51,18 +51,31 @@ def _playable(svc: Services):
 def titles(
     q: str = Query('', max_length=100),
     show: Literal['all', 'liked', 'passed', 'unrated'] = 'all',
+    similar: str | None = Query(None, max_length=64),
     offset: int = Query(0, ge=0),
     limit: int = Query(48, ge=1, le=100),
     svc: Services = Depends(services),
 ):
-    """Search the catalogue in catalogue order, optionally limited by the user's ratings."""
+    """Search the catalogue (everyday language, see flicks/search.py), or list titles like `similar`.
+
+    Without a query, titles come most popular first. Results can be limited by the user's ratings.
+    """
     feedback = svc.ratings.all()
     wanted = {'liked': 1, 'passed': -1}.get(show)
     keep = (None if show == 'all' else
             (lambda item: item.id not in feedback) if show == 'unrated' else
             (lambda item: feedback.get(item.id) == wanted))
-    page, total = svc.titles.search(q, keep, offset, limit)
-    return {'items': [asdict(item) for item in page], 'total': total}
+    if similar is not None:
+        seed = svc.titles.by_id.get(similar)
+        if seed is None:
+            raise HTTPException(404, 'Unknown content ID')
+        scores = svc.similar.scores({similar: 1})
+        ranked = sorted((item for item in svc.catalog if item.id != similar and (keep is None or keep(item))),
+                        key=lambda item: (-scores[item.id]['taste'], item.id))
+        return {'items': [asdict(item) for item in ranked[offset:offset + limit]], 'total': len(ranked),
+                'understood': [f'Like {seed.title}']}
+    page, total, understood = svc.titles.search(q, keep, offset, limit)
+    return {'items': [asdict(item) for item in page], 'total': total, 'understood': understood.labels()}
 
 
 @router.post('/api/feedback')
