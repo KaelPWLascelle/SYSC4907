@@ -15,3 +15,4 @@ is immutable once accepted; a later record supersedes it rather than editing it.
 | [0008](0008-collaborative-filtering.md) | Item-to-item collaborative filtering, precomputed from public ratings | Accepted |
 | [0009](0009-popularity-prior.md) | New users start from a popularity prior that gives way as they rate | Accepted |
 | [0010](0010-podcasts.md) | Podcast episodes from public feeds, downloaded only when the user asks | Accepted · amends 0001 |
+| [0011](0011-streaming.md) | Stream remote media through Flicks; public-domain films from the Internet Archive | Accepted · amends 0010 |

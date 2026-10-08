@@ -27,9 +27,24 @@ def state(svc: Services = Depends(services)):
         'couch': svc.couch is not None,
         'podcasts': svc.podcasts is not None,
         'posters': svc.posters.ids() if svc.posters else [],
-        'media': [{'id': f.content_id, 'direct_play': f.direct_play, 'audio': f.audio}
-                  for f in [*svc.media.files.values(), *(svc.podcasts.media() if svc.podcasts else ())]],
+        'media': _playable(svc),
     }
+
+
+def _playable(svc: Services):
+    """Every title that can be played: local files (scanned videos, downloaded episodes) and remote streams.
+
+    `remote` means it plays from elsewhere through the relay; `source` and `page` credit where from.
+    """
+    entries = {}
+    for content_id, remote in svc.streams.items():
+        entries[content_id] = {'id': content_id, 'direct_play': True, 'audio': remote.audio, 'remote': True,
+                               'source': remote.source, 'page': remote.page or None}
+    for file in [*svc.media.files.values(), *(svc.podcasts.media() if svc.podcasts else ())]:
+        credit = entries.get(file.content_id, {})
+        entries[file.content_id] = {'id': file.content_id, 'direct_play': file.direct_play, 'audio': file.audio,
+                                    'remote': False, 'source': credit.get('source'), 'page': credit.get('page')}
+    return list(entries.values())
 
 
 @router.get('/api/titles')

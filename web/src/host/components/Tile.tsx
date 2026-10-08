@@ -19,7 +19,8 @@ interface TileProps {
 export function Tile({ item, rank, resume = false }: TileProps) {
   const library = useLibrary();
   const rating = library.feedback[item.id];
-  const playable = library.media.has(item.id);
+  const entry = library.media.get(item.id);
+  const playable = entry !== undefined;
   const progress = library.progress.get(item.id);
   const resumeAt = resume && progress?.resumable ? progress.position_seconds : null;
   const label =
@@ -41,7 +42,8 @@ export function Tile({ item, rank, resume = false }: TileProps) {
         <Poster item={item} hasPoster={library.posters.has(item.id)} />
         {playable ? (
           <span className="tile-badge" aria-hidden="true">
-            <Icon name="play" /> {resumeAt !== null ? timestamp(resumeAt) : 'Ready'}
+            <Icon name={entry.audio ? 'headphones' : 'play'} />{' '}
+            {resumeAt !== null ? timestamp(resumeAt) : entry.remote ? 'Stream' : 'Ready'}
           </span>
         ) : (
           isEpisode(item) && (

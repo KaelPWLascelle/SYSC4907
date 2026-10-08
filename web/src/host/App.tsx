@@ -54,14 +54,18 @@ function Home({ initial }: { initial: AppState }) {
   const podcasts = useDownloads(initial.podcasts);
 
   const posters = useMemo(() => new Set(initial.posters), [initial.posters]);
-  // Videos come from the startup scan; episodes are playable once downloaded, so they follow the downloads.
-  const media = useMemo(() => {
-    const playable = new Map(initial.media.filter(entry => !entry.audio).map(entry => [entry.id, entry]));
-    for (const [id, status] of podcasts.downloads) {
-      if (status.state === 'ready') playable.set(id, { id, direct_play: true, audio: true });
-    }
-    return playable;
-  }, [initial.media, podcasts.downloads]);
+  // Everything playable, from the server. An episode streams unless it is downloaded, which can change
+  // while the page is open, so episodes follow the downloads.
+  const media = useMemo(
+    () =>
+      new Map(
+        initial.media.map(entry => [
+          entry.id,
+          entry.audio ? { ...entry, remote: podcasts.downloads.get(entry.id)?.state !== 'ready' } : entry,
+        ]),
+      ),
+    [initial.media, podcasts.downloads],
+  );
   const progress = useMemo(() => new Map(history.items.map(p => [p.content_id, p])), [history.items]);
 
   // ---------- assistant ----------
@@ -236,6 +240,9 @@ function Home({ initial }: { initial: AppState }) {
           startAt={playing.startAt}
           directPlay={media.get(playing.item.id)?.direct_play ?? true}
           audio={media.get(playing.item.id)?.audio ?? false}
+          streamedFrom={
+            media.get(playing.item.id)?.remote ? (media.get(playing.item.id)?.source ?? 'the internet') : null
+          }
           remote={remoteForPlayer}
           onProgress={(position, duration) => {
             flicksApi.saveProgress(playing.item.id, position, duration).catch(() => {

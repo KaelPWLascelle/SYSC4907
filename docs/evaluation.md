@@ -9,8 +9,8 @@ measured yet (whether the recommendations are good), and sets out how to measure
 
 | Suite | Count | Covers |
 |---|---:|---|
-| Backend (`pytest`) | 163 | Ranking and explanations, hard constraints, validation, migrations, the request guard, range-request streaming, watch history, posters, couch rules and the guest server over a real socket, command parsing, System One validation, catalogue search, the MovieLens and podcast importers (offline fixtures), podcast downloads (with a fake network), collaborative filtering (neighbour build, predictions, blend, leakage-free evaluation split) and the popularity prior |
-| Interface (Vitest) | 47 | The voice and command state machine (cancellation, stale results, permissions), couch phone flows, the player (video and audio), the couch panel, server-side browsing, podcast downloads, and the main screens |
+| Backend (`pytest`) | 180 | Ranking and explanations, hard constraints, validation, migrations, the request guard, range-request streaming, watch history, posters, couch rules and the guest server over a real socket, command parsing, System One validation, catalogue search, the MovieLens and podcast importers (offline fixtures), podcast downloads and the streaming relay (with a fake network), the Internet Archive importer and its rights rule, collaborative filtering (neighbour build, predictions, blend, leakage-free evaluation split) and the popularity prior |
+| Interface (Vitest) | 50 | The voice and command state machine (cancellation, stale results, permissions), couch phone flows, the player (video and audio), the couch panel, server-side browsing, streaming and podcast downloads, and the main screens |
 
 Regression tests for bugs found during manual testing (a stale poll overwriting a vote, a background
 tab not loading the couch session) were each checked to fail with the bug reintroduced. CI runs the
@@ -151,6 +151,20 @@ actually liked, using held-out MovieLens ratings:
   prior reaches 0.75 to 0.81, depending on the profile size, and popularity 0.77. On the full
   catalogue, the stricter and more honest measure, no model is near 70%. The target needs to be
   stated with a protocol before it can be claimed.
+
+## Streaming start-up (informal spot check)
+
+The proposal targets playback latency under 2 seconds. On 2026-10-08, over a home connection, through
+the relay (`/media/{id}`), with a handful of requests each:
+
+| Title | First bytes | Seek |
+|---|---:|---:|
+| *The General* (1926), Internet Archive, 640×480 MP4 | 1.4 s | 1.0–1.3 s typical; one seek near the end took 7 s |
+| *In Our Time* episode, publisher's CDN | 3.1 s (several tracking redirects) | about 1 s |
+
+Local files start well under a second. Remote start-up depends on the source and the network, so the
+target can be claimed for local and downloaded media but not for every stream. A proper measurement
+(time from pressing Play to the first frame, repeated, on the demo hardware) is still to do.
 
 ## Speech recognition smoke test
 

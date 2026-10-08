@@ -27,6 +27,8 @@ class Settings:
     # A podcast catalogue (flicks.datasets.podcasts) shown alongside the films; None: films only.
     podcasts: Path | None = None
     podcast_downloads: Path = DEFAULT_PODCAST_DOWNLOADS
+    # Public-domain films to stream from the Internet Archive (flicks.datasets.archive); None: none.
+    archive: Path | None = None
     couch: bool = False
     couch_host: str | None = None
     couch_port: int = 8770

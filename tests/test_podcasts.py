@@ -4,6 +4,7 @@ import tempfile
 import unittest
 from urllib import error
 
+from fakes import Upstream
 from flicks.collaborative import ItemNeighbours, with_prior
 from flicks.core import Content, Recommender, Session, load_catalog
 from flicks.datasets import podcasts as importer
@@ -319,6 +320,7 @@ class ApiTests(unittest.TestCase):
             out, (first, _) = self.catalogue(folder)
             with app_client(Path(folder), podcasts=out, podcast_downloads=Path(folder)/'downloads') as (client, svc):
                 svc.podcasts.fetch = FakeFetch()
+                svc.streams.opener = upstream = Upstream(MP3)
                 state = client.get('/api/state').json()
                 self.assertTrue(state['podcasts'])
                 self.assertEqual(state['catalog_size'], 38)             # 36 films and 2 episodes
@@ -327,17 +329,23 @@ class ApiTests(unittest.TestCase):
                 self.assertEqual(picks['recommendations'][0]['content']['series'], 'Deep History')
                 info = client.get(f'/api/podcasts/{first}').json()
                 self.assertEqual((info['show'], info['download']), ('Deep History', {'state': 'remote'}))
-                self.assertEqual(client.get(f'/media/{first}').status_code, 404)
+                streamed = client.get(f'/media/{first}')                # not downloaded: streamed from the feed
+                self.assertEqual((streamed.status_code, streamed.content), (200, MP3))
+                self.assertEqual(upstream.calls[-1][0], 'https://cdn.example.com/1.mp3')
 
                 self.assertEqual(client.post(f'/api/podcasts/{first}/download', json={}).status_code, 202)
                 svc.podcasts.wait()
                 self.assertEqual(client.get('/api/podcasts/downloads').json()['downloads'][first]['state'], 'ready')
-                self.assertIn({'id': first, 'direct_play': True, 'audio': True}, client.get('/api/state').json()['media'])
+                entry = next(e for e in client.get('/api/state').json()['media'] if e['id'] == first)
+                self.assertEqual((entry['audio'], entry['remote'], entry['source']), (True, False, 'Deep History'))
+                calls = len(upstream.calls)
                 audio = client.get(f'/media/{first}', headers={'Range': 'bytes=0-2'})
                 self.assertEqual((audio.status_code, audio.content, audio.headers['content-type']), (206, b'ID3', 'audio/mpeg'))
+                self.assertEqual(len(upstream.calls), calls)                 # downloaded: played from disk
                 self.assertEqual(client.put(f'/api/history/{first}', json={'position_seconds': 600, 'duration_seconds': 5400}).status_code, 200)
                 self.assertEqual(client.delete(f'/api/podcasts/{first}/download').status_code, 204)
-                self.assertEqual(client.get(f'/media/{first}').status_code, 404)
+                self.assertEqual(client.get(f'/media/{first}').status_code, 200)  # removed: streamed again
+                self.assertEqual(len(upstream.calls), calls + 1)
 
     def test_podcast_routes_refuse_films_and_do_not_exist_without_a_catalogue(self):
         with tempfile.TemporaryDirectory() as folder:

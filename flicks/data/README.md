@@ -79,7 +79,20 @@ categories; moods and intensity are estimated from them (`flicks/datasets/genres
 Beside the catalogue, `podcasts.episodes.json` (format `flicks-podcasts-v1`) records
 each episode's show, page and audio URL, plus which feeds failed and why episodes were
 skipped. Episodes belong to their publishers: they are downloaded only on request, for
-personal listening, and stay out of git.
+personal listening, and stay out of git. Pressing Play streams an episode
+through Flicks instead of downloading it.
+
+## Internet Archive
+
+`python -m flicks.datasets.archive` writes `<catalogue>.archive.json` (format
+`flicks-archive-v1`) beside an imported catalogue: for each film with a public-domain
+copy on the Internet Archive, the item, the MP4 file, its URL and page, and the basis
+for using it (`age`: released at least 96 years ago; `listed`: in Wikipedia's list of
+US public-domain films, whose revision is recorded under `rights`). Uploaders' licence
+labels are ignored. Items are matched by normalized title and year (within one year);
+colourised versions, trailers, clips and dubs are skipped; the file must be a
+browser-playable MP4 at least 60% of the catalogue runtime. Nothing is downloaded:
+films stream from the Archive when played.
 
 For a larger study, obtain a licensed dataset, record its version, source, license,
 and checksum, and separate objective metadata from experimental annotations.

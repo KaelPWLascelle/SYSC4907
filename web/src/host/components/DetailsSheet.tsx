@@ -1,7 +1,6 @@
-import { type CSSProperties, useEffect, useRef, useState } from 'react';
+import { type CSSProperties, useEffect, useRef } from 'react';
 
-import { flicksApi } from '../../api/flicks';
-import { type Content, type EpisodeInfo, isEpisode, type Recommendation, type Session } from '../../api/types';
+import { type Content, isEpisode, type Recommendation, type Session } from '../../api/types';
 import { Icon } from '../../components/Icon';
 import { Poster } from '../../components/Poster';
 import { RateButtons } from '../../components/RateButtons';
@@ -35,24 +34,7 @@ export function DetailsSheet({ item, picks, session, onClose }: DetailsSheetProp
   const progress = item ? library.progress.get(item.id) : undefined;
   const rating = item ? library.feedback[item.id] : undefined;
   const episode = item !== null && isEpisode(item);
-
-  // The show's own page, for attribution. Loaded per episode; a failure just leaves the link out.
-  const [info, setInfo] = useState<EpisodeInfo | null>(null);
-  const itemId = item?.id;
-  useEffect(() => {
-    if (!itemId || !episode) return;
-    let current = true;
-    flicksApi.podcasts.episode(itemId).then(
-      next => {
-        if (current) setInfo(next);
-      },
-      () => undefined,
-    );
-    return () => {
-      current = false;
-    };
-  }, [itemId, episode]);
-  const showPage = info?.id === itemId ? info?.link : undefined;
+  const downloaded = item !== null && library.downloads.get(item.id)?.state === 'ready';
 
   return (
     <dialog
@@ -104,7 +86,7 @@ export function DetailsSheet({ item, picks, session, onClose }: DetailsSheetProp
                       Start over
                     </button>
                   )}
-                  {episode && (
+                  {episode && downloaded && (
                     <button
                       type="button"
                       className="button button-quiet"
@@ -116,7 +98,7 @@ export function DetailsSheet({ item, picks, session, onClose }: DetailsSheetProp
                   )}
                 </>
               )}
-              {episode && !media && <DownloadButton item={item} />}
+              {episode && !downloaded && <DownloadButton item={item} />}
               <RateButtons
                 title={item.title}
                 rating={rating}
@@ -125,14 +107,16 @@ export function DetailsSheet({ item, picks, session, onClose }: DetailsSheetProp
                 onRate={value => library.rate(item.id, value)}
               />
             </div>
-            {episode && (
+            {media?.source && (
               <p className="fine">
-                From the show’s public feed. Flicks downloads an episode only when you ask, for your own listening.
-                {showPage && (
+                {episode
+                  ? `Streams from ${media.source}’s public feed when you press Play; download it to listen offline.`
+                  : `Streams from the ${media.source}, where this film is in the public domain in the United States.`}
+                {media.page && (
                   <>
                     {' '}
-                    <a href={showPage} target="_blank" rel="noopener noreferrer">
-                      Visit {item.series ?? 'the show'}’s page
+                    <a href={media.page} target="_blank" rel="noopener noreferrer">
+                      {episode ? `Visit ${media.source}’s page` : `View it on the ${media.source}`}
                     </a>
                   </>
                 )}

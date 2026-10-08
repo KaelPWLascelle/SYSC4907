@@ -5,7 +5,6 @@ import { RateButtons } from '../../components/RateButtons';
 import { capitalize, subtitle, timestamp } from '../../lib/format';
 import { useLibrary } from '../library';
 import { reasons } from '../reasons';
-import { DownloadButton } from './DownloadButton';
 
 interface HeroProps {
   pick: Recommendation | undefined;
@@ -67,10 +66,9 @@ export function Hero({ pick, session, mode, loading }: HeroProps) {
                 {progress?.resumable ? `Resume from ${timestamp(progress.position_seconds)}` : 'Play'}
               </button>
             )}
-            {episode && !playable && <DownloadButton item={item} />}
             <button
               type="button"
-              className={playable || episode ? 'button button-quiet' : 'button button-primary'}
+              className={playable ? 'button button-quiet' : 'button button-primary'}
               onClick={() => library.openDetails(item)}
             >
               <Icon name="info" />

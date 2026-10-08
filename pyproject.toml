@@ -56,4 +56,4 @@ extend-immutable-calls = ["fastapi.Depends", "fastapi.Header", "fastapi.Query", 
 
 [tool.ruff.lint.isort]
 force-sort-within-sections = true
-known-first-party = ["flicks", "helpers"]
+known-first-party = ["fakes", "flicks", "helpers"]
