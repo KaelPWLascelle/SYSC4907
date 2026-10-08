@@ -30,7 +30,7 @@ export const appState = (over: Partial<AppState> = {}): AppState => ({
   couch: false,
   podcasts: false,
   posters: [],
-  media: [{ id: 'm1', direct_play: true, audio: false }],
+  media: [{ id: 'm1', direct_play: true, audio: false, remote: false, source: null, page: null }],
   ...over,
 });
 

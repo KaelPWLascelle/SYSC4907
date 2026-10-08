@@ -11,9 +11,9 @@ The reasons behind each major choice are in the [decision records](adr/README.md
 │                 │  request guard: Host/Origin, JSON-only, size, CSP  │
 │                 ├─ routes/library    recommender (core.py)           │
 │                 ├─ routes/assistant  commands · intent · voice       │
-│                 ├─ routes/playback   media library · watch history   │
-│                 ├─ routes/podcasts   episode downloads ──────────────┼──▶ publisher (only on
-│                 └─ routes/couch      CouchManager ─┐                 │    Download, ADR 0010)
+│                 ├─ routes/playback   files · relay · watch history ──┼──▶ podcast publishers,
+│                 ├─ routes/podcasts   episode downloads ──────────────┼──▶ Internet Archive (only
+│                 └─ routes/couch      CouchManager ─┐                 │    on Play or Download)
 │                                                    ▼                 │
 │                         SQLite (~/.flicks)   guest app (LAN, only    │
 │                                              during a session)       │
@@ -40,14 +40,15 @@ The reasons behind each major choice are in the [decision records](adr/README.md
 | `db.py`, `repositories.py` | SQLite connections, migrations, ratings and watch history |
 | `media.py` | Maps local video files to catalogue titles |
 | `podcasts.py` | Podcast episodes at runtime: the validated episode index, downloads (one at a time, sniffed as audio) and downloaded files ([ADR 0010](adr/0010-podcasts.md)) |
+| `relay.py`, `archive.py` | Remote media played through Flicks (Range forwarding, forced media type, sniffing), and the validated Internet Archive index ([ADR 0011](adr/0011-streaming.md)) |
 | `commands.py`, `intent.py` | Rule-based command parsing, with an optional local System One fallback |
 | `voice.py` | Optional on-device Whisper transcription with bounded audio decoding |
 | `couch.py`, `qr.py` | Couch-session rules (joining, hidden votes, results, player state) and the QR encoder |
 | `posters.py` | The one-time poster fetch and the read-only poster cache |
 | `search.py` | In-memory title lookup and search ([ADR 0007](adr/0007-catalogue-artifact.md)) |
 | `collaborative.py` | Item-to-item collaborative filtering, the content/collaborative blend and the popularity prior ([ADR 0008](adr/0008-collaborative-filtering.md), [0009](adr/0009-popularity-prior.md)) |
-| `datasets/` | Build-time tools: the MovieLens and podcast importers, neighbour precomputation, and the offline evaluation |
-| `net.py` | Outbound HTTP for explicit, user-requested actions: posters, imports, and episode downloads |
+| `datasets/` | Build-time tools: the MovieLens, podcast and Internet Archive importers, neighbour precomputation, and the offline evaluation |
+| `net.py` | Outbound HTTP for explicit, user-requested actions: posters, imports, streams and downloads; public addresses only |
 | `systemone.py`, `tagging.py`, `distill.py` | System One client, catalogue tagging and the distilled student |
 
 `core.py`, `couch.py` and `repositories.py` contain no HTTP code, so they are tested directly.
@@ -100,10 +101,12 @@ Everything here is enforced in code and covered by tests (`tests/test_flicks.py`
   no inline scripts.
 - **No paths from requests.** Media and poster routes serve only files matched to a catalogue ID at
   startup, or episodes downloaded under their ID.
-- **No URLs from requests.** The one remote request the running app makes is downloading a podcast
-  episode the user asked for, from the audio URL in the imported feed. A request names only the
-  episode ID; redirects may not leave http(s); the file is capped at 1 GiB and kept only if it is
-  MP3, AAC, M4A or Ogg audio. See [ADR 0010](adr/0010-podcasts.md).
+- **No URLs from requests.** The running app fetches remote media only when the user presses Play
+  or Download, and only from the URL in an imported index (a podcast feed or the Internet Archive);
+  a request names only the title's ID. Only public http(s) addresses may be fetched, redirects
+  included. Relayed responses always carry the expected audio or video type with `nosniff`, and a
+  file that does not start like audio or video is refused; downloads are capped at 1 GiB. See
+  [ADR 0010](adr/0010-podcasts.md) and [ADR 0011](adr/0011-streaming.md).
 - **Couch guests are isolated.** They use a separate server with its own routes, so ratings, history,
   voice and commands are unreachable from the network. See [couch mode](couch.md).
 - **User text stays local.** Typed or spoken requests may only go to a System One model on this
@@ -207,7 +210,7 @@ All responses are JSON unless noted. Errors have the shape `{"error": "<message>
 
 | Method and path | Purpose |
 |---|---|
-| `GET /api/state` | Catalogue size and genres, ratings, voice status, posters, playable media, couch mode |
+| `GET /api/state` | Catalogue size and genres, ratings, voice status, posters, couch mode, and every playable title (`remote` when it streams, with its `source` and `page`) |
 | `GET /api/titles` | Search: `q` (words, all must match), `show` (`all`, `liked`, `passed`, `unrated`), `offset`, `limit` (≤ 100) |
 | `POST /api/feedback` | `{"id": "m001", "value": 1}`: 1 like, -1 pass, 0 clear |
 | `POST /api/recommend` | `{"session": {...}, "mode": "session" \| "baseline"}`; omitted fields use defaults |
@@ -217,7 +220,7 @@ All responses are JSON unless noted. Errors have the shape `{"error": "<message>
 | `GET /api/history` | Watch progress, most recent first, with each title's details |
 | `PUT /api/history/{id}` | `{"position_seconds": 120.5, "duration_seconds": 840}` |
 | `DELETE /api/history/{id}` | Forget progress for a title |
-| `GET /media/{id}` | Stream a matched video file or a downloaded episode; supports `Range` (206) and `HEAD` |
+| `GET /media/{id}` | Play a title: a local file or downloaded episode, otherwise relayed from its source (episodes, Archive films); supports `Range` (206) and `HEAD`; 502 when the source fails |
 | `GET /posters/{id}` | A cached poster image |
 | `GET /api/podcasts/downloads` | Downloaded, downloading, queued and failed episodes (with a podcast catalogue) |
 | `GET /api/podcasts/{id}` | An episode's show, its page and its download status |

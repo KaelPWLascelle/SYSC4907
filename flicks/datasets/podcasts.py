@@ -24,7 +24,7 @@ import xml.etree.ElementTree as ET
 
 from ..config import DEFAULT_PODCASTS
 from ..core import load_catalog
-from ..net import WEB_SCHEMES, get
+from ..net import WEB_SCHEMES, get, public_web
 from ..podcasts import FORMAT, PodcastIndex, episodes_path
 from .genres import PODCAST_CATEGORIES, estimate
 
@@ -129,7 +129,7 @@ def parse_feed(data, feed_url, per_show=EPISODES_PER_SHOW, min_minutes=MIN_MINUT
         enclosure = item.find('enclosure')
         audio = (enclosure.get('url') or '').strip() if enclosure is not None else ''
         media_type = (enclosure.get('type') or '').strip().lower() if enclosure is not None else ''
-        if not audio or parse.urlsplit(audio).scheme not in WEB_SCHEMES:
+        if not audio or not public_web(audio):
             skipped['no audio file'] += 1
             continue
         if media_type and not media_type.startswith('audio/'):

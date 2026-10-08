@@ -5,7 +5,6 @@ import type {
   CommandResponse,
   CouchHostView,
   DownloadStatus,
-  EpisodeInfo,
   Mode,
   PlayerAction,
   Progress,
@@ -48,7 +47,6 @@ export const flicksApi = {
 
   podcasts: {
     downloads: () => request<{ downloads: Record<string, DownloadStatus> }>('/api/podcasts/downloads'),
-    episode: (id: string) => request<EpisodeInfo>(`/api/podcasts/${encodeURIComponent(id)}`),
     download: (id: string) =>
       request<DownloadStatus>(`/api/podcasts/${encodeURIComponent(id)}/download`, json('POST', {})),
     remove: (id: string) =>

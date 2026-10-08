@@ -16,6 +16,8 @@ interface PlayerProps {
   directPlay: boolean;
   /** A podcast episode: an audio player over the title's art instead of a video. */
   audio?: boolean;
+  /** Where a remote title streams from (through Flicks), for error messages; null for local files. */
+  streamedFrom?: string | null;
   /** Couch-mode remote commands for this title; applied whenever `version` changes. */
   remote: { state: PlayerState['state']; version: number } | null;
   onProgress: (position: number, duration: number) => void;
@@ -23,12 +25,13 @@ interface PlayerProps {
   onClose: () => void;
 }
 
-/** Full-screen playback of a local file over HTTP range requests (docs/adr/0005-video-playback.md). */
+/** Full-screen playback over HTTP range requests, of a local file or a stream relayed by Flicks (ADR 0005, 0011). */
 export function Player({
   item,
   startAt,
   directPlay,
   audio = false,
+  streamedFrom = null,
   remote,
   onProgress,
   onPlayback,
@@ -119,6 +122,10 @@ export function Player({
     onEnded: save,
     onError: (event: SyntheticEvent<HTMLMediaElement>) => {
       const code = event.currentTarget.error?.code;
+      if (streamedFrom) {
+        setError(`Couldn’t stream this from ${streamedFrom}. Check your internet connection and try again.`);
+        return;
+      }
       setError(
         code === MEDIA_ERR_SRC_NOT_SUPPORTED
           ? audio

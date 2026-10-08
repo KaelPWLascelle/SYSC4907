@@ -18,7 +18,9 @@ Flicks is a SYSC 4907 capstone project at Carleton University, supervised by Dr.
   and search, and a "why this pick" sheet for any title.
 - **Playback of your own files.** MP4 and WebM stream with seeking; progress is saved and resumed.
 - **Long-form podcasts.** Episodes from public feeds are recommended alongside films ("Watch",
-  "Listen" or either), downloaded only when you ask, and played and resumed locally.
+  "Listen" or either), stream when you press Play, and can be kept for offline listening.
+- **Public-domain films.** Films in the catalogue that are public domain in the US stream from the
+  Internet Archive, so a recommendation can be played straight away.
 - **Ask Flicks.** Type or say "something relaxing under 90 minutes, no horror" and preview the
   change before it applies. Speech is transcribed on the device by Whisper.
 - **Couch mode.** Phones on your Wi-Fi scan a QR code, vote with hidden ballots, and act as a remote
@@ -95,9 +97,21 @@ See [evaluation](docs/evaluation.md) for the protocol and results.
 
 This reads the feeds (only their URLs are requested) and writes about 400 episodes of 20 minutes or
 more to `~/.flicks/catalogs/podcasts.json`, which Flicks then loads automatically. Choose **Listen**
-in the scene for something to listen to. An episode is downloaded from its publisher only when you
-press **Download episode**, into `~/.flicks/podcasts`, for your own listening; Flicks never alters or
-shares it. See [ADR 0010](docs/adr/0010-podcasts.md).
+in the scene for something to listen to. **Play** streams an episode from its publisher through
+Flicks; **Download for offline** keeps a copy in `~/.flicks/podcasts` for your own listening. Flicks
+never alters or shares episodes. See [ADR 0010](docs/adr/0010-podcasts.md).
+
+### Stream public-domain films (optional)
+
+```sh
+.venv/bin/python -m flicks.datasets.archive        # after the MovieLens import
+```
+
+This matches the MovieLens catalogue to the Internet Archive's feature-film collection (about a
+minute) and keeps only films that are public domain in the United States: released at least 96 years
+ago, or listed in Wikipedia's list of US public-domain films. About 60 films then get a **Play**
+button and stream from the Archive through Flicks. Public-domain status differs by country, and parts
+of a film (such as a later score) can still be protected. See [ADR 0011](docs/adr/0011-streaming.md).
 
 ### Add posters (optional)
 
@@ -143,6 +157,7 @@ votes are forgotten when the session ends. See [how couch mode works](docs/couch
 | `--catalog FILE` | bundled | Your own catalogue ([format](flicks/data/README.md)) |
 | `--podcasts FILE` | `~/.flicks/catalogs/podcasts.json` if present | Podcast catalogue from `python -m flicks.datasets.podcasts` |
 | `--podcast-downloads DIR` | `~/.flicks/podcasts` | Where downloaded episodes are kept |
+| `--archive FILE` | `<catalog>.archive.json` if present | Internet Archive matches from `python -m flicks.datasets.archive` |
 | `--dev` | off | Accept requests from the Vite dev server |
 
 ## How it works
@@ -153,8 +168,9 @@ Phones on Wi-Fi  ──HTTP──▶  couch guest server (only during a session,
 ```
 
 The server binds to loopback, so the app is reachable only from this machine. Couch mode is the one
-opt-in exception, and it runs as a separate server with no access to your data. The only remote
-request the running app makes is downloading a podcast episode you asked for. Security rules
+opt-in exception, and it runs as a separate server with no access to your data. The running app
+makes remote requests only when you play or download an episode or a public-domain film, and then
+only to that title's source. Security rules
 (Host and Origin checks, JSON-only requests, size limits, a strict Content Security Policy) are
 enforced in one place and covered by tests.
 
@@ -167,7 +183,7 @@ See [architecture](docs/architecture.md) for the components, the ranking model a
 flicks/            Python package: recommender, API, storage, media, podcasts, couch mode, voice, System One
   api/             FastAPI apps, routes and the request guard
   data/            Bundled demo catalogue
-  datasets/        MovieLens and podcast importers, neighbours, offline evaluation
+  datasets/        MovieLens, podcast and Internet Archive importers, neighbours, offline evaluation
 web/               React + TypeScript interface (built into flicks/static/)
 tests/             Backend tests (pytest)
 scripts/           Voice-model download and icon generation

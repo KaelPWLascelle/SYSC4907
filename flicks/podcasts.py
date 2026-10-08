@@ -1,10 +1,9 @@
 """Podcast episodes at runtime: where each one's audio is, which are downloaded, and downloads in progress.
 
-Episode audio stays on the publisher's servers until the user presses Download for an episode. Then
-the host app fetches it from the URL in the imported feed (never a URL from a request), checks that
-it is audio, keeps it in a local folder and plays it like any other local file. This is the only
-remote request the running app makes, and it sends nothing about the user beyond the request itself
-(docs/adr/0010-podcasts.md).
+Pressing Play streams an episode from its publisher through Flicks (flicks/relay.py); pressing
+Download keeps a copy for offline listening. Either way the host app fetches the URL in the imported
+feed (never a URL from a request) and checks that it is audio. Nothing about the user is sent beyond
+the request itself (docs/adr/0010-podcasts.md, docs/adr/0011-streaming.md).
 """
 from dataclasses import dataclass
 import json
@@ -15,10 +14,15 @@ from urllib import error, parse
 
 from . import net
 from .media import MediaFile
+from .relay import Remote, sniff_audio
 
 FORMAT = 'flicks-podcasts-v1'
 MAX_EPISODE_BYTES = 1024 ** 3  # a 10-hour episode at 192 kbit/s is about 860 MB
 AUDIO_TYPES = {'.mp3': 'audio/mpeg', '.m4a': 'audio/mp4', '.aac': 'audio/aac', '.ogg': 'audio/ogg'}
+# Feed media types -> the type Flicks sends when streaming; anything else is sent as MP3, the podcast norm.
+STREAM_TYPES = {'audio/mpeg': 'audio/mpeg', 'audio/mp3': 'audio/mpeg', 'audio/mp4': 'audio/mp4', 'audio/x-m4a': 'audio/mp4',
+                'audio/m4a': 'audio/mp4', 'audio/aac': 'audio/aac', 'audio/x-aac': 'audio/aac', 'audio/ogg': 'audio/ogg',
+                'audio/opus': 'audio/ogg'}
 
 
 class PodcastError(ValueError):
@@ -28,20 +32,6 @@ class PodcastError(ValueError):
 def episodes_path(catalogue: Path) -> Path:
     """podcasts.json -> podcasts.episodes.json, written by flicks.datasets.podcasts."""
     return catalogue.with_suffix('.episodes.json')
-
-
-def sniff_audio(head: bytes):
-    """File extension from the first bytes, or None. Never trust the server's content type."""
-    if head[:3] == b'ID3':
-        return '.mp3'
-    if len(head) >= 2 and head[0] == 0xFF and head[1] & 0xE0 == 0xE0:
-        # MPEG frame sync: layer bits 00 mean AAC in an ADTS stream, anything else is MP3.
-        return '.aac' if (head[1] >> 1) & 0b11 == 0 else '.mp3'
-    if head[4:8] == b'ftyp':
-        return '.m4a'
-    if head[:4] == b'OggS':
-        return '.ogg'
-    return None
 
 
 @dataclass(frozen=True)
@@ -73,7 +63,7 @@ class PodcastIndex:
             fields = {name: entry.get(name) if isinstance(entry, dict) else None for name in
                       ('show', 'feed', 'link', 'audio', 'type', 'published')}
             if any(not isinstance(value, str) for value in fields.values()) or not fields['show'] \
-                    or parse.urlsplit(fields['audio']).scheme not in net.WEB_SCHEMES:
+                    or not net.public_web(fields['audio']):
                 raise ValueError(f'{path} has an invalid entry for {content_id}')
             if fields['link'] and parse.urlsplit(fields['link']).scheme not in net.WEB_SCHEMES:
                 fields['link'] = ''  # only ever offered as a link to the show's own page
@@ -85,6 +75,11 @@ class PodcastIndex:
 
     def __len__(self):
         return len(self.episodes)
+
+    def remotes(self):
+        """{ID: Remote}: every episode can be streamed from its publisher."""
+        return {key: Remote(e.audio, STREAM_TYPES.get(e.type.lower(), 'audio/mpeg'), True, e.show, e.link)
+                for key, e in self.episodes.items()}
 
 
 class PodcastLibrary:

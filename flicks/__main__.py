@@ -25,6 +25,7 @@ def parse_args(argv=None):
     parser.add_argument('--podcasts', type=Path, help=f'Podcast catalogue (default: {DEFAULT_PODCASTS} when present)')
     parser.add_argument('--podcast-downloads', type=Path, default=DEFAULT_PODCAST_DOWNLOADS,
                         help=f'Where downloaded episodes are kept (default {DEFAULT_PODCAST_DOWNLOADS})')
+    parser.add_argument('--archive', type=Path, help='Internet Archive matches to stream (default: <catalog>.archive.json when present)')
     parser.add_argument('--neighbours', type=Path, help='Collaborative-filtering neighbours (default: <catalog>.neighbours.json when present)')
     parser.add_argument('--tags', type=Path, help='System One tag file from python -m flicks.tagging (soft mood/intensity)')
     parser.add_argument('--system-one-url', help='Local System One server for free-text commands, e.g. http://127.0.0.1:8000 (laya-serve), or "lexical" for the offline stand-in')
@@ -35,9 +36,9 @@ def parse_args(argv=None):
     return parser.parse_args(argv)
 
 
-def _sidecar(catalog):
-    """An imported catalogue's neighbours file, if it was built (python -m flicks.datasets.neighbours)."""
-    path = catalog.with_suffix('.neighbours.json')
+def _sidecar(catalog, suffix='.neighbours.json'):
+    """A file built next to an imported catalogue (neighbours, Archive matches), if it exists."""
+    path = catalog.with_suffix(suffix)
     return path if path.is_file() else None
 
 
@@ -45,6 +46,7 @@ def main(argv=None):
     args = parse_args(argv)
     settings = Settings(db=args.db, catalog=args.catalog, port=args.port, poster_dir=args.posters,
                         media_dirs=tuple(args.media), tags=args.tags, neighbours=args.neighbours or _sidecar(args.catalog),
+                        archive=args.archive or _sidecar(args.catalog, '.archive.json'),
                         podcasts=args.podcasts or (DEFAULT_PODCASTS if DEFAULT_PODCASTS.is_file() else None),
                         podcast_downloads=args.podcast_downloads,
                         couch=args.couch, couch_host=args.couch_host,
@@ -59,6 +61,8 @@ def main(argv=None):
     mode = ' + '.join(['content', *(['collaborative'] if services.collaborative else []),
                         *(['popularity prior'] if services.popularity_prior else [])])
     episodes = f' · podcast episodes: {len(services.podcasts.index)}' if services.podcasts else ''
+    streamed = len(services.streams) - (len(services.podcasts.index) if services.podcasts else 0)
+    episodes += f' · films to stream: {streamed}' if streamed else ''
     print(f'Flicks: http://127.0.0.1:{settings.port} · ratings: {settings.db} · {mode} recommendations · '
           f'playable titles: {len(services.media.files)}{episodes}', flush=True)
     try:

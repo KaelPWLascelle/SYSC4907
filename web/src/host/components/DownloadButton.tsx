@@ -3,7 +3,7 @@ import { Icon } from '../../components/Icon';
 import { megabytes } from '../../lib/format';
 import { useLibrary } from '../library';
 
-/** Download a podcast episode, with its progress; renders nothing once it is downloaded (Play takes over). */
+/** Keep a podcast episode for offline listening, with its progress; renders nothing once it is downloaded. */
 export function DownloadButton({ item }: { item: Content }) {
   const library = useLibrary();
   const status = library.downloads.get(item.id) ?? { state: 'remote' };
@@ -26,9 +26,9 @@ export function DownloadButton({ item }: { item: Content }) {
   }
   return (
     <>
-      <button type="button" className="button button-primary" onClick={() => library.download(item.id)}>
+      <button type="button" className="button button-quiet" onClick={() => library.download(item.id)}>
         <Icon name="download" />
-        {status.state === 'failed' ? 'Try the download again' : 'Download episode'}
+        {status.state === 'failed' ? 'Try the download again' : 'Download for offline'}
       </button>
       {status.state === 'failed' && (
         <p className="field-error download-error" role="alert">

@@ -2,6 +2,7 @@
 from dataclasses import dataclass
 
 from .api.guest import CouchManager
+from .archive import ArchiveIndex
 from .collaborative import HybridTaste, ItemNeighbours, PopularityPrior
 from .commands import CommandInterpreter
 from .core import Recommender, TfidfTaste, load_catalog
@@ -10,6 +11,7 @@ from .intent import SystemOneInterpreter
 from .media import MediaLibrary
 from .podcasts import PodcastIndex, PodcastLibrary, episodes_path
 from .posters import PosterLibrary
+from .relay import Streams
 from .repositories import RatingsRepository, WatchHistoryRepository
 from .search import TitleIndex
 from .tagging import TaggedDecision, load_tags
@@ -29,6 +31,7 @@ class Services:
     posters: PosterLibrary | None
     media: MediaLibrary
     podcasts: PodcastLibrary | None
+    streams: Streams            # titles that play from elsewhere through the relay (episodes, Archive films)
     couch: CouchManager | None
     tagged: bool
     collaborative: bool
@@ -49,6 +52,9 @@ def build_services(settings, *, speech=None, system_one=None):
         index = PodcastIndex.load(episodes_path(settings.podcasts), {item.id for item in episodes})
         podcasts = PodcastLibrary(index, settings.podcast_downloads)
     ids = frozenset(item.id for item in catalog)
+    remotes = podcasts.index.remotes() if podcasts else {}
+    if settings.archive:
+        remotes |= ArchiveIndex.load(settings.archive, films).remotes()
     decision = TaggedDecision(load_tags(settings.tags, catalog)) if settings.tags else None
     taste = TfidfTaste(catalog)
     collaborative = prior = False
@@ -74,6 +80,7 @@ def build_services(settings, *, speech=None, system_one=None):
         posters=posters,
         media=MediaLibrary(settings.media_dirs, catalog),
         podcasts=podcasts,
+        streams=Streams(remotes),
         couch=couch,
         tagged=decision is not None,
         collaborative=collaborative,

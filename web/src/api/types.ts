@@ -37,8 +37,14 @@ export interface MediaEntry {
   id: string;
   /** False for containers some browsers cannot play (MKV, MOV). */
   direct_play: boolean;
-  /** A downloaded podcast episode rather than a video. */
+  /** A podcast episode rather than a video. */
   audio: boolean;
+  /** Plays from elsewhere through Flicks (a podcast feed, the Internet Archive) rather than from this machine. */
+  remote: boolean;
+  /** Where it comes from, for credit: the show's name or "Internet Archive"; null for your own files. */
+  source: string | null;
+  /** The source's page for this title, when there is one. */
+  page: string | null;
 }
 
 /** A title the player and couch remote can refer to; Content and CouchItem both satisfy it. */
@@ -139,15 +145,6 @@ export type DownloadStatus =
   | { state: 'downloading'; received: number; total: number | null }
   | { state: 'ready'; size: number }
   | { state: 'failed'; error: string };
-
-export interface EpisodeInfo {
-  id: string;
-  show: string;
-  /** The show's or episode's own page, for attribution; empty when the feed has none. */
-  link: string;
-  published: string;
-  download: DownloadStatus;
-}
 
 // ---------- couch mode ----------
 

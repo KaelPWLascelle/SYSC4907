@@ -75,7 +75,7 @@ class PlaybackApiTests(unittest.TestCase):
         self.temp.cleanup()
 
     def test_state_lists_playable_titles(self):
-        self.assertEqual(self.client.get('/api/state').json()['media'], [{'id': 'm033', 'direct_play': True, 'audio': False}])
+        self.assertEqual(self.client.get('/api/state').json()['media'], [{'id': 'm033', 'direct_play': True, 'audio': False, 'remote': False, 'source': None, 'page': None}])
 
     def test_streams_whole_files_and_byte_ranges(self):
         whole = self.client.get('/media/m033')
