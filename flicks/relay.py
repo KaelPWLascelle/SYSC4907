@@ -13,6 +13,10 @@ from urllib import error
 from . import net
 
 CHUNK = 256 * 1024
+# Bytes needed to recognise a container (an MP4 box type sits at bytes 4-8). Smaller responses, such as
+# Safari's "bytes=0-1" probe before it plays anything, cannot be judged and are passed on as they are:
+# they are still labelled as audio or video with nosniff, so they cannot become a page.
+SNIFF_BYTES = 8
 # One range, as browsers send for media: "bytes=0-", "bytes=1000-1999" or "bytes=-500".
 RANGE = re.compile(r'bytes=(\d+-\d*|-\d+)')
 PASSED_HEADERS = ('Content-Length', 'Content-Range')
@@ -110,7 +114,7 @@ def relay(remote: Remote, range_header=None, method='GET', opener=net.open_strea
         return Relayed(reply.status, out, iter(()))
     first = reply.read(CHUNK)
     from_start = reply.status == 200 or (reply.headers.get('Content-Range') or '').startswith('bytes 0-')
-    if from_start and first and (sniff_audio if remote.audio else sniff_video)(first[:16]) is None:
+    if from_start and len(first) >= SNIFF_BYTES and (sniff_audio if remote.audio else sniff_video)(first[:16]) is None:
         reply.close()
         kind = 'audio' if remote.audio else 'video'
         raise RelayError(502, f'{remote.source} did not send {kind} Flicks can play')

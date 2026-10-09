@@ -45,6 +45,17 @@ class RelayTests(unittest.TestCase):
         mid_file = relay(EPISODE, 'bytes=100-199', opener=Upstream(MP3))   # mid-file bytes cannot be sniffed
         self.assertEqual(len(body(mid_file)), 100)
 
+    def test_safari_can_probe_the_first_bytes_before_playing(self):
+        # Safari asks for "bytes=0-1" first; too few bytes to recognise, but it must not be refused.
+        for remote, data in ((FILM, MP4), (EPISODE, MP3)):
+            with self.subTest(source=remote.source):
+                relayed = relay(remote, 'bytes=0-1', opener=Upstream(data))
+                self.assertEqual((relayed.status, body(relayed), relayed.headers['Content-Range']),
+                                 (206, data[:2], f'bytes 0-1/{len(data)}'))
+                self.assertEqual(relayed.headers['Content-Type'], remote.media_type)
+        with self.assertRaises(RelayError):                                 # 8 bytes are enough to judge
+            relay(FILM, 'bytes=0-7', opener=Upstream(b'<html><body>'))
+
     def test_drops_ranges_browsers_do_not_send(self):
         for header in ('bytes=0-1,5-9', 'items=0-9', 'bytes=abc', '0-9'):
             upstream = Upstream(MP3)
