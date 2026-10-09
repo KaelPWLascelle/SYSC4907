@@ -174,7 +174,7 @@ offline (docs/evaluation.md).
 
 Hard constraints come first and apply in both modes: rated titles, titles longer than the available
 time, titles in an avoided genre, and titles of the wrong medium (watch or listen, when podcasts are
-loaded) are removed. The rest are scored:
+loaded) and, with **Ready to play**, titles that cannot be played right now are removed. The rest are scored:
 
 | Factor | Definition | Weight |
 |---|---|---:|
@@ -229,8 +229,9 @@ All responses are JSON unless noted. Errors have the shape `{"error": "<message>
 | `GET /api/couch`, `GET /api/couch/qr.svg` | Couch session view and QR code (with `--couch`) |
 | `POST /api/couch/start`, `stop`, `reveal`, `player` | Couch session controls (with `--couch`) |
 
-A session is `{"mood", "minutes", "intensity", "novelty", "excluded_genres", "medium"}`; medium is
-`any`, `watch` or `listen`. Moods are `any`,
+A session is `{"mood", "minutes", "intensity", "novelty", "excluded_genres", "medium", "playable"}`;
+medium is `any`, `watch` or `listen`; `playable` keeps only titles with a local file, a download or a
+stream. Moods are `any`,
 `relaxing`, `uplifting`, `curious`, `tense` and `reflective`; minutes are 1–600; intensity and novelty
 are 0–1.
 

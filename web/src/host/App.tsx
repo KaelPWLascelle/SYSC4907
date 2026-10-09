@@ -50,6 +50,9 @@ function Home({ initial }: { initial: AppState }) {
   const [browse, setBrowse] = useState<{ query: string; similar: TitleRef | null }>({ query: '', similar: null });
 
   const recommendations = useRecommendations(session, mode, feedback);
+  // A row of films you can press Play on now, ranked for you and this scene (minus its time limit).
+  const readyScene = useMemo(() => ({ ...session, medium: 'watch' as const, playable: true, minutes: 600 }), [session]);
+  const ready = useRecommendations(readyScene, mode, feedback);
   const history = useHistory();
   const couch = useCouchHost(initial.couch);
   const podcasts = useDownloads(initial.podcasts);
@@ -248,6 +251,18 @@ function Home({ initial }: { initial: AppState }) {
             <Tile key={row.content.id} item={row.content} rank={index + 1} />
           ))}
         </Rail>
+        {!session.playable && session.medium !== 'listen' && ready.picks.length > 0 && (
+          <Rail
+            id="ready"
+            title="Ready to watch now"
+            status="Free public-domain films and your own files, ranked for you. Press Play on any of them."
+            badge={`${ready.picks.length} films`}
+          >
+            {ready.picks.map(row => (
+              <Tile key={row.content.id} item={row.content} />
+            ))}
+          </Rail>
+        )}
         {initial.couch && <CouchPanel couch={couch} session={session} />}
         <Browse
           query={browse.query}

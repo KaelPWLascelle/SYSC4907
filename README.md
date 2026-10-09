@@ -22,7 +22,8 @@ Flicks is a SYSC 4907 capstone project at Carleton University, supervised by Dr.
 - **Long-form podcasts.** Episodes from public feeds are recommended alongside films ("Watch",
   "Listen" or either), stream when you press Play, and can be kept for offline listening.
 - **Public-domain films.** Films in the catalogue that are public domain in the US stream from the
-  Internet Archive, so a recommendation can be played straight away.
+  Internet Archive, so a recommendation can be played straight away. A "Ready to watch now" row lists them
+  (and your own files) ranked for you, and **Ready to play** limits the picks to what can play now.
 - **Ask Flicks.** Type or say "something relaxing under 90 minutes, no horror" and preview the
   change before it applies. Speech is transcribed on the device by Whisper.
 - **Couch mode.** Phones on your Wi-Fi scan a QR code, vote with hidden ballots, and act as a remote

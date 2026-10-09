@@ -17,7 +17,15 @@ function setup(command: Command) {
       200,
       {
         command,
-        session: { mood: 'any', minutes: 120, intensity: 0.5, novelty: 0.3, excluded_genres: [], medium: 'any' },
+        session: {
+          mood: 'any',
+          minutes: 120,
+          intensity: 0.5,
+          novelty: 0.3,
+          excluded_genres: [],
+          medium: 'any',
+          playable: false,
+        },
         feedback: {},
       },
     ],

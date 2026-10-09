@@ -8,6 +8,7 @@ const session: Session = {
   novelty: 0.3,
   excluded_genres: [],
   medium: 'any',
+  playable: false,
 };
 const row = (
   factors: Record<string, number>,

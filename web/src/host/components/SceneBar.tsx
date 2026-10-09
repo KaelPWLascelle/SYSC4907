@@ -40,6 +40,7 @@ function summary(session: Session, podcasts: boolean) {
     `intensity ${Math.round(session.intensity * 100)}%`,
   ];
   if (session.excluded_genres.length) parts.push(`avoiding ${session.excluded_genres.length}`);
+  if (session.playable) parts.push('ready to play');
   return parts.join(' · ');
 }
 
@@ -58,18 +59,29 @@ export function SceneBar({ session, mode, genres, podcasts = false, onSession, o
         <span className="scene-summary">{summary(session, podcasts)}</span>
         <span className="link">{open ? 'Done' : 'Adjust'}</span>
       </button>
-      {podcasts && (
-        <div className="scene-group">
-          <span className="scene-label">Watch or listen</span>
-          <RadioChips
-            label="Watch or listen"
-            className="segmented"
-            options={MEDIUM_OPTIONS}
-            value={session.medium}
-            onChange={medium => set({ medium })}
-          />
+      <div className="scene-group">
+        <span className="scene-label">{podcasts ? 'Watch or listen' : 'Show'}</span>
+        <div className="scene-row">
+          {podcasts && (
+            <RadioChips
+              label="Watch or listen"
+              className="segmented"
+              options={MEDIUM_OPTIONS}
+              value={session.medium}
+              onChange={medium => set({ medium })}
+            />
+          )}
+          <button
+            type="button"
+            className="chip"
+            aria-pressed={session.playable}
+            title="Only titles you can press Play on now: your files, downloads and free streams"
+            onClick={() => set({ playable: !session.playable })}
+          >
+            Ready to play
+          </button>
         </div>
-      )}
+      </div>
       <div className="scene-group">
         <span className="scene-label" id="mood-label">
           Mood

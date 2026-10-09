@@ -222,6 +222,8 @@ class ApiTests(unittest.TestCase):
                 self.assertEqual((video.status_code, video.headers['content-type'], video.content), (206, 'video/mp4', MP4[:16]))
                 self.assertEqual(upstream.calls[-1][1], {'Range': 'bytes=0-15'})
                 self.assertEqual(video.headers['x-content-type-options'], 'nosniff')
+                ready = client.post('/api/recommend', json={'session': {'minutes': 200, 'playable': True}}).json()
+                self.assertEqual([p['content']['id'] for p in ready['recommendations']], ['m001'])  # only what can play
                 upstream.error_code = 503
                 failed = client.get('/media/m001')
                 self.assertEqual((failed.status_code, failed.json()), (502, {'error': 'Internet Archive answered 503'}))

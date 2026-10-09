@@ -5,7 +5,7 @@ these models only check shape and types.
 """
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, StrictFloat, StrictInt, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictFloat, StrictInt, StrictStr
 
 from ..core import Session
 
@@ -23,6 +23,7 @@ class SessionIn(Body):
     novelty: Number = 0.3
     excluded_genres: list[StrictStr] = Field(default_factory=list)
     medium: StrictStr = 'any'
+    playable: StrictBool = False
 
     def to_domain(self):
         return Session(**self.model_dump())  # raises ValueError for out-of-range values
