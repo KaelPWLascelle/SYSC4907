@@ -259,7 +259,10 @@ def plan(catalog_path: Path, limit=DEFAULT_LIMIT, articles=None, episodes=None, 
     films = [item for item in catalog if item.id not in episodes]
     likes = popularity(catalog_path)
     films.sort(key=lambda item: -likes.get(item.id, 0))  # stable: catalogue order among equals
-    films = films if limit is None else films[:limit]
+    if limit is not None:
+        # Films that can be played are the ones people click: they always get artwork, popular or not.
+        streamable = streamable_ids(catalog_path, {item.id for item in catalog})
+        films = films[:limit] + [item for item in films[limit:] if item.id in streamable]
     known = [item for item in films if item.id in articles]
     if known:
         log(f'Looking up page images for {len(known)} films on English Wikipedia')
@@ -276,6 +279,13 @@ def plan(catalog_path: Path, limit=DEFAULT_LIMIT, articles=None, episodes=None, 
             if hit:
                 jobs.append(Job(item.id, item.title, hit[0], item.id, hit[1]))
     return jobs
+
+
+def streamable_ids(catalog_path: Path, catalogue_ids):
+    """IDs of the catalogue's films that stream from the Internet Archive (none without an index)."""
+    from .archive import ArchiveIndex, archive_path
+    path = archive_path(catalog_path)
+    return set(ArchiveIndex.load(path, catalogue_ids).films) if path.is_file() else set()
 
 
 def default_catalogs():

@@ -68,6 +68,7 @@ class Session:
     novelty: float = 0.3
     excluded_genres: tuple[str, ...] = ()
     medium: str = 'any'
+    playable: bool = False  # only titles that can be played right now (a local file or a stream)
 
     def __post_init__(self):
         if not isinstance(self.excluded_genres, (list, tuple)) or len(self.excluded_genres) > 20 or any(not isinstance(g, str) or not g.strip() or len(g) > 50 for g in self.excluded_genres):
@@ -77,6 +78,8 @@ class Session:
             raise ValueError('Unknown mood')
         if self.medium not in MEDIUMS:
             raise ValueError('Medium must be any, watch or listen')
+        if type(self.playable) is not bool:
+            raise ValueError('Playable must be true or false')
         if type(self.minutes) is not int or not 1 <= self.minutes <= 600:
             raise ValueError('Available time must be an integer from 1 to 600')
         for value in (self.intensity, self.novelty):
@@ -165,8 +168,9 @@ class Recommender:
     # six episodes of one show is not a set of recommendations.
     MAX_PER_SERIES = 2
 
-    def __init__(self, catalog, taste: TasteModel | None = None, decision: DecisionLayer | None = None):
+    def __init__(self, catalog, taste: TasteModel | None = None, decision: DecisionLayer | None = None, playable=None):
         self.catalog = catalog
+        self.playable = playable or (lambda content_id: False)  # content ID -> can it be played here now?
         self.taste = taste or TfidfTaste(catalog)
         self.decision = decision or HeuristicDecision()
         self.genres = frozenset(g for item in catalog for g in item.genres)
@@ -184,6 +188,8 @@ class Recommender:
             if item.id in feedback or item.minutes > session.minutes or excluded.intersection(item.genres):
                 continue
             if (session.medium == 'watch' and item.audio) or (session.medium == 'listen' and not item.audio):
+                continue
+            if session.playable and not self.playable(item.id):
                 continue
             taste = scores[item.id]
             factors = self.decision.factors(item, taste, session) if mode == 'session' else {'taste': taste['taste']}

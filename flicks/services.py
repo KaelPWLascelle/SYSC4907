@@ -83,7 +83,7 @@ def build_services(settings, *, speech=None, system_one=None):
                          static_dir=settings.static_dir) if settings.couch else None
     return Services(
         catalog=catalog, ids=ids, titles=titles, similar=similar,
-        recommender=Recommender(catalog, taste=taste, decision=decision),
+        recommender=Recommender(catalog, taste=taste, decision=decision, playable=playable),
         ratings=RatingsRepository(database),
         history=WatchHistoryRepository(database),
         interpreter=(SystemOneInterpreter(catalog, system_one, titles=titles, playable=playable) if system_one

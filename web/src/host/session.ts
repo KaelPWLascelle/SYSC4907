@@ -8,4 +8,5 @@ export const DEFAULT_SESSION: Session = {
   novelty: 0.3,
   excluded_genres: [],
   medium: 'any',
+  playable: false,
 };

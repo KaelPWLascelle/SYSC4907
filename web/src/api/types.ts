@@ -77,6 +77,8 @@ export interface Session {
   novelty: number;
   excluded_genres: string[];
   medium: Medium;
+  /** Only titles that can be played right now (a local file, a download or a stream). */
+  playable: boolean;
 }
 
 export interface Recommendation {

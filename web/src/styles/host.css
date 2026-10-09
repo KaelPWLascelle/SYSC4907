@@ -221,6 +221,12 @@
 .scene-toggle {
   display: none;
 }
+.scene-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
 .scene-group {
   display: flex;
   flex-direction: column;

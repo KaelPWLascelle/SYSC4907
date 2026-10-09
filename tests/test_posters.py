@@ -127,6 +127,23 @@ class PosterLibraryTests(unittest.TestCase):
         self.assertEqual(len(attempts), 3)
         self.assertEqual(sorted(p.name for p in self.dir.iterdir()), ['m001.jpg', 'posters.json'])
 
+    def test_streamable_films_get_artwork_even_beyond_the_popularity_limit(self):
+        from flicks.archive import FORMAT
+        catalog = self.dir/'c.json'
+        rows = [{'id': f'm{n}', 'title': f'Film {n}', 'year': 1920, 'kind': 'movie', 'minutes': 60, 'genres': ['drama'],
+                 'tags': ['x'], 'moods': ['curious'], 'intensity': .5, 'description': 'd'} for n in range(3)]
+        catalog.write_text(json.dumps(rows), encoding='utf-8')
+        (self.dir/'c.archive.json').write_text(json.dumps({'format': FORMAT, 'films': {'m2': {
+            'url': 'https://archive.org/download/f/f.mp4', 'page': 'https://archive.org/details/f'}}}), encoding='utf-8')
+        articles = {f'm{n}': f'Film {n}' for n in range(3)}
+
+        def fetch_json(url, params):
+            return {'query': {'pages': [{'title': t, 'thumbnail': {'source': f'https://upload.example/{t}.jpg'}}
+                                        for t in params['titles'].split('|')]}}
+
+        jobs = posters.plan(catalog, limit=1, articles=articles, episodes={}, fetch_json=fetch_json, log=lambda *_: None)
+        self.assertEqual(sorted(job.content_id for job in jobs), ['m0', 'm2'])   # the top one, and the streamable one
+
     def test_page_images_are_looked_up_in_batches_following_redirects(self):
         def fetch_json(url, params):
             titles = params['titles'].split('|')

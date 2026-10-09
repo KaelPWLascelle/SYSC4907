@@ -293,6 +293,16 @@ class RankingTests(unittest.TestCase):
         only_films = Recommender(films).recommend({}, Session())
         self.assertEqual([p['content']['id'] for p in only_films], ['m0', 'm1', 'm2', 'm3'])
 
+    def test_the_scene_can_ask_for_only_what_can_play_now(self):
+        catalog = [episode('p1'), episode('p2'),
+                   Content('m1', 'Film', 2020, 'movie', 100, ['history'], ['rome'], ['curious'], 0.4, 'About Rome')]
+        engine = Recommender(catalog, playable=lambda content_id: content_id in {'p2', 'm1'})
+        self.assertEqual({p['content']['id'] for p in engine.recommend({}, Session(playable=True))}, {'p2', 'm1'})
+        self.assertEqual(len(engine.recommend({}, Session())), 3)
+        self.assertEqual(Recommender(catalog).recommend({}, Session(playable=True)), [])  # nothing playable
+        with self.assertRaises(ValueError):
+            Session(playable='yes')
+
     def test_picks_hold_at_most_two_episodes_of_one_show(self):
         catalog = [episode(f'p{n}') for n in range(5)] + [
             Content('q1', 'Q', 2026, 'episode', 60, ['science'], ['space'], ['curious'], 0.3, 'Space', series='Other'),

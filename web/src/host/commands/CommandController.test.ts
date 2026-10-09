@@ -10,6 +10,7 @@ const SESSION = {
   novelty: 0.3,
   excluded_genres: [],
   medium: 'any' as const,
+  playable: false,
 };
 const LIKE: CommandResponse = {
   command: { intent: 'feedback', summary: 'Like Arrival', id: 'm001', value: 1 },
