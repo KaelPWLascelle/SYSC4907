@@ -1,5 +1,7 @@
 import { useState } from 'react';
 
+import { cx } from '../../lib/cx';
+
 import { type Medium, MOODS, type Mode, type Session } from '../../api/types';
 import { RadioChips, ToggleChips } from '../../components/Chips';
 import { capitalize, runtime } from '../../lib/format';
@@ -27,7 +29,22 @@ interface SceneBarProps {
 }
 
 /** The scene: mood, time, intensity, discovery, genres to avoid, and the ranking lens. */
+const PHONE = '(max-width: 720px)';
+
+/** One line describing the scene, shown on phones where the full controls start folded away. */
+function summary(session: Session, podcasts: boolean) {
+  const parts = [
+    ...(podcasts ? [MEDIUM_OPTIONS.find(o => o.value === session.medium)?.label ?? 'Either'] : []),
+    session.mood === 'any' ? 'Any mood' : capitalize(session.mood),
+    runtime(session.minutes),
+    `intensity ${Math.round(session.intensity * 100)}%`,
+  ];
+  if (session.excluded_genres.length) parts.push(`avoiding ${session.excluded_genres.length}`);
+  return parts.join(' · ');
+}
+
 export function SceneBar({ session, mode, genres, podcasts = false, onSession, onMode }: SceneBarProps) {
+  const [open, setOpen] = useState(() => !globalThis.matchMedia?.(PHONE).matches);
   // The field keeps what the user typed; only valid minutes (1-600) reach the session.
   const [minutesDraft, setMinutesDraft] = useState<string | null>(null);
   const minutesText = minutesDraft ?? String(session.minutes);
@@ -35,7 +52,12 @@ export function SceneBar({ session, mode, genres, podcasts = false, onSession, o
   const set = (patch: Partial<Session>) => onSession({ ...session, ...patch });
 
   return (
-    <section className="scene" aria-label="Set the scene">
+    <section className={cx('scene', !open && 'scene-folded')} aria-label="Set the scene">
+      <button type="button" className="scene-toggle" aria-expanded={open} onClick={() => setOpen(value => !value)}>
+        <span className="scene-label">Scene</span>
+        <span className="scene-summary">{summary(session, podcasts)}</span>
+        <span className="link">{open ? 'Done' : 'Adjust'}</span>
+      </button>
       {podcasts && (
         <div className="scene-group">
           <span className="scene-label">Watch or listen</span>

@@ -23,6 +23,7 @@ class Services:
     catalog: list
     ids: frozenset
     titles: TitleIndex
+    similar: object             # the taste model behind "more like X" (no popularity prior)
     recommender: Recommender
     ratings: RatingsRepository
     history: WatchHistoryRepository
@@ -56,31 +57,42 @@ def build_services(settings, *, speech=None, system_one=None):
     if settings.archive:
         remotes |= ArchiveIndex.load(settings.archive, films).remotes()
     decision = TaggedDecision(load_tags(settings.tags, catalog)) if settings.tags else None
-    taste = TfidfTaste(catalog)
+    taste = similar = TfidfTaste(catalog)
     collaborative = prior = False
+    likes = {}
     if settings.neighbours:
         neighbours = ItemNeighbours.load(settings.neighbours, ids)
         taste = HybridTaste(taste, neighbours, {item.id: item.title for item in catalog})
         collaborative = True
+        likes = neighbours.popularity
         if neighbours.popularity:
             # The ratings describe the film catalogue only; podcast episodes keep their own taste.
+            similar = taste  # "more like X" should be about X, not about what is popular
             taste = PopularityPrior(taste, neighbours.popularity, covered=films)
             prior = True
+    titles = TitleIndex(catalog, likes)
+    media = MediaLibrary(settings.media_dirs, catalog)
+    streams = Streams(remotes)
+
+    def playable(content_id):
+        return content_id in media.files or content_id in streams.remotes or bool(podcasts and podcasts.file(content_id))
+
     database = Database(settings.db)
     posters = PosterLibrary(settings.poster_dir, ids) if settings.poster_dir else None
     couch = CouchManager(settings.couch_host, settings.couch_port, posters=posters,
                          static_dir=settings.static_dir) if settings.couch else None
     return Services(
-        catalog=catalog, ids=ids, titles=TitleIndex(catalog),
+        catalog=catalog, ids=ids, titles=titles, similar=similar,
         recommender=Recommender(catalog, taste=taste, decision=decision),
         ratings=RatingsRepository(database),
         history=WatchHistoryRepository(database),
-        interpreter=SystemOneInterpreter(catalog, system_one) if system_one else CommandInterpreter(catalog),
+        interpreter=(SystemOneInterpreter(catalog, system_one, titles=titles, playable=playable) if system_one
+                     else CommandInterpreter(catalog, titles, playable)),
         speech=speech if speech is not None else LocalWhisper(),
         posters=posters,
-        media=MediaLibrary(settings.media_dirs, catalog),
+        media=media,
         podcasts=podcasts,
-        streams=Streams(remotes),
+        streams=streams,
         couch=couch,
         tagged=decision is not None,
         collaborative=collaborative,

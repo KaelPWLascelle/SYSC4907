@@ -24,9 +24,9 @@ export function timestamp(seconds: number): string {
   return h ? `${h}:${String(m).padStart(2, '0')}:${s}` : `${m}:${s}`;
 }
 
-/** A stable hue per title, for generated title cards. */
+/** A stable hue per title, for generated title cards. FNV-1a, so similar IDs ("ml1", "ml2") differ. */
 export function hue(id: string): number {
-  let h = 0;
-  for (const c of id) h = (h * 31 + c.charCodeAt(0)) % 360;
-  return h;
+  let h = 0x811c9dc5;
+  for (const c of id) h = Math.imul(h ^ c.charCodeAt(0), 0x01000193) >>> 0;
+  return h % 360;
 }

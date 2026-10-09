@@ -104,6 +104,13 @@ def _keywords(text):
     return list(dict.fromkeys(w for w in words if w and len(w) <= 30))[:MAX_TAGS]
 
 
+def _image(element):
+    """The artwork URL of a channel (itunes:image, else RSS image), or '' when there is none."""
+    tag = element.find('itunes:image', NS)
+    url = (tag.get('href') if tag is not None else None) or element.findtext('image/url') or ''
+    return url.strip() if public_web(url.strip()) else ''
+
+
 def parse_feed(data, feed_url, per_show=EPISODES_PER_SHOW, min_minutes=MIN_MINUTES):
     """(show, [(catalogue row, episode entry)], skipped reasons) for one RSS feed, newest first."""
     channel = ET.fromstring(data).find('channel')
@@ -120,6 +127,7 @@ def parse_feed(data, feed_url, per_show=EPISODES_PER_SHOW, min_minutes=MIN_MINUT
     show_link = (channel.findtext('link') or '').strip()
     show_notes = clean_text(channel.findtext('description') or channel.findtext('itunes:summary', namespaces=NS))
     show_tags = _keywords(channel.findtext('itunes:keywords', namespaces=NS))
+    show_image = _image(channel)
 
     found, skipped = [], Counter()
     for item in channel.findall('item'):
@@ -163,7 +171,8 @@ def parse_feed(data, feed_url, per_show=EPISODES_PER_SHOW, min_minutes=MIN_MINUT
                'genres': genres, 'tags': _keywords(item.findtext('itunes:keywords', namespaces=NS)) or show_tags or genres,
                'moods': moods, 'intensity': intensity, 'description': truncate(notes), 'series': show}
         entry = {'show': show, 'feed': feed_url, 'link': (item.findtext('link') or '').strip() or show_link,
-                 'audio': audio, 'type': media_type or 'audio/mpeg', 'published': published.date().isoformat()}
+                 'audio': audio, 'type': media_type or 'audio/mpeg', 'published': published.date().isoformat(),
+                 'image': show_image}  # one image per show: episode art is often 3000 px and several MB each
         found.append((published.timestamp(), content_id, row, entry))
 
     found.sort(key=lambda row: (-row[0], row[1]))

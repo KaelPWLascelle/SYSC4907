@@ -36,7 +36,7 @@ export function Footer({ titles, posters, playable }: { titles: number; posters:
         {titles} titles · {playable} playable · local taste profile + explainable scene ranking · your ratings and
         history never leave this device
       </span>
-      {posters && <span>Posters: Wikipedia, cached locally for personal use</span>}
+      {posters && <span>Artwork: Wikipedia and podcast feeds, cached on this device for personal use</span>}
     </footer>
   );
 }

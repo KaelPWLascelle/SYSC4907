@@ -22,12 +22,12 @@ class TitleIndexTests(unittest.TestCase):
         self.assertEqual([i.id for i in self.index.search('ALIEN')[0]], ['b', 'c'])
         self.assertEqual([i.id for i in self.index.search('alien space')[0]], ['b'])
         self.assertEqual([i.id for i in self.index.search('science fiction 1986')[0]], ['c'])
-        self.assertEqual(self.index.search('nothing like this'), ([], 0))
+        self.assertEqual(self.index.search('nothing like this')[:2], ([], 0))
 
     def test_paging_and_filtering(self):
-        page, total = self.index.search('', offset=1, limit=1)
+        page, total, _ = self.index.search('', offset=1, limit=1)
         self.assertEqual(([i.id for i in page], total), (['b'], 3))
-        page, total = self.index.search('', keep=lambda item: item.year < 2000)
+        page, total, _ = self.index.search('', keep=lambda item: item.year < 2000)
         self.assertEqual(([i.id for i in page], total), (['b', 'c'], 2))
 
     def test_genres_and_lookup(self):
@@ -65,8 +65,30 @@ class TitlesApiTests(unittest.TestCase):
         self.assertEqual(len(first['items']), 10)
         self.assertFalse({i['id'] for i in first['items']} & {i['id'] for i in second['items']})
 
+    def test_everyday_search_says_what_it_understood(self):
+        reply = self.client.get('/api/titles', params={'q': 'science fiction from the 2010s'}).json()
+        self.assertEqual(reply['understood'], ['Science fiction', '2010s'])
+        self.assertTrue(reply['items'])
+        self.assertTrue(all(2010 <= i['year'] <= 2019 and 'science-fiction' in i['genres'] for i in reply['items']))
+        self.assertEqual(self.client.get('/api/titles').json()['understood'], [])
+
+    def test_titles_like_one_title(self):
+        reply = self.client.get('/api/titles', params={'similar': 'm007', 'limit': 5}).json()
+        self.assertEqual(reply['understood'], ['Like Blade Runner'])
+        self.assertNotIn('m007', [i['id'] for i in reply['items']])
+        self.assertEqual(reply['total'], 35)
+        self.assertEqual(self.client.get('/api/titles', params={'similar': 'nope'}).status_code, 404)
+
+    def test_play_and_search_commands_change_nothing_stored(self):
+        for text, intent in (('play Arrival', 'play'), ('science fiction from the 2010s', 'search')):
+            with self.subTest(text=text):
+                reply = self.client.post('/api/command/apply', json={'text': text}).json()
+                self.assertEqual(reply['command']['intent'], intent)
+                self.assertEqual(reply['feedback'], {})
+                self.assertEqual(reply['session']['mood'], 'any')
+
     def test_search_input_is_bounded(self):
-        for params in ({'limit': 0}, {'limit': 101}, {'offset': -1}, {'show': 'everything'}, {'q': 'x' * 101}):
+        for params in ({'limit': 0}, {'limit': 101}, {'offset': -1}, {'show': 'everything'}, {'q': 'x' * 101}, {'similar': 'x' * 65}):
             with self.subTest(params=params):
                 self.assertEqual(self.client.get('/api/titles', params=params).status_code, 400)
 

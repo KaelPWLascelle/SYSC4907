@@ -34,7 +34,10 @@ export interface CommandDeps {
   media?: { getUserMedia?: MediaDevices['getUserMedia']; MediaRecorder?: typeof MediaRecorder };
 }
 
-export const DEFAULT_MESSAGE = 'Try “Like Arrival”, “no horror, 90 minutes”, or “Clear my rating for Alien”.';
+export const DEFAULT_MESSAGE =
+  'Try “funny films from the 90s”, “play The General”, “more like Alien”, “no horror, 90 minutes” or “Like Arrival”.';
+/** Intents that change nothing stored, so they run as soon as they are understood. */
+const IMMEDIATE = new Set(['search', 'play']);
 const TRANSCRIBE_TIMEOUT_MS = 120_000;
 const RECORDER_TYPES = ['audio/webm;codecs=opus', 'audio/ogg;codecs=opus', 'audio/mp4'];
 
@@ -55,8 +58,10 @@ export class CommandController {
   private version = 0;
   private previewText: string | null = null;
   private session: Session;
+  private onApplied: CommandDeps['onApplied'];
 
   constructor(private readonly deps: CommandDeps) {
+    this.onApplied = deps.onApplied;
     const media = deps.media ?? {
       getUserMedia: globalThis.navigator?.mediaDevices?.getUserMedia?.bind(globalThis.navigator.mediaDevices),
       MediaRecorder: globalThis.MediaRecorder,
@@ -108,6 +113,11 @@ export class CommandController {
     this.update({ text, message: 'Preview your edited command before applying.' });
   }
 
+  /** Who handles an applied command; the host swaps in its latest handler, as it does the session. */
+  setOnApplied(handler: CommandDeps['onApplied']) {
+    this.onApplied = handler;
+  }
+
   /** The scene changed. A previewed command was interpreted against the old one, so it must be previewed again. */
   setSession(session: Session) {
     if (session === this.session) return;
@@ -126,16 +136,20 @@ export class CommandController {
     }
     const current = this.version;
     this.update({ phase: 'previewing', message: 'Interpreting your request locally…' });
+    let immediate = false;
     try {
       const { command } = await this.deps.preview(text, this.session);
       if (current !== this.version) return;
       if (command.intent !== 'unknown') this.previewText = text;
+      immediate = IMMEDIATE.has(command.intent);
       this.update({ message: `${command.summary} ${command.note ?? ''}`.trim() });
     } catch (error) {
       if (current === this.version) this.update({ message: errorMessage(error) });
     } finally {
       this.update({ phase: 'idle' });
     }
+    // Ratings and scene changes wait for Apply; a search or a play changes nothing stored, so it runs now.
+    if (immediate && current === this.version) await this.apply();
   }
 
   async apply() {
@@ -145,8 +159,9 @@ export class CommandController {
     try {
       const result = await this.deps.apply(text, this.session);
       this.invalidate();
-      await this.deps.onApplied(result);
-      this.update({ message: `Applied: ${result.command.summary}` });
+      await this.onApplied(result);
+      // Done: clear the box for the next request (the message keeps what was applied).
+      this.update({ text: '', message: `Applied: ${result.command.summary}` });
     } catch (error) {
       this.update({ message: `Could not apply: ${errorMessage(error)}` });
     } finally {

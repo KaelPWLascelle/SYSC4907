@@ -12,6 +12,7 @@ export interface Call {
   path: string;
   body: unknown;
   headers: Record<string, string>;
+  params: URLSearchParams;
 }
 
 export function mockFetch(routes: Record<string, Handler>) {
@@ -20,7 +21,13 @@ export function mockFetch(routes: Record<string, Handler>) {
     const url = new URL(String(input), 'http://127.0.0.1');
     const method = (init.method ?? 'GET').toUpperCase();
     const body = typeof init.body === 'string' ? JSON.parse(init.body) : init.body;
-    calls.push({ method, path: url.pathname, body, headers: { ...(init.headers as Record<string, string>) } });
+    calls.push({
+      method,
+      path: url.pathname,
+      body,
+      headers: { ...(init.headers as Record<string, string>) },
+      params: url.searchParams,
+    });
     const handler = routes[`${method} ${url.pathname}`];
     if (!handler) return jsonResponse(404, { error: `No mock for ${method} ${url.pathname}` });
     const [status, data] = await handler(body, init);

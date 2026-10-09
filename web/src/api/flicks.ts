@@ -20,11 +20,19 @@ export const flicksApi = {
   state: () => request<AppState>('/api/state'),
   recommend: (session: Session, mode: Mode, init?: RequestInit) =>
     request<RecommendResponse>('/api/recommend', { ...json('POST', { session, mode }), ...init }),
-  titles: (query: { q: string; show: TitleFilter; offset: number; limit: number }, init?: RequestInit) =>
-    request<TitlesResponse>(
-      `/api/titles?${new URLSearchParams({ ...query, offset: String(query.offset), limit: String(query.limit) })}`,
-      init,
-    ),
+  titles: (
+    query: { q: string; show: TitleFilter; similar?: string | null; offset: number; limit: number },
+    init?: RequestInit,
+  ) => {
+    const params = new URLSearchParams({
+      q: query.q,
+      show: query.show,
+      offset: String(query.offset),
+      limit: String(query.limit),
+    });
+    if (query.similar) params.set('similar', query.similar);
+    return request<TitlesResponse>(`/api/titles?${params}`, init);
+  },
   rate: (id: string, value: Rating | 0) =>
     request<{ feedback: Record<string, Rating> }>('/api/feedback', json('POST', { id, value })),
 
