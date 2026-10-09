@@ -19,7 +19,7 @@ Step 3:
  - Go to github.com/BtbN/FFmpeg-Builds/releases
  - Download ffmpeg-master-latest-win64-gpl.zip
  - Extract it, find ffmpeg.exe inside the bin/ folder
- - Copy ffmpeg.exe into your localscroll/backend/ folder
+ - Copy ffmpeg.exe into your backend/ folder
 
 Step 4:
  - In backend:
