@@ -10,8 +10,8 @@ architecture. Machine: Apple M2, 8 GB, macOS 26, Python 3.12, Node 24. Raw outpu
 | Area | Result |
 |---|---|
 | Backend unit and integration tests | 272 passed, 3 skipped (optional voice packages), 345 subtests, 6.9 s |
-| Interface unit tests (Vitest) | 87 passed in 20 files |
-| Browser end-to-end (Playwright) | 13 passed (10 desktop, 3 phone), 16.8 s including the build |
+| Interface unit tests (Vitest) | 89 passed in 20 files |
+| Browser end-to-end (Playwright) | 19 passed (13 Chrome desktop, 3 phone, 3 Safari/WebKit), 25 s including the build |
 | Lint, types, format | ruff, ESLint, `tsc` (app and test configs), Prettier: all clean; `npm audit`: 0 vulnerabilities |
 | Recommendation latency | 0.1–0.4 ms on 36 titles; 13–62 ms median on 9,349 titles |
 | HTTP latency | 1.3–1.8 ms on 36 titles; 2–57 ms median on 9,349 titles |
@@ -52,6 +52,7 @@ test fails on any console error or Content Security Policy violation.
 | Pick for me | draws from the top 12 or from anything, and states the chance |
 | Profiles | a PIN profile asks who is watching, refuses a wrong PIN, accepts the right one |
 | Phone (Pixel 7) | home, pickers, Your taste, Why this pick and Discover never scroll sideways |
+| Discover layout (Chrome and Safari's WebKit) | trailer and poster stay inside their space at three window shapes; added after Safari stretched the trailer past the card |
 
 ### Styling refactor check
 
