@@ -1,14 +1,17 @@
 import { type SyntheticEvent, useCallback, useEffect, useRef, useState } from 'react';
 
 import { mediaUrl } from '../../api/flicks';
-import type { PlayerState, TitleRef } from '../../api/types';
+import type { PlayerState, Rating, TitleRef } from '../../api/types';
 import { Icon } from '../../components/Icon';
 import { Poster } from '../../components/Poster';
+import { RateButtons } from '../../components/RateButtons';
 import { cx } from '../../lib/cx';
+import { prefersReducedMotion } from '../../lib/motion';
 
 const SAVE_EVERY_MS = 10_000;
 const CHROME_HIDE_MS = 2500;
 const MEDIA_ERR_SRC_NOT_SUPPORTED = 4; // HTMLMediaElement.error.code (spec value; not every environment defines MediaError)
+const UP_NEXT_SECONDS = 10;
 
 interface PlayerProps {
   item: TitleRef;
@@ -23,6 +26,11 @@ interface PlayerProps {
   onProgress: (position: number, duration: number) => void;
   onPlayback?: (state: 'playing' | 'paused') => void;
   onClose: () => void;
+  /** When a film ends: its rating, and the next pick to offer (null: nothing playable is left). */
+  rating?: Rating;
+  onRate?: (value: Rating | 0) => void;
+  upNext?: TitleRef | null;
+  onUpNext?: (item: TitleRef) => void;
 }
 
 /** Full-screen playback over HTTP range requests, of a local file or a stream relayed by Flicks (ADR 0005, 0011). */
@@ -36,6 +44,10 @@ export function Player({
   onProgress,
   onPlayback,
   onClose,
+  rating,
+  onRate,
+  upNext = null,
+  onUpNext,
 }: PlayerProps) {
   const dialog = useRef<HTMLDialogElement>(null);
   const video = useRef<HTMLMediaElement | null>(null);
@@ -43,6 +55,7 @@ export function Player({
   const [error, setError] = useState('');
   const [autoplayBlocked, setAutoplayBlocked] = useState(false);
   const [chromeVisible, setChromeVisible] = useState(true);
+  const [ended, setEnded] = useState(false);
   const hideTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const save = useCallback(() => {
@@ -110,6 +123,7 @@ export function Player({
       if (Date.now() - lastSave.current >= SAVE_EVERY_MS) save();
     },
     onPlay: () => {
+      setEnded(false);
       setAutoplayBlocked(false);
       showChrome();
       onPlayback?.('playing');
@@ -119,7 +133,11 @@ export function Player({
       setChromeVisible(true);
       onPlayback?.('paused');
     },
-    onEnded: save,
+    onEnded: () => {
+      save();
+      setChromeVisible(true);
+      if (!audio && remote === null) setEnded(true); // a couch remote decides what plays next
+    },
     onError: (event: SyntheticEvent<HTMLMediaElement>) => {
       const code = event.currentTarget.error?.code;
       if (streamedFrom) {
@@ -173,6 +191,20 @@ export function Player({
       ) : (
         <video className="player-video" playsInline {...media} />
       )}
+      {ended && (
+        <EndCard
+          item={item}
+          rating={rating}
+          onRate={onRate}
+          upNext={upNext}
+          onUpNext={onUpNext}
+          onReplay={() => {
+            setEnded(false);
+            if (video.current) video.current.currentTime = 0;
+            play();
+          }}
+        />
+      )}
       {(error || autoplayBlocked) && (
         <div className="player-message" role="alert">
           {error || (
@@ -184,5 +216,76 @@ export function Player({
         </div>
       )}
     </dialog>
+  );
+}
+
+interface EndCardProps {
+  item: TitleRef;
+  rating?: Rating;
+  onRate?: (value: Rating | 0) => void;
+  upNext: TitleRef | null;
+  onUpNext?: (item: TitleRef) => void;
+  onReplay: () => void;
+}
+
+/** After a film: one tap to rate it, and the next pick, which starts on its own after a countdown. */
+function EndCard({ item, rating, onRate, upNext, onUpNext, onReplay }: EndCardProps) {
+  // No countdown when the viewer asked for less motion: the next film waits for a press.
+  const [seconds, setSeconds] = useState<number | null>(() =>
+    upNext && onUpNext && !prefersReducedMotion() ? UP_NEXT_SECONDS : null,
+  );
+  useEffect(() => {
+    if (seconds === null || !upNext || !onUpNext) return;
+    if (seconds <= 0) {
+      onUpNext(upNext);
+      return;
+    }
+    const timer = setTimeout(() => setSeconds(seconds - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [seconds, upNext, onUpNext]);
+
+  return (
+    <div className="player-end" role="region" aria-label="Finished">
+      {onRate && (
+        <div className="player-end-rate">
+          <p className="eyebrow">Finished</p>
+          <h3>How was {item.title}?</h3>
+          <RateButtons title={item.title} rating={rating} large onRate={onRate} />
+        </div>
+      )}
+      {upNext && onUpNext ? (
+        <div className="player-end-next">
+          <p className="eyebrow">Up next for you</p>
+          <h3>{upNext.title}</h3>
+          <p className="fine" aria-live="polite">
+            {seconds === null ? 'Ready when you are.' : `Starts in ${seconds} s`}
+          </p>
+          <div className="details-actions">
+            <button type="button" className="button button-primary" onClick={() => onUpNext(upNext)}>
+              <Icon name="play" />
+              Play now
+            </button>
+            {seconds !== null ? (
+              <button type="button" className="button button-quiet" onClick={() => setSeconds(null)}>
+                Cancel
+              </button>
+            ) : (
+              <button type="button" className="button button-quiet" onClick={onReplay}>
+                <Icon name="replay" />
+                Watch again
+              </button>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="player-end-next">
+          <p className="fine">Nothing else playable fits this scene.</p>
+          <button type="button" className="button button-quiet" onClick={onReplay}>
+            <Icon name="replay" />
+            Watch again
+          </button>
+        </div>
+      )}
+    </div>
   );
 }

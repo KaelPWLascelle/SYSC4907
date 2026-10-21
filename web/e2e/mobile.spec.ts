@@ -23,3 +23,11 @@ test('“Your taste” and “Why this pick” fit a phone', async ({ page }) =>
   await expect(page.getByRole('dialog').locator('.narration')).toBeVisible();
   expect(await overflow(page)).toBeLessThanOrEqual(0);
 });
+
+test('Discover fits a phone', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Discover' }).click();
+  await expect(page.getByRole('dialog', { name: 'Discover' }).getByRole('article').first()).toBeVisible();
+  expect(await overflow(page)).toBeLessThanOrEqual(0);
+  await page.keyboard.press('Escape');
+});

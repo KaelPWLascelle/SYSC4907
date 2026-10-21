@@ -9,9 +9,11 @@ interface TopBarProps {
   onProfile?: () => void;
   /** Open "Your taste". */
   onTaste?: () => void;
+  /** Open the Discover feed. */
+  onDiscover?: () => void;
 }
 
-export function TopBar({ couch, onAsk, profile, onProfile, onTaste }: TopBarProps) {
+export function TopBar({ couch, onAsk, profile, onProfile, onTaste, onDiscover }: TopBarProps) {
   return (
     <header className="topbar">
       <a className="logo" href="#top" aria-label="Flicks home">
@@ -20,6 +22,11 @@ export function TopBar({ couch, onAsk, profile, onProfile, onTaste }: TopBarProp
       <nav className="nav" aria-label="Sections">
         <a href="#top">Home</a>
         <a href="#browse">Browse</a>
+        {onDiscover && (
+          <button type="button" className="nav-button" onClick={onDiscover}>
+            Discover
+          </button>
+        )}
         {couch && <a href="#couch">Couch</a>}
         {onTaste && (
           <button type="button" className="nav-button" onClick={onTaste}>

@@ -9,7 +9,7 @@ from ...assistant.llm import LLMError
 from ...services import Services
 from ..deps import Viewer, services, viewer
 from ..errors import client_errors
-from ..schemas import ExplainIn, FeedbackIn, RecommendIn
+from ..schemas import DiscoverIn, ExplainIn, FeedbackIn, PickIn, RecommendIn
 
 router = APIRouter()
 
@@ -27,6 +27,7 @@ def state(svc: Services = Depends(services), me: Viewer = Depends(viewer)):
         'voice': svc.speech.status(),
         'assistant': svc.interpreter.name,
         'tagged': svc.tagged,
+        'trailers': len(svc.discover.trailers),
         'collaborative': svc.collaborative,
         'couch': svc.couch is not None,
         'podcasts': svc.podcasts is not None,
@@ -135,3 +136,19 @@ def explain(body: ExplainIn, svc: Services = Depends(services), me: Viewer = Dep
 def taste(svc: Services = Depends(services), me: Viewer = Depends(viewer)):
     """What the profile's ratings say, for the "Your taste" view (flicks/taste.py)."""
     return svc.taste.summarize(me.ratings.all())
+
+
+@router.post('/api/discover')
+def discover(body: DiscoverIn, svc: Services = Depends(services), me: Viewer = Depends(viewer)):
+    """A page of the Discover feed (flicks/discover.py): rated and already-shown titles are skipped."""
+    with client_errors():
+        items = svc.discover.feed(me.ratings.all(), body.session.to_domain(), body.seen,
+                                  online=body.online, limit=body.limit)
+    return {'items': items}
+
+
+@router.post('/api/pick')
+def pick(body: PickIn, svc: Services = Depends(services), me: Viewer = Depends(viewer)):
+    """"Pick for me": one title at random from the top picks or from anything the scene allows."""
+    with client_errors():
+        return svc.discover.pick(me.ratings.all(), body.session.to_domain(), body.pool)

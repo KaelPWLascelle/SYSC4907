@@ -72,6 +72,8 @@ export interface AppState {
   profile?: CurrentProfile;
   /** The optional local language model behind Ask Flicks' agent and narrated explanations. */
   llm?: LlmStatus;
+  /** How many films have a trailer the Discover feed can embed (absent from older servers). */
+  trailers?: number;
 }
 
 export interface CurrentProfile {
@@ -152,6 +154,34 @@ export interface Recommendation {
   popular: boolean;
   familiarity: number | null;
 }
+
+/** What a Discover card can play: a preview of the film itself (a local file or a stream), and a trailer. */
+export interface DiscoverMedia {
+  kind: 'file' | 'stream' | null;
+  /** A YouTube video ID, embedded only once the viewer allows online trailers. */
+  trailer: string | null;
+}
+
+/** A Discover card: a pick, the stream it came from, and why it is in the feed. */
+export interface DiscoverItem extends Recommendation {
+  stream: 'for_you' | 'new' | 'wildcard';
+  why: string;
+  media: DiscoverMedia;
+}
+
+export interface DiscoverResponse {
+  items: DiscoverItem[];
+}
+
+export interface PickResponse {
+  pick: Recommendation;
+  /** The chance this title had of being drawn. */
+  chance: number;
+  /** How many titles it was drawn from. */
+  pool: number;
+}
+
+export type PickPool = 'picks' | 'anything';
 
 export interface RecommendResponse {
   recommendations: Recommendation[];

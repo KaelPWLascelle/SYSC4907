@@ -14,6 +14,7 @@ from .assistant.voice import LocalWhisper
 from .collaborative import HybridTaste, ItemNeighbours, PopularityPrior
 from .core import Recommender, TfidfTaste, load_catalog
 from .db import Database
+from .discover import Discover
 from .media import MediaLibrary
 from .podcasts import PodcastIndex, PodcastLibrary, episodes_path
 from .posters import PosterLibrary
@@ -23,6 +24,7 @@ from .repositories import ProfileRepository, RatingsRepository, WatchHistoryRepo
 from .search import TitleIndex
 from .tagging import TaggedDecision, load_tags
 from .taste import TasteSummary
+from .trailers import TrailerIndex
 
 
 @dataclass
@@ -32,6 +34,7 @@ class Services:
     titles: TitleIndex
     similar: object             # the taste model behind "more like X" (no popularity prior)
     taste: TasteSummary         # "Your taste": genres, themes and influences from the ratings
+    discover: Discover          # the Discover feed and "Pick for me"
     recommender: Recommender
     profiles: ProfileRepository
     sessions: ProfileSessions   # who is signed in to which profile (in memory)
@@ -111,10 +114,16 @@ def build_services(settings, *, speech=None, system_one=None, chat=None):
     if chat is not None:
         interpreter = AgentInterpreter(interpreter, chat, catalog, titles, playable)
     recommender = Recommender(catalog, taste=taste, decision=decision, playable=playable)
+    trailers = TrailerIndex.load(settings.trailers, films) if settings.trailers else TrailerIndex()
+
+    def media_kind(content_id):
+        return 'file' if content_id in media.files else 'stream' if content_id in streams.remotes else None
+
     return Services(
         catalog=catalog, ids=ids, titles=titles, similar=similar,
         recommender=recommender,
         taste=TasteSummary(catalog, recommender),
+        discover=Discover(recommender, media_kind, trailers),
         profiles=ProfileRepository(database),
         sessions=ProfileSessions(),
         ratings=RatingsRepository(database),

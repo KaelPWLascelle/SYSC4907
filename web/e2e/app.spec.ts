@@ -126,6 +126,52 @@ test('“Your taste” charts the ratings, and a tuned mix reaches every pick re
   await page.evaluate(() => localStorage.clear());
 });
 
+test('Discover: a like in the feed is a rating, and trailers wait for permission', async ({ page }) => {
+  // Answer YouTube ourselves: the test checks what Flicks asks for, not YouTube.
+  const asked: string[] = [];
+  await page.route('https://www.youtube-nocookie.com/**', route => {
+    asked.push(route.request().url());
+    return route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>trailer</title>' });
+  });
+  await page.goto('/');
+  await topPick(page);
+  await page.getByRole('button', { name: 'Discover' }).click();
+  const feed = page.getByRole('dialog', { name: 'Discover' });
+  const first = feed.getByRole('article').first();
+  await expect(first.locator('.eyebrow')).toHaveText('For you');
+  const title = (await first.getByRole('heading').textContent()) ?? '';
+  await first.getByRole('button', { name: `Like: ${title}` }).click();
+  await expect
+    .poll(async () => Object.keys((await (await page.request.get('/api/state')).json()).feedback))
+    .toHaveLength(1);
+  expect(asked).toEqual([]); // nothing went to YouTube before the viewer allowed it
+
+  await feed.getByRole('button', { name: 'Online trailers off' }).click();
+  await feed.getByRole('button', { name: 'Allow trailers' }).click();
+  await expect(feed.locator('iframe')).toHaveAttribute(
+    'src',
+    /^https:\/\/www\.youtube-nocookie\.com\/embed\/e2e\d{8}\?/,
+  );
+  await expect.poll(() => asked.length).toBeGreaterThan(0);
+  expect(asked.every(url => url.startsWith('https://www.youtube-nocookie.com/embed/'))).toBe(true);
+  await page.keyboard.press('Escape');
+  await expect(feed).toBeHidden();
+  const { feedback } = await (await page.request.get('/api/state')).json();
+  for (const id of Object.keys(feedback)) await page.request.post('/api/feedback', { data: { id, value: 0 } });
+  await page.evaluate(() => localStorage.clear());
+});
+
+test('“Pick for me” draws one of the top picks and says how likely it was', async ({ page }) => {
+  await page.goto('/');
+  await topPick(page);
+  await page.getByRole('button', { name: 'Pick for me' }).click();
+  const sheet = page.getByRole('dialog').filter({ has: page.getByText('Picked at random') });
+  await expect(sheet.getByRole('status')).toContainText(/your top 12 picks: a 1 in \d+ chance/);
+  await sheet.getByRole('button', { name: 'From anything' }).click();
+  await expect(sheet.getByRole('status')).toContainText(/all \d+ titles that fit this scene/);
+  await page.keyboard.press('Escape');
+});
+
 test('the server refuses requests from other sites', async ({ request }) => {
   const response = await request.post('/api/feedback', {
     data: { id: 'm001', value: 1 },

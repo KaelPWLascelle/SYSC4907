@@ -7,6 +7,7 @@ from ..assistant.voice import AUDIO_TYPES, MAX_AUDIO_BYTES
 from ..config import Settings
 from ..profiles import MAX_IMPORT_BYTES
 from ..services import Services
+from ..trailers import EMBED_ORIGIN
 from . import errors
 from .routes import assistant, couch, library, playback, podcasts, profiles
 from .security import GuardPolicy, RawBody, RequestGuard
@@ -24,7 +25,7 @@ def create_app(settings: Settings, services: Services) -> FastAPI:
     app = FastAPI(title='Flicks', openapi_url=None, docs_url=None, redoc_url=None)
     app.state.services = services
     app.add_middleware(RequestGuard, policy=GuardPolicy(
-        hosts=HOSTS, origins=settings.origins,
+        hosts=HOSTS, origins=settings.origins, frames=(EMBED_ORIGIN,),
         raw_bodies={'/api/transcribe': RawBody(frozenset(AUDIO_TYPES), MAX_AUDIO_BYTES, 'Expected an audio recording'),
                     # A profile export is larger than the 8 KiB JSON limit, so it gets its own cap.
                     '/api/profiles/import': RawBody(frozenset({'application/json'}), MAX_IMPORT_BYTES, 'Expected a JSON export')}))

@@ -78,6 +78,18 @@ class ProfileUpdateIn(Body):
     current_pin: StrictStr | None = None
 
 
+class DiscoverIn(Body):
+    session: SessionIn = Field(default_factory=SessionIn)
+    seen: list[StrictStr] = Field(default_factory=list, max_length=300)  # newest last; keeps the body under 8 KiB
+    online: StrictBool = False   # the viewer allows trailers from YouTube
+    limit: StrictInt = Field(8, ge=1, le=20)
+
+
+class PickIn(Body):
+    session: SessionIn = Field(default_factory=SessionIn)
+    pool: Literal['picks', 'anything'] = 'picks'
+
+
 class ExplainIn(Body):
     id: StrictStr
     session: SessionIn = Field(default_factory=SessionIn)

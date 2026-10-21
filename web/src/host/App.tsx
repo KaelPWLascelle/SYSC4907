@@ -2,12 +2,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { actAs, ApiError, PROFILE_CHANGED } from '../api/client';
 import { flicksApi } from '../api/flicks';
-import type { AppState, CommandResponse, Content, Mix, Mode, Rating, TitleRef } from '../api/types';
+import type { AppState, CommandResponse, Content, Mix, Mode, PickResponse, Rating, TitleRef } from '../api/types';
 import { CommandController } from './commands/CommandController';
 import { AskBar } from './components/AskBar';
 import { Browse } from './components/Browse';
 import { CouchPanel } from './components/CouchPanel';
 import { DetailsSheet } from './components/DetailsSheet';
+import { Discover } from './components/Discover';
 import { Hero } from './components/Hero';
 import { Player } from './components/Player';
 import { ProfileGate } from './components/ProfileGate';
@@ -153,6 +154,9 @@ function Home({ initial, onProfile }: { initial: AppState; onProfile?: () => voi
   const [details, setDetails] = useState<Content | null>(null);
   const [playing, setPlaying] = useState<{ item: TitleRef; startAt: number } | null>(null);
   const [notice, setNotice] = useState('');
+  const [discoverOpen, setDiscoverOpen] = useState(false);
+  // The last "Pick for me" draw, shown on its details sheet until that sheet closes.
+  const [drawn, setDrawn] = useState<(PickResponse & { anything: boolean }) | null>(null);
   const askInput = useRef<HTMLTextAreaElement>(null);
   const [browse, setBrowse] = useState<{ query: string; similar: TitleRef | null }>({ query: '', similar: null });
 
@@ -322,6 +326,24 @@ function Home({ initial, onProfile }: { initial: AppState; onProfile?: () => voi
     void history.refresh();
   };
 
+  // Up next when a film ends: the best playable pick for this scene that is not this film or already finished.
+  const upNext = playing
+    ? (ready.picks
+        .map(row => row.content)
+        .find(item => item.id !== playing.item.id && !progress.get(item.id)?.completed && !media.get(item.id)?.audio) ??
+      null)
+    : null;
+
+  const pickForMe = (anything: boolean) => {
+    flicksApi.pick(session, anything ? 'anything' : 'picks').then(
+      result => {
+        setDrawn({ ...result, anything });
+        setDetails(result.pick.content);
+      },
+      (failure: unknown) => setNotice(`Couldn’t pick a film: ${message(failure)}`),
+    );
+  };
+
   // ---------- render ----------
   const continueWatching = history.items.filter(p => p.resumable && media.has(p.content_id)).map(p => p.content);
   const { picks, coldStart, loading, error } = recommendations;
@@ -346,9 +368,16 @@ function Home({ initial, onProfile }: { initial: AppState; onProfile?: () => voi
         profile={initial.profile?.name}
         onProfile={onProfile}
         onTaste={() => setTasteOpen(true)}
+        onDiscover={() => setDiscoverOpen(true)}
       />
       <main id="top">
-        <Hero pick={picks[0]} session={session} mode={mode} loading={loading && !picks.length} />
+        <Hero
+          pick={picks[0]}
+          session={session}
+          mode={mode}
+          loading={loading && !picks.length}
+          onPick={() => pickForMe(false)}
+        />
         <AskBar controller={controller} voice={initial.voice} inputRef={askInput} />
         <SceneBar
           session={session}
@@ -423,8 +452,21 @@ function Home({ initial, onProfile }: { initial: AppState; onProfile?: () => voi
         picks={picks}
         session={session}
         narrate={initial.llm?.available ?? false}
-        onClose={() => setDetails(null)}
+        drawn={drawn && details?.id === drawn.pick.content.id ? { ...drawn, onAgain: pickForMe } : undefined}
+        onClose={() => {
+          setDetails(null);
+          setDrawn(null);
+        }}
       />
+      {discoverOpen && (
+        <Discover
+          session={session}
+          trailers={initial.trailers ?? 0}
+          profileId={initial.profile?.id}
+          paused={playing !== null || details !== null}
+          onClose={() => setDiscoverOpen(false)}
+        />
+      )}
       {playing && (
         <Player
           key={playing.item.id}
@@ -443,6 +485,13 @@ function Home({ initial, onProfile }: { initial: AppState; onProfile?: () => voi
           }}
           onPlayback={reportPlayback}
           onClose={closePlayer}
+          rating={feedback[playing.item.id]}
+          onRate={value => rate(playing.item.id, value)}
+          upNext={upNext}
+          onUpNext={item => {
+            void history.refresh();
+            play(item, true);
+          }}
         />
       )}
     </LibraryContext.Provider>

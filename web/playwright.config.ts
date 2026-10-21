@@ -32,7 +32,7 @@ export default defineConfig({
     { name: 'phone', use: { ...devices['Pixel 7'] }, testMatch: /mobile/ },
   ],
   webServer: {
-    command: `npm run build && cd .. && HOME=${home} ${python} -m flicks --port ${port}`,
+    command: `npm run build && cd .. && HOME=${home} ${python} -m flicks --port ${port} --trailers web/e2e/fixtures/trailers.json`,
     url: `http://127.0.0.1:${port}/api/state`,
     timeout: 120_000,
     reuseExistingServer: false,

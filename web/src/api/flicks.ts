@@ -4,10 +4,13 @@ import type {
   AppState,
   CommandResponse,
   CouchHostView,
+  DiscoverResponse,
   DownloadStatus,
   ExplainResponse,
   ImportResult,
   Mode,
+  PickPool,
+  PickResponse,
   PlayerAction,
   ProfilesResponse,
   ProfileSummary,
@@ -41,6 +44,9 @@ export const flicksApi = {
   taste: (signal?: AbortSignal) => request<TasteResponse>('/api/taste', { signal }),
   explain: (id: string, session: Session, signal?: AbortSignal) =>
     request<ExplainResponse>('/api/explain', { ...json('POST', { id, session }), signal }),
+  discover: (query: { session: Session; seen: string[]; online: boolean; limit?: number }, signal?: AbortSignal) =>
+    request<DiscoverResponse>('/api/discover', { ...json('POST', query), signal }),
+  pick: (session: Session, pool: PickPool) => request<PickResponse>('/api/pick', json('POST', { session, pool })),
   rate: (id: string, value: Rating | 0) =>
     request<{ feedback: Record<string, Rating> }>('/api/feedback', json('POST', { id, value })),
 
