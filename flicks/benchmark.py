@@ -58,8 +58,10 @@ def app(catalog):
     from .services import build_services
     neighbours = catalog.with_suffix('.neighbours.json')
     with tempfile.TemporaryDirectory() as temp:
+        trailers = catalog.with_suffix('.trailers.json')
         settings = Settings(db=Path(temp)/'bench.sqlite3', catalog=catalog,
-                            neighbours=neighbours if neighbours.is_file() else None, static_dir=Path(temp)/'static')
+                            neighbours=neighbours if neighbours.is_file() else None,
+                            trailers=trailers if trailers.is_file() else None, static_dir=Path(temp)/'static')
         start = time.perf_counter()
         services = build_services(settings, speech=_NoSpeech())
         startup = (time.perf_counter() - start) * 1000
@@ -77,6 +79,7 @@ def bench_catalog(catalog, repeat):
         titles = {item.title: item.id for item in svc.catalog}
         liked = [titles[t] for t in ('Arrival', 'Moon', 'The Martian', 'Toy Story') if t in titles] or [svc.catalog[0].id]
         many = {item.id: (1 if i % 3 else -1) for i, item in enumerate(svc.catalog[:40])}
+        seen = [item.id for item in svc.catalog[40:140]]
         few = {liked[0]: 1, **({liked[1]: 1} if len(liked) > 1 else {})}
         for content_id, value in few.items():
             svc.ratings.set(content_id, value)
@@ -89,6 +92,8 @@ def bench_catalog(catalog, repeat):
             'explain one pick': lambda: svc.recommender.explain_item(few, SCENE, svc.catalog[-1].id),
             'taste summary (40 ratings)': lambda: svc.taste.summarize(many),
             'search "funny films from the 90s"': lambda: svc.titles.search('funny films from the 90s'),
+            'Discover page (40 ratings, 100 seen)': lambda: svc.discover.feed(many, SCENE, seen, online=True),
+            'Pick for me (2 ratings)': lambda: svc.discover.pick(few, SCENE),
         }
         for text in REQUESTS:
             stages[f'ask: "{text}"'] = lambda text=text: svc.interpreter.parse(text)
@@ -100,6 +105,8 @@ def bench_catalog(catalog, repeat):
             'POST /api/command/preview': lambda: client.post('/api/command/preview', json={'text': REQUESTS[0]}),
             'GET /api/taste': lambda: client.get('/api/taste'),
             'POST /api/explain': lambda: client.post('/api/explain', json={'id': svc.catalog[-1].id}),
+            'POST /api/discover': lambda: client.post('/api/discover', json={'online': True}),
+            'POST /api/pick': lambda: client.post('/api/pick', json={}),
         }
         for name, fn in endpoints.items():
             assert fn().status_code == 200, name
