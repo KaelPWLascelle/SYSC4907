@@ -192,6 +192,9 @@ samples do not establish an accuracy rate.
 - **TF-IDF captures word overlap, not meaning.** Disliking one film can suppress a whole shared
   genre (disliking *Alien* also pushes down other science fiction).
 - **The weights are not learned or tuned,** and scores are not calibrated confidences.
+- **Films and series together are not evaluated.** MovieLens has no series, so the offline measures
+  cover films only. Series are ranked by content taste and IMDb-vote popularity, scaled separately from
+  films (ADR 0018); whether a mixed list helps people choose is for the user study.
 - **Offline measures are proxies.** Held-out MovieLens ratings show which model finds films people
   liked, not whether Flicks' users are happier with their picks; that still needs the user study below.
 
@@ -203,13 +206,15 @@ samples do not establish an accuracy rate.
 2. **Relevance judgments.** Ask each participant for seed likes and dislikes, then collect held-out
    judgments for several chosen scenes. Keep judgments separate from training data, and never derive
    ground truth from the system's own tags.
-3. **Taste only vs taste + scene.** Show both lists in randomized, blinded order over the same
+3. **Films, series or both.** In the same study, compare a mixed list with films-only and
+   series-only lists for the same scene: which one people choose from, and how quickly.
+4. **Taste only vs taste + scene.** Show both lists in randomized, blinded order over the same
    candidates. Measure the preferred list, time to choose, precision@5, NDCG@5 (graded), coverage
    and constraint violations. Report participant counts and uncertainty.
-4. **Tuning.** Tune weights on development participants only and report final results on others.
-5. **Model comparisons.** Done offline for content, collaborative and hybrid models and the
+5. **Tuning.** Tune weights on development participants only and report final results on others.
+6. **Model comparisons.** Done offline for content, collaborative and hybrid models and the
    popularity prior (above). Next: local embeddings and System One tags, with the same protocol.
-6. **Speech.** Collect consented recordings from the team (varied voices, accents and noise). Measure
+7. **Speech.** Collect consented recordings from the team (varied voices, accents and noise). Measure
    word error rate, exact command match, rejection rate and latency. Keep recordings out of git.
 
 ## Repeatable manual checklist

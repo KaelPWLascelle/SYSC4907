@@ -34,7 +34,7 @@ export function reasons(row: Recommendation, session: Session): string[] {
     list.push(content.intensity < 0.35 ? 'Easygoing' : content.intensity > 0.65 ? 'Full throttle' : 'Right intensity');
   }
   if (evidence.length) list.push(`Your taste: ${evidence.slice(0, 2).join(' · ')}`);
-  list.push(`${runtime(content.minutes)} · fits ${runtime(session.minutes)}`);
+  list.push(`${runtime(content.minutes)}${content.series ? ' episodes' : ''} · fits ${runtime(session.minutes)}`);
   return list;
 }
 
@@ -66,5 +66,6 @@ export function explanation(row: Recommendation, session: Session): string {
     );
   }
   const scene = fits.length ? `, and it ${fits.join(' and ')}` : '';
-  return `${lead}${scene}. At ${runtime(content.minutes)}, it fits the ${runtime(session.minutes)} you have.`;
+  const length = content.series ? `${runtime(content.minutes)} an episode` : runtime(content.minutes);
+  return `${lead}${scene}. At ${length}, it fits the ${runtime(session.minutes)} you have.`;
 }

@@ -4,6 +4,8 @@ export const MOODS = ['any', 'relaxing', 'uplifting', 'curious', 'tense', 'refle
 export type Mood = (typeof MOODS)[number];
 export type Mode = 'session' | 'baseline';
 export type Rating = 1 | -1;
+/** What the scene asks for: films, TV series or either (docs/adr/0018-tv-series.md). */
+export type Kind = 'any' | 'films' | 'series';
 
 export interface Content {
   id: string;
@@ -16,6 +18,20 @@ export interface Content {
   moods: Exclude<Mood, 'any'>[];
   intensity: number;
   description: string;
+  /** Set for TV series only (`kind` "series"); `minutes` is then one episode's typical length. */
+  series?: SeriesInfo | null;
+}
+
+export interface SeriesInfo {
+  seasons: number;
+  episodes: number;
+  /** The year it last aired; null while it is still running. */
+  ended: number | null;
+  network: string | null;
+  /** Its TVmaze page, where the description comes from (CC BY-SA). */
+  page: string;
+  /** IMDb votes: how widely watched it is. */
+  votes: number;
 }
 
 export interface VoiceStatus {
@@ -46,6 +62,8 @@ export interface TitleRef {
 export interface AppState {
   /** The catalogue itself is not sent (it can hold thousands of titles); search it with /api/titles. */
   catalog_size: number;
+  /** How many of those titles are TV series (absent from older servers; 0 for films only). */
+  series?: number;
   genres: string[];
   feedback: Record<string, Rating>;
   voice: VoiceStatus;
@@ -119,6 +137,8 @@ export interface Session {
   intensity: number;
   novelty: number;
   excluded_genres: string[];
+  /** Films, series or either; only offered when the catalogue has series. */
+  kind: Kind;
   /** Only titles that can be played right now (a local file or a stream). */
   playable: boolean;
   /** How much each factor counts: [taste, mood, intensity, discovery], summing to 1. */

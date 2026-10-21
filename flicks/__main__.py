@@ -6,7 +6,7 @@ import uvicorn
 
 from .api.app import create_app
 from .assistant.voice import LocalWhisper
-from .config import DEFAULT_CATALOG, DEFAULT_DB, DEFAULT_POSTERS, Settings
+from .config import DEFAULT_CATALOG, DEFAULT_DB, DEFAULT_POSTERS, DEFAULT_SERIES, Settings
 from .services import build_services
 from .systemone import DecisionClient, HttpBackend, LexicalBackend
 
@@ -22,6 +22,8 @@ def parse_args(argv=None):
                         help='Folder of video files to play; repeatable. Name files "Title (Year).mp4" or by content ID')
     parser.add_argument('--posters', type=Path, default=DEFAULT_POSTERS, help=f'Local poster cache from python -m flicks.posters (default {DEFAULT_POSTERS})')
     parser.add_argument('--voice-model', type=Path, help='Local faster-whisper model directory; no runtime downloads')
+    parser.add_argument('--series', type=Path, help=f'TV series from python -m flicks.datasets.tvmaze (default: {DEFAULT_SERIES} when present)')
+    parser.add_argument('--no-series', action='store_true', help='Films only, even when a series catalogue is present')
     parser.add_argument('--archive', type=Path, help='Internet Archive matches to stream (default: <catalog>.archive.json when present)')
     parser.add_argument('--trailers', type=Path, help='Trailer index for Discover (default: <catalog>.trailers.json when present)')
     parser.add_argument('--neighbours', type=Path, help='Collaborative-filtering neighbours (default: <catalog>.neighbours.json when present)')
@@ -52,6 +54,7 @@ def main(argv=None):
                         media_dirs=tuple(args.media), tags=args.tags, neighbours=args.neighbours or _sidecar(args.catalog),
                         archive=args.archive or _sidecar(args.catalog, '.archive.json'),
                         trailers=args.trailers or _sidecar(args.catalog, '.trailers.json'),
+                        series=None if args.no_series else args.series or (DEFAULT_SERIES if DEFAULT_SERIES.is_file() else None),
                         couch=args.couch, couch_host=args.couch_host,
                         couch_port=args.couch_port, llm_url=args.llm_url, llm_model=args.llm_model,
                         ask_student=None if args.no_ask_student else Settings.ask_student,
@@ -66,6 +69,7 @@ def main(argv=None):
     mode = ' + '.join(['content', *(['collaborative'] if services.collaborative else []),
                         *(['popularity prior'] if services.popularity_prior else [])])
     streamed = f' · films to stream: {len(services.streams)}' if len(services.streams) else ''
+    streamed += f' · series: {services.series}' if services.series else ''
     llm = f' · {services.chat.name}' if services.chat else ''
     print(f'Flicks: http://127.0.0.1:{settings.port} · ratings: {settings.db} · {mode} recommendations · '
           f'playable titles: {len(services.media.files)}{streamed}{llm}', flush=True)

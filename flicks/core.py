@@ -10,7 +10,29 @@ from typing import Protocol
 STOP_WORDS = frozenset(['a', 'an', 'and', 'are', 'as', 'at', 'be', 'by', 'for', 'from', 'has', 'her', 'his', 'in', 'into', 'is', 'it', 'its', 'of', 'on', 'or', 'that', 'the', 'their', 'them', 'they', 'this', 'to', 'two', 'while', 'who', 'with'])
 
 MOODS = ('any', 'relaxing', 'uplifting', 'curious', 'tense', 'reflective')
+# What the scene asks for: films, TV series or either (docs/adr/0018-tv-series.md).
+KINDS = ('any', 'films', 'series')
 DEFAULT_MIX = (0.55, 0.20, 0.15, 0.10)
+
+
+@dataclass(frozen=True)
+class Series:
+    """What a TV series has that a film does not. Its title's `minutes` is one episode's typical length."""
+    seasons: int
+    episodes: int
+    ended: int | None   # the year it last aired; None while it is still running
+    network: str | None
+    page: str           # its TVmaze page, where the description comes from (CC BY-SA)
+    votes: int          # IMDb votes: public popularity, on a different scale from films' MovieLens likes
+
+    def __post_init__(self):
+        if any(type(n) is not int or n <= 0 for n in (self.seasons, self.episodes)) or type(self.votes) is not int \
+                or self.votes < 0 or not (self.ended is None or type(self.ended) is int):
+            raise ValueError('A series needs positive seasons and episodes, votes, and an end year or none')
+        if not (self.network is None or (isinstance(self.network, str) and self.network.strip())) \
+                or not isinstance(self.page, str) or not self.page.startswith('https://'):
+            raise ValueError('A series network must be text or none, and its page an https address')
+
 
 @dataclass(frozen=True)
 class Content:
@@ -24,6 +46,11 @@ class Content:
     moods: list[str]
     intensity: float
     description: str
+    series: Series | None = None  # set for TV series (kind "series") only
+
+    @property
+    def is_series(self):
+        return self.series is not None
 
 
 def load_catalog(path: Path) -> list[Content]:
@@ -32,7 +59,10 @@ def load_catalog(path: Path) -> list[Content]:
         raise ValueError('Catalogue must be a nonempty JSON array')
     result, ids = [], set()
     for row in rows:
-        item = Content(**row)
+        if not isinstance(row, dict):
+            raise ValueError('Catalogue entries must be objects')
+        series = row.get('series')
+        item = Content(**{**row, 'series': Series(**series) if isinstance(series, dict) else series})
         if not isinstance(item.id, str) or not item.id or item.id in ids:
             raise ValueError('Content IDs must be unique nonempty strings')
         for value in (item.title, item.kind, item.description):
@@ -47,6 +77,8 @@ def load_catalog(path: Path) -> list[Content]:
                 raise ValueError('Genres, tags and moods must be nonempty text arrays')
         if any(m not in MOODS[1:] for m in item.moods):
             raise ValueError('Unknown catalogue mood')
+        if (item.kind == 'series') != isinstance(item.series, Series):
+            raise ValueError('A title has series details exactly when its kind is "series"')
         ids.add(item.id)
         result.append(item)
     return result
@@ -58,6 +90,7 @@ class Session:
     intensity: float = 0.5
     novelty: float = 0.3
     excluded_genres: tuple[str, ...] = ()
+    kind: str = 'any'       # films, series or either; a hard constraint like the time limit
     playable: bool = False  # only titles that can be played right now (a local file or a stream)
     # How much each factor counts: (taste, mood, intensity, novelty), non-negative, summing to 1, so a score
     # stays in [0, 1] and its factors still add up to it. The user can tune it ("Your taste").
@@ -75,6 +108,8 @@ class Session:
         object.__setattr__(self, 'excluded_genres', tuple(sorted(set(self.excluded_genres))))
         if self.mood not in MOODS:
             raise ValueError('Unknown mood')
+        if self.kind not in KINDS:
+            raise ValueError('Kind must be any, films or series')
         if type(self.playable) is not bool:
             raise ValueError('Playable must be true or false')
         if type(self.minutes) is not int or not 1 <= self.minutes <= 600:
@@ -190,6 +225,8 @@ class Recommender:
         for item in self.catalog:
             # Hard constraints belong to the application, never to a future model.
             if item.id in feedback or item.minutes > session.minutes or excluded.intersection(item.genres):
+                continue
+            if session.kind != 'any' and item.is_series != (session.kind == 'series'):
                 continue
             if session.playable and not self.playable(item.id):
                 continue

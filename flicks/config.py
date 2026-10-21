@@ -9,6 +9,7 @@ DEFAULT_STATIC = PACKAGE/'static'
 HOME = Path.home()/'.flicks'
 DEFAULT_DB = HOME/'feedback.sqlite3'
 DEFAULT_POSTERS = HOME/'posters'
+DEFAULT_SERIES = HOME/'catalogs'/'series.json'
 
 
 @dataclass(frozen=True)
@@ -22,6 +23,8 @@ class Settings:
     tags: Path | None = None
     # Item-to-item neighbours for collaborative filtering (flicks.datasets.neighbours); None: content only.
     neighbours: Path | None = None
+    # TV series shown beside the films (flicks.datasets.tvmaze); None: films only.
+    series: Path | None = None
     # Public-domain films to stream from the Internet Archive (flicks.datasets.archive); None: none.
     archive: Path | None = None
     # Trailer video IDs for the Discover feed (flicks.datasets.trailers); None: previews and posters only.

@@ -31,6 +31,11 @@ HINT = 'Try “relaxing, 90 minutes”, “no horror”, “Like Arrival”, “
 PLAY = re.compile(r'(?:play|watch|start|put on|resume) (.+)')
 SEARCH_VERBS = re.compile(r'(?:find|search(?: for)?|show me|look for|looking for|any) ')
 NEGATED = re.compile(r'\b(?:no|without|avoid|exclude|not) \w+(?: \w+)?')
+# The scene's kind, read only when the catalogue has TV series (docs/adr/0018-tv-series.md).
+SERIES_WORDS = re.compile(r'\b(?:an?|some) (?:tv )?(?:show|series|sitcom)\b|\btv (?:shows?|series)\b|\bseries\b'
+                          r'|\b(?:an )?episodes?\b|\bto binge\b|\bbinge ?watch|\bsitcoms?\b')
+FILM_WORDS = re.compile(r'\b(?:an?|some) (?:film|movie|flick)\b|\b(?:films?|movies?)\b')
+KIND_LABELS = {'any': 'films and series', 'films': 'films only', 'series': 'series only'}
 SIMILAR = re.compile(r'(?:show me |find |give me )?(?:more like|something like|similar to|titles like|films like|movies like|shows like) (.+)')
 
 
@@ -41,6 +46,7 @@ def describe_patch(patch):
         if key == 'excluded_genres': labels.append('avoid ' + ', '.join(value) if value else 'allow all genres')
         elif key == 'minutes': labels.append(f'time limit {value} minutes')
         elif key in ('intensity', 'novelty'): labels.append(f'{key} {round(value*100)}%')
+        elif key == 'kind': labels.append(KIND_LABELS[value])
         else: labels.append(f'{key}: {value}')
     return 'Set ' + '; '.join(labels) + '.'
 
@@ -53,6 +59,7 @@ class CommandInterpreter:
         self.titles = titles or TitleIndex(catalog)
         self.playable = playable or (lambda content_id: False)  # content ID -> can it be played here?
         self.genres = sorted({g for c in catalog for g in c.genres})
+        self.series = any(c.is_series for c in catalog)
 
     def find_title(self, text, to_play=False):
         """The one title `text` names, or None. Never a guess between alternatives.
@@ -178,6 +185,11 @@ class CommandInterpreter:
         excluded = [g for g in self.genres if re.search(rf'\b(?:no|without|avoid|exclude) {re.escape(normalize(g))}\b', text)]
         if excluded: patch['excluded_genres'] = excluded
         if re.search(r'\b(?:allow all genres|clear exclusions)\b', text): patch['excluded_genres'] = []
+        if self.series:
+            # "a show for tonight", "a film": the kind; both ("a film or a series") means either.
+            kinds = {kind for kind, words in (('series', SERIES_WORDS), ('films', FILM_WORDS)) if words.search(text)}
+            if kinds or re.search(r'\b(?:either|film or series|movie or show)\b', text):
+                patch['kind'] = kinds.pop() if len(kinds) == 1 else 'any'
         if not patch:
             if text in ('recommend something', 'find my next watch', 'show recommendations', 'recommendations'):
                 return {'intent': 'session', 'patch': {}, 'summary': 'Refresh recommendations with the current session.', 'parser': 'rules'}

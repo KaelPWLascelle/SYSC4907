@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 
-import { DEFAULT_MIX, MOODS, type Mode, type Session } from '../../api/types';
+import { DEFAULT_MIX, type Kind, MOODS, type Mode, type Session } from '../../api/types';
 import { RadioChips, ToggleChips } from '../../components/Chips';
 import { cx } from '../../lib/cx';
 import { capitalize, runtime, spokenTime } from '../../lib/format';
@@ -18,13 +18,21 @@ const ENERGY = [
   { value: 0.9, label: 'Intense' },
 ] as const;
 const TIME_PRESETS = [45, 90, 120, 180];
+const KIND_OPTIONS: { value: Kind; label: string }[] = [
+  { value: 'any', label: 'Films or series' },
+  { value: 'films', label: 'Films' },
+  { value: 'series', label: 'Series' },
+];
+const KIND_WORDS: Record<Kind, string> = { any: 'film or series', films: 'a film', series: 'a series' };
 
-type Field = 'time' | 'mood' | 'energy';
+type Field = 'time' | 'mood' | 'energy' | 'kind';
 
 interface SceneBarProps {
   session: Session;
   mode: Mode;
   genres: string[];
+  /** Offer films / series / either when the catalogue has TV series. */
+  series?: boolean;
   onSession: (session: Session) => void;
   onMode: (mode: Mode) => void;
   /** Open "Your taste" to tune how picks are scored. */
@@ -34,11 +42,11 @@ interface SceneBarProps {
 const energyWord = (intensity: number) => (intensity < 0.35 ? 'gentle' : intensity > 0.65 ? 'intense' : 'balanced');
 
 /**
- * The scene as one sentence ("I have 2 hours for something relaxing, gentle."): tap a word to
+ * The scene as one sentence ("I have 2 hours for something relaxing, gentle, a series."): tap a word to
  * change it. Everything else (discovery, exact intensity, genres to avoid, the lens and the scoring mix)
  * waits behind "More", with a count of what has been changed there.
  */
-export function SceneBar({ session, mode, genres, onSession, onMode, onTaste }: SceneBarProps) {
+export function SceneBar({ session, mode, genres, series = false, onSession, onMode, onTaste }: SceneBarProps) {
   const [field, setField] = useState<Field | null>(null);
   const [more, setMore] = useState(false);
   const pickerId = useId();
@@ -72,6 +80,7 @@ export function SceneBar({ session, mode, genres, onSession, onMode, onTaste }: 
     session.mood !== DEFAULT_SESSION.mood ||
     session.minutes !== DEFAULT_SESSION.minutes ||
     session.intensity !== DEFAULT_SESSION.intensity ||
+    session.kind !== DEFAULT_SESSION.kind ||
     session.playable;
 
   const token = (name: Field, text: string, label: string) => (
@@ -96,7 +105,16 @@ export function SceneBar({ session, mode, genres, onSession, onMode, onTaste }: 
         <span className="nowrap">
           {token('mood', session.mood === 'any' ? 'any mood' : session.mood, 'Mood')},
         </span>{' '}
-        <span className="nowrap">{token('energy', energyWord(session.intensity), 'Energy')}.</span>
+        <span className="nowrap">
+          {token('energy', energyWord(session.intensity), 'Energy')}
+          {series ? ',' : '.'}
+        </span>
+        {series && (
+          <>
+            {' '}
+            <span className="nowrap">{token('kind', KIND_WORDS[session.kind], 'Films or series')}.</span>
+          </>
+        )}
       </p>
 
       {field && (
@@ -111,6 +129,15 @@ export function SceneBar({ session, mode, genres, onSession, onMode, onTaste }: 
               options={ENERGY.map(e => ({ value: String(e.value), label: e.label }))}
               value={String(ENERGY.find(e => e.label.toLowerCase() === energyWord(session.intensity))?.value ?? 0.5)}
               onChange={value => set({ intensity: Number(value) })}
+            />
+          )}
+          {field === 'kind' && (
+            <RadioChips
+              label="Films or series"
+              className="segmented"
+              options={KIND_OPTIONS}
+              value={session.kind}
+              onChange={kind => set({ kind })}
             />
           )}
         </div>

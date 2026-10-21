@@ -42,7 +42,7 @@ The reasons behind each major choice are in the [decision records](adr/README.md
 | `api/routes/` | One router per area (library, assistant, playback, couch); routes stay thin |
 | `api/schemas.py` | Request bodies: strict types, no unknown fields; ranges are checked by the domain |
 | `api/guest.py`, `api/server.py` | The couch guest app and its lifecycle in a background thread |
-| `core.py` | Domain types (`Content`, `Session`), the TF-IDF taste model and the session reranker |
+| `core.py` | Domain types (`Content`, `Series`, `Session`), the TF-IDF taste model and the session reranker |
 | `db.py`, `repositories.py` | SQLite connections, migrations, profiles, and per-profile ratings and watch history |
 | `profiles.py`, `api/routes/profiles.py` | Profile sign-in (cookie tokens, PIN lockout) and the portable export/import document ([ADR 0012](adr/0012-local-profiles.md)) |
 | `api/deps.py` | `viewer`: the request's profile, through which every route reads ratings and history |
@@ -52,15 +52,15 @@ The reasons behind each major choice are in the [decision records](adr/README.md
 | `assistant/narrator.py` | Grounded, cached plain-language explanations of a pick's factors (optional LLM) |
 | `discover.py`, `trailers.py`, `datasets/trailers.py` | The Discover feed (three interleaved streams), "Pick for me", and the trailer index and its import ([ADR 0016](adr/0016-discover.md)) |
 | `taste.py` | "Your taste": genre lean, tag themes and the liked films shaping picks, from the ranking's own data ([ADR 0015](adr/0015-your-taste.md)) |
-| `media.py` | Maps local video files to catalogue titles |
+| `media.py` | Maps local video files to catalogue films (series have no episode playback yet) |
 | `relay.py`, `archive.py` | Remote media played through Flicks (Range forwarding, forced media type, sniffing), and the validated Internet Archive index ([ADR 0011](adr/0011-streaming.md)) |
 | `assistant/commands.py`, `assistant/intent.py` | Rule-based command parsing (scene, ratings, play, search, similar titles), with an optional local System One fallback |
 | `assistant/voice.py` | Optional on-device Whisper transcription with bounded audio decoding |
 | `couch.py`, `qr.py` | Couch-session rules (joining, hidden votes, results, player state) and the QR encoder |
-| `posters.py` | The one-time artwork fetch (Wikipedia page images in batches) and the read-only cache |
-| `search.py` | In-memory lookup and everyday-language search: reads decades, years, lengths, kinds, genres and moods, then ranks word matches over titles, shows, genres, tags and descriptions ([ADR 0007](adr/0007-catalogue-artifact.md)) |
+| `posters.py` | The one-time artwork fetch (a catalogue's own artwork index, or Wikipedia page images in batches) and the read-only cache |
+| `search.py` | In-memory lookup and everyday-language search: reads decades, years, lengths, genres, moods and (with series loaded) films or series, then ranks word matches over titles, genres, tags and descriptions ([ADR 0007](adr/0007-catalogue-artifact.md)) |
 | `collaborative.py` | Item-to-item collaborative filtering, the content/collaborative blend and the popularity prior ([ADR 0008](adr/0008-collaborative-filtering.md), [0009](adr/0009-popularity-prior.md)) |
-| `datasets/` | Build-time tools: the MovieLens, trailer and Internet Archive importers, neighbour precomputation, and the offline evaluation |
+| `datasets/` | Build-time tools: the MovieLens, TVmaze series ([ADR 0018](adr/0018-tv-series.md)), trailer and Internet Archive importers, neighbour precomputation, and the offline evaluation |
 | `net.py` | Outbound HTTP for explicit, user-requested actions: posters, imports and streams; public addresses only |
 | `systemone.py`, `tagging.py`, `distill.py` | System One client, catalogue tagging and the distilled student |
 
@@ -99,7 +99,10 @@ numbered migrations tracked with `PRAGMA user_version`; see [ADR 0003](adr/0003-
 Timestamps are ISO 8601 UTC with milliseconds. Deleting a profile deletes its rows (foreign keys).
 
 The catalogue is a validated, read-only JSON file, loaded once at startup: the bundled
-`flicks/data/movies.json` or an imported one ([ADR 0007](adr/0007-catalogue-artifact.md)). The browser
+`flicks/data/movies.json` or an imported one ([ADR 0007](adr/0007-catalogue-artifact.md)), plus the
+imported TV series when present (`~/.flicks/catalogs/series.json`, [ADR 0018](adr/0018-tv-series.md)).
+A series is one title with a `series` record (seasons, episodes, end year, network, TVmaze page, IMDb
+votes); its `minutes` is one episode's typical length. The browser
 never receives it whole; it searches it page by page through `/api/titles`.
 
 ## Security model
@@ -171,7 +174,7 @@ weight(i)     = support(i) / (support(i) + 2)
 taste(i)      = weight(i)·(prediction(i) + 1)/2 + (1 − weight(i))·taste_tfidf(i)
 ```
 
-Titles no rated film points to keep their TF-IDF taste. Similarity is adjusted cosine over co-raters,
+Titles no rated film points to keep their TF-IDF taste. TV series have no neighbours (MovieLens has no series), so they always do. Similarity is adjusted cosine over co-raters,
 shrunk by n/(n + 10), top 30 per film. Discovery still uses TF-IDF familiarity, because it measures
 theme distance rather than preference. Recommendations name the liked films that contributed
 (`because`).
@@ -189,14 +192,17 @@ taste(i)      = w·popularity(i) + (1 − w)·taste_hybrid(i)
 ```
 
 With no ratings, picks are the most widely liked films that fit the scene; each rating moves weight
-to the user's own taste. A pick is marked `popular` when the prior supplied at least half of its
+to the user's own taste. Each kind of title is scaled on its own evidence: MovieLens likes for films,
+IMDb votes for TV series, so the most-voted series counts as much as the most-liked film. Without film
+popularity there is no prior at all, so series alone never get one. A pick is marked `popular` when the prior supplied at least half of its
 taste score, and only then does the interface call it a crowd favourite. The strength s is tuned
 offline (docs/evaluation.md).
 
 ### Session reranking
 
 Hard constraints come first and apply in both modes: rated titles, titles longer than the available
-time, titles in an avoided genre and, with **Ready to play**, titles that cannot be played right now are removed. The rest are scored:
+time (for a series, one episode), titles in an avoided genre, films or series when the scene asks for the
+other kind and, with **Ready to play**, titles that cannot be played right now are removed. The rest are scored:
 
 | Factor | Definition | Default weight |
 |---|---|---:|
@@ -231,7 +237,7 @@ All responses are JSON unless noted. Errors have the shape `{"error": "<message>
 
 | Method and path | Purpose |
 |---|---|
-| `GET /api/state` | Catalogue size and genres, ratings, voice status, posters, couch mode, and every playable title (`remote` when it streams, with its `source` and `page`) |
+| `GET /api/state` | Catalogue size, how many titles are series, and genres, ratings, voice status, posters, couch mode, and every playable title (`remote` when it streams, with its `source` and `page`) |
 | `GET /api/titles` | Search: `q` (everyday language), `show` (`all`, `liked`, `passed`, `unrated`), `similar` (an ID: titles like it), `offset`, `limit` (≤ 100). Most popular first without a query; `understood` lists what the query was read as |
 | `POST /api/feedback` | `{"id": "m001", "value": 1}`: 1 like, -1 pass, 0 clear |
 | `POST /api/recommend` | `{"session": {...}, "mode": "session" \| "baseline"}`; omitted fields use defaults |
@@ -259,8 +265,8 @@ All responses are JSON unless noted. Errors have the shape `{"error": "<message>
 | `GET /api/couch`, `GET /api/couch/qr.svg` | Couch session view and QR code (absent with `--no-couch`) |
 | `POST /api/couch/start`, `stop`, `reveal`, `player` | Couch session controls (absent with `--no-couch`) |
 
-A session is `{"mood", "minutes", "intensity", "novelty", "excluded_genres", "playable", "mix"}`;
-`playable` keeps only titles with a local file or a stream. Moods are `any`,
+A session is `{"mood", "minutes", "intensity", "novelty", "excluded_genres", "kind", "playable", "mix"}`;
+`kind` is `any`, `films` or `series`; `playable` keeps only titles with a local file or a stream. Moods are `any`,
 `relaxing`, `uplifting`, `curious`, `tense` and `reflective`; minutes are 1–600; intensity and novelty
 are 0–1.
 

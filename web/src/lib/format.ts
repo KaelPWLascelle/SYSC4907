@@ -1,9 +1,27 @@
+import type { Content, SeriesInfo } from '../api/types';
+
 export const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 
-/** "2016 · 1h 56m". */
-export function subtitle(item: { year: number; minutes: number }): string {
-  return `${item.year} · ${runtime(item.minutes)}`;
+/** "2016 · 1h 56m" for a film; "2008–2013 · 5 seasons" for a series. */
+export function subtitle(item: Pick<Content, 'year' | 'minutes' | 'series'>): string {
+  const { series } = item;
+  if (!series) return `${item.year} · ${runtime(item.minutes)}`;
+  return `${aired(item.year, series)} · ${plural(series.seasons, 'season')}`;
 }
+
+/** "2008–2013", "2019–" while it runs, or "2016" for one year. */
+export function aired(year: number, series: SeriesInfo): string {
+  return series.ended === year ? String(year) : `${year}–${series.ended ?? ''}`;
+}
+
+/** "62 episodes of about 1h · AMC". */
+export function episodes(item: Pick<Content, 'minutes'> & { series: SeriesInfo }): string {
+  const { series } = item;
+  const length = `${plural(series.episodes, 'episode')} of about ${runtime(item.minutes)}`;
+  return series.network ? `${length} · ${series.network}` : length;
+}
+
+export const plural = (count: number, word: string) => `${count.toLocaleString('en')} ${word}${count === 1 ? '' : 's'}`;
 
 /** 52_428_800 -> "50 MB". */
 export const megabytes = (bytes: number) => `${Math.round(bytes / 1_048_576)} MB`;

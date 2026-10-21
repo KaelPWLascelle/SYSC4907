@@ -19,6 +19,7 @@ def state(svc: Services = Depends(services), me: Viewer = Depends(viewer)):
     # The catalogue itself is not sent: it can hold thousands of titles. Clients search /api/titles.
     return {
         'catalog_size': len(svc.titles),
+        'series': svc.series,
         'genres': svc.titles.genres,
         'feedback': me.ratings.all(),
         'profile': {'id': me.profile.id, 'name': me.profile.name, 'locked': me.profile.locked, 'chosen': me.chosen,

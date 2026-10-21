@@ -65,22 +65,39 @@ when combining datasets; ratings attach to IDs. Unknown old IDs are ignored by
 the ranker. Use a separate database for unrelated catalogues to avoid collisions.
 Mood values: relaxing, uplifting, curious, tense, reflective. Intensity is a finite
 number in [0,1]; runtime is a positive integer. Text arrays must be nonempty.
-Startup validation rejects invalid catalogues. `kind` is extensible; `episode` marks
-podcast episodes, which may also have a `series` (the show's name). Cross-domain
-ranking (films and episodes together) has not been evaluated.
+Startup validation rejects invalid catalogues. `kind` is free text (`movie`, `short`…),
+except `series`, which marks a TV series and requires a `series` object:
 
-## Podcasts
+```json
+"series": {"seasons": 5, "episodes": 62, "ended": 2013, "network": "AMC",
+           "page": "https://www.tvmaze.com/shows/169/breaking-bad", "votes": 2300000}
+```
 
-`python -m flicks.datasets.podcasts` builds `~/.flicks/catalogs/podcasts.json` from
-RSS feeds (nine long-form starter shows, or `--feed URL` / `--feeds FILE`). Episode
-IDs are `pod` plus a hash of the feed URL and the episode's GUID, so they are stable
-across imports and never collide with film IDs. Genres are the shows' Apple Podcasts
-categories; moods and intensity are estimated from them (`flicks/datasets/genres.py`).
-Beside the catalogue, `podcasts.episodes.json` (format `flicks-podcasts-v1`) records
-each episode's show, page and audio URL, plus which feeds failed and why episodes were
-skipped. Episodes belong to their publishers: they are downloaded only on request, for
-personal listening, and stay out of git. Pressing Play streams an episode
-through Flicks instead of downloading it.
+`ended` is the year it last aired, or `null` while it runs; `network` may be `null`; `page`
+must be an https address; `votes` is a public popularity count (IMDb votes). A series'
+`minutes` is one episode's typical length. Ranking films and series together has not been
+evaluated.
+
+## TV series
+
+`python -m flicks.datasets.tvmaze` builds `~/.flicks/catalogs/series.json`, which Flicks loads
+beside any film catalogue (`--series FILE`, or `--no-series`):
+
+- **From TVmaze (CC BY-SA 4.0), through its free API:** names, premiere and end years, typical
+  episode length, network, aired seasons and their episode counts, genres (mapped to this
+  catalogue's vocabulary; the rest become tags), the summary's first sentences as the
+  description, and the show's page, which the details sheet links to as credit.
+- **From IMDb's non-commercial dataset (`title.ratings`), matched by the IMDb ID TVmaze records:**
+  vote counts. They choose the 1,000 most-voted series (at least 5,000 votes) and feed the
+  popularity prior, scaled separately from films' MovieLens likes. Personal and non-commercial use only.
+- **Estimated:** moods and intensity, from genres (`flicks/datasets/genres.py`).
+
+Only scripted, animated and documentary shows are kept; talk, reality, game and news shows are
+not. IDs are `tv` plus the TVmaze ID, stable across imports and never shared with films. Beside the
+catalogue, `series.artwork.json` (format `flicks-artwork-v1`) lists each cover for
+`python -m flicks.posters` (a 210 px `image` and, as `full`, the original, which the poster fetch
+shrinks to 330 px when Pillow is installed), and `series.provenance.json` records the sources, licences, and how
+many shows were skipped and why. Requests are cached under `~/.flicks/datasets/tvmaze`.
 
 ## Internet Archive
 

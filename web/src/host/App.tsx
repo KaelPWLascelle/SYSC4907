@@ -366,6 +366,7 @@ function Home({ initial, onProfile }: { initial: AppState; onProfile?: () => voi
           session={session}
           mode={mode}
           genres={initial.genres}
+          series={(initial.series ?? 0) > 0}
           onSession={setSession}
           onMode={setMode}
           onTaste={() => setTasteOpen(true)}

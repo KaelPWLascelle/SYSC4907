@@ -6,7 +6,7 @@ import type { Content, Recommendation, Session } from '../../api/types';
 import { Icon } from '../../components/Icon';
 import { Poster } from '../../components/Poster';
 import { RateButtons } from '../../components/RateButtons';
-import { capitalize, subtitle, timestamp } from '../../lib/format';
+import { capitalize, episodes, subtitle, timestamp } from '../../lib/format';
 import { useLibrary } from '../library';
 import { explanation, FACTOR_LABELS, reasons, weightOf } from '../reasons';
 
@@ -113,6 +113,7 @@ export function DetailsSheet({ item, picks, session, narrate = false, drawn, onC
             <p className="hero-meta">
               {subtitle(item)} · {item.genres.map(capitalize).join(' · ')}
             </p>
+            {item.series && <p className="hero-meta">{episodes({ ...item, series: item.series })}</p>}
             <p className="details-description">{item.description}</p>
             {pick && (
               <p className="narration" aria-label="In plain words">
@@ -159,6 +160,15 @@ export function DetailsSheet({ item, picks, session, narrate = false, drawn, onC
                 )}
               </p>
             )}
+            {item.series && (
+              <p className="fine">
+                Description from TVmaze (CC BY-SA).{' '}
+                <a href={item.series.page} target="_blank" rel="noopener noreferrer">
+                  View it on TVmaze
+                </a>
+                . Series can be rated and chosen here; playing episodes is not supported yet.
+              </p>
+            )}
             {media && !media.direct_play && (
               <p className="notice">
                 This file’s format (MKV or MOV) may not play in every browser. MP4 (H.264/AAC) or WebM always works.
@@ -196,7 +206,9 @@ export function DetailsSheet({ item, picks, session, narrate = false, drawn, onC
                   {pick.because.length > 0 &&
                     ` People who liked ${pick.because.join(' and ')} also rated this highly (MovieLens ratings).`}
                   {pick.popular &&
-                    ' Widely liked in MovieLens ratings; popularity counts for less with every film you rate.'}
+                    (item.series
+                      ? ' Widely watched, by IMDb votes; popularity counts for less with every title you rate.'
+                      : ' Widely liked in MovieLens ratings; popularity counts for less with every film you rate.')}
                   {pick.evidence.length > 0 && ` Terms shared with films you liked: ${pick.evidence.join(', ')}.`}
                   {pick.negative_evidence.length > 0 &&
                     ` Terms from films you passed on: ${pick.negative_evidence.join(', ')}.`}

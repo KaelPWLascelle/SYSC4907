@@ -1,6 +1,6 @@
 # 0017. Films only: podcasts removed
 
-**Status:** Accepted · supersedes [0010](0010-podcasts.md); amends [0011](0011-streaming.md) and [0014](0014-ask-student.md)
+**Status:** Accepted · supersedes [0010](0010-podcasts.md); amends [0011](0011-streaming.md) and [0014](0014-ask-student.md); amended by [0018](0018-tv-series.md) (TV series)
 
 ## Context
 Podcast episodes were added as a second medium ([ADR 0010](0010-podcasts.md)): a "Watch or listen" choice

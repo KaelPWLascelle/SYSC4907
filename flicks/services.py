@@ -48,6 +48,7 @@ class Services:
     tagged: bool
     collaborative: bool
     popularity_prior: bool
+    series: int                 # how many TV series the catalogue has (0: films only)
     chat: Chat | None = None            # the optional local language model (llm.LocalChat)
     narrator: Narrator | None = None
 
@@ -63,23 +64,33 @@ def build_services(settings, *, speech=None, system_one=None, chat=None):
     chat: a language model client (llm.Chat); by default one is made from settings.llm_url, which must be local.
     """
     catalog = load_catalog(settings.catalog)
+    films = [item for item in catalog if not item.is_series]
+    if settings.series:  # TV series load beside any film catalogue (docs/adr/0018-tv-series.md)
+        shows = load_catalog(settings.series)
+        clashes = {item.id for item in catalog} & {item.id for item in shows}
+        if clashes:
+            raise ValueError(f'The series catalogue reuses catalogue IDs, e.g. {min(clashes)}')
+        catalog = catalog + shows
     ids = frozenset(item.id for item in catalog)
     remotes = ArchiveIndex.load(settings.archive, ids).remotes() if settings.archive else {}
     decision = TaggedDecision(load_tags(settings.tags, catalog)) if settings.tags else None
     taste = similar = TfidfTaste(catalog)
     collaborative = prior = False
-    likes = {}
+    popularity = {}
     if settings.neighbours:
         neighbours = ItemNeighbours.load(settings.neighbours, ids)
         taste = HybridTaste(taste, neighbours, {item.id: item.title for item in catalog})
         collaborative = True
-        likes = neighbours.popularity
         if neighbours.popularity:
             similar = taste  # "more like X" should be about X, not about what is popular
-            taste = PopularityPrior(taste, neighbours.popularity)
+            # Each kind on its own scale. Without film popularity there is no prior at all, or series
+            # alone would have one and crowd out the films.
+            votes = {item.id: item.series.votes for item in catalog if item.is_series}
+            taste = PopularityPrior(taste, neighbours.popularity, votes)
+            popularity = taste.popularity
             prior = True
-    titles = TitleIndex(catalog, likes)
-    media = MediaLibrary(settings.media_dirs, catalog)
+    titles = TitleIndex(catalog, popularity)
+    media = MediaLibrary(settings.media_dirs, films)  # series have no episode playback yet
     streams = Streams(remotes)
 
     def playable(content_id):
@@ -122,6 +133,7 @@ def build_services(settings, *, speech=None, system_one=None, chat=None):
         tagged=decision is not None,
         collaborative=collaborative,
         popularity_prior=prior,
+        series=len(catalog) - len(films),
         chat=chat,
         narrator=Narrator(chat, catalog) if chat is not None else None,
     )

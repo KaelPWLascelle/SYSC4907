@@ -1,4 +1,4 @@
-"""Genre vocabulary and genre-based mood/intensity estimates for imported film catalogues.
+"""Genre vocabulary and genre-based mood/intensity estimates for imported film and series catalogues.
 
 Public datasets have genres but not the mood and intensity labels the scene reranker uses. These
 estimates are a transparent baseline: each genre suggests moods (strongest first) and an intensity,
@@ -15,6 +15,17 @@ GENRE_NAMES = {
     'Musical': 'musical', 'Mystery': 'mystery', 'Romance': 'romance', 'Sci-Fi': 'science-fiction',
     'Thriller': 'thriller', 'War': 'war', 'Western': 'western',
 }
+
+# TVmaze genre -> the same vocabulary, so a liked crime film raises crime series too. TVmaze genres not
+# listed here (Legal, Medical, History…) become tags instead (docs/adr/0018-tv-series.md).
+TVMAZE_GENRES = {
+    'Action': 'action', 'Adventure': 'adventure', 'Anime': 'animation', 'Children': 'family', 'Comedy': 'comedy',
+    'Crime': 'crime', 'Drama': 'drama', 'Espionage': 'thriller', 'Family': 'family', 'Fantasy': 'fantasy',
+    'Horror': 'horror', 'Mystery': 'mystery', 'Romance': 'romance', 'Science-Fiction': 'science-fiction',
+    'Supernatural': 'fantasy', 'Thriller': 'thriller', 'War': 'war', 'Western': 'western',
+}
+# TVmaze show types that are genres in the film vocabulary.
+TVMAZE_TYPES = {'Animation': 'animation', 'Documentary': 'documentary'}
 
 # genre -> (moods, strongest first; intensity 0-1)
 PROFILES = {
@@ -43,6 +54,15 @@ MOOD_ORDER = ('relaxing', 'uplifting', 'curious', 'tense', 'reflective')  # stab
 def normalize_genres(raw_genres):
     """MovieLens genre names -> catalogue genres, deduplicated, in the original order."""
     return list(dict.fromkeys(GENRE_NAMES[g] for g in raw_genres if g in GENRE_NAMES))
+
+
+def series_genres(raw_genres, show_type):
+    """(catalogue genres, leftover tags) for a TVmaze show's genres and type, deduplicated, in order."""
+    genres = [TVMAZE_GENRES[g] for g in raw_genres if g in TVMAZE_GENRES]
+    if show_type in TVMAZE_TYPES:
+        genres.append(TVMAZE_TYPES[show_type])
+    tags = [g.lower() for g in raw_genres if g not in TVMAZE_GENRES]
+    return list(dict.fromkeys(genres)), list(dict.fromkeys(tags))
 
 
 def estimate(genres):

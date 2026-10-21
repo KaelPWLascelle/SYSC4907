@@ -16,6 +16,8 @@ Flicks is a SYSC 4907 capstone project at Carleton University, supervised by Dr.
   Flicks reads decades, lengths, genres and moods, then matches titles, people and plots.
 - **Personal recommendations, computed locally.** A TF-IDF taste profile built from your ratings,
   reranked for the current scene, with every score broken down into its factors.
+- **Films and TV series.** Import about 1,000 popular series from TVmaze and they join the films in
+  one ranking. The scene asks for a film, a series or either, and a series' time is one episode.
 - **Streaming-style interface.** A top pick for tonight, a ranked rail, continue watching, browse
   and search, and a "why this pick" sheet for any title.
 - **Playback of your own files.** MP4 and WebM stream with seeking; progress is saved and resumed.
@@ -128,14 +130,29 @@ screen. A trailer YouTube won't play in your country shows the film's poster ins
 then on. Without trailers, Discover previews the films you can play here and shows posters for the rest.
 See [ADR 0016](docs/adr/0016-discover.md).
 
+### Add TV series (optional)
+
+```sh
+.venv/bin/python -m flicks.datasets.tvmaze
+```
+
+This builds `~/.flicks/catalogs/series.json` from TVmaze's show index (summaries, genres, seasons and
+covers; CC BY-SA) and IMDb's vote counts (non-commercial use), keeping the 1,000 most-voted scripted,
+animated and documentary series. It takes about half an hour the first time, within TVmaze's rate limit,
+and is cached after that. Flicks then loads the series beside whichever film catalogue you run
+(`--no-series` for films only), and `python -m flicks.posters` adds their covers. Series are rated,
+searched, shortlisted and explained like films; playing episodes is not supported yet. See
+[ADR 0018](docs/adr/0018-tv-series.md).
+
 ### Add posters (optional)
 
 ```sh
 .venv/bin/python -m flicks.posters
 ```
 
-This caches artwork for the catalogues Flicks loads: Wikipedia poster images for the 3,000 most
-popular films (`--all` for every film; about 25 KB each, fetched politely so it takes a few minutes).
+This caches artwork for the catalogues Flicks loads: TVmaze covers for imported series (full-size
+originals shrunk to the films' 330 px width with the `datasets` extra installed, otherwise TVmaze's
+210 px versions), and Wikipedia poster images for the 3,000 most popular films (`--all` for every film; about 25 KB each, fetched politely so it takes a few minutes).
 Only titles, years and image addresses are sent, and only when you
 run the command. Artwork is copyrighted, so it stays in your local cache and out of git. Without it,
 Flicks draws title cards.
@@ -198,6 +215,7 @@ votes are forgotten when the session ends. See [how couch mode works](docs/couch
 | `--llm-model NAME` | `qwen3.5:2b` | Model name in that server |
 | `--no-ask-student` | off | Turn off the Ask student (rules only) |
 | `--catalog FILE` | bundled | Your own catalogue ([format](flicks/data/README.md)) |
+| `--series FILE` | `~/.flicks/catalogs/series.json` if present | TV series from `python -m flicks.datasets.tvmaze`; `--no-series` for films only |
 | `--archive FILE` | `<catalog>.archive.json` if present | Internet Archive matches from `python -m flicks.datasets.archive` |
 | `--trailers FILE` | `<catalog>.trailers.json` if present | Trailer video IDs for Discover from `python -m flicks.datasets.trailers` |
 | `--dev` | off | Accept requests from the Vite dev server |
@@ -225,7 +243,7 @@ See [architecture](docs/architecture.md) for the components, the ranking model a
 flicks/            Python package: recommender, API, storage, media, Discover, couch mode, voice, System One
   api/             FastAPI apps, routes and the request guard
   data/            Bundled demo catalogue
-  datasets/        MovieLens, trailer and Internet Archive importers, neighbours, offline evaluation
+  datasets/        MovieLens, TVmaze, trailer and Internet Archive importers, neighbours, offline evaluation
 web/               React + TypeScript interface (built into flicks/static/)
 tests/             Backend tests (pytest)
 scripts/           Voice-model download and icon generation

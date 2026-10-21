@@ -136,9 +136,12 @@ class PopularityPrior:
     # lists more personal, so new users do not all see the same blockbusters (docs/adr/0015-your-taste.md).
     STRENGTH = 1.0
 
-    def __init__(self, inner, popularity, strength=STRENGTH):
+    def __init__(self, inner, *counts, strength=STRENGTH):
+        """counts: one {item: count} per kind of title, each on its own scale (MovieLens likes for films,
+        IMDb votes for series; docs/adr/0018-tv-series.md). Each is scaled to (0, 1] separately, so the
+        most popular series counts as much as the most popular film."""
         self.inner = inner
-        self.popularity = popularity_scores(popularity)
+        self.popularity = {item: score for group in counts for item, score in popularity_scores(group).items()}
         self.strength = strength
 
     def scores(self, feedback):

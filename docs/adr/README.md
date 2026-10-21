@@ -21,4 +21,5 @@ is immutable once accepted; a later record supersedes it rather than editing it.
 | [0014](0014-ask-student.md) | A distilled Ask student replaces the language model at runtime | Accepted |
 | [0015](0015-your-taste.md) | "Your taste": a view of the profile, a tunable mix, and quality beyond accuracy | Accepted · amends 0009 |
 | [0016](0016-discover.md) | Discover, Up next and "Pick for me": finding a film without searching | Accepted |
-| [0017](0017-films-only.md) | Films only: podcasts removed; couch mode on by default | Accepted · supersedes 0010 |
+| [0017](0017-films-only.md) | Films only: podcasts removed; couch mode on by default | Accepted · supersedes 0010; amended by 0018 |
+| [0018](0018-tv-series.md) | TV series: a show is one title, ranked beside films | Accepted · amends 0009, 0017 |
