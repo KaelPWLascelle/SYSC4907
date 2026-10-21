@@ -6,9 +6,11 @@
     python -m flicks.posters --catalog FILE --dir .local/posters
 
 Sources:
+- catalogues that list their own artwork (`<catalogue>.artwork.json`; the TVmaze series import writes
+  one): those images, credited to the pages it names. A full-size cover is shrunk to the film posters'
+  width when Pillow (the datasets extra) is installed; without it, the index's smaller image is used;
 - films with a known English Wikipedia article (the MovieLens import records them): the article's
   page image, looked up 50 articles per request;
-- podcast episodes: the artwork in their feed (usually the show's, downloaded once per show);
 - other catalogues (the bundled demo): a Wikipedia search by title and year.
 
 Only public catalogue titles, years and image addresses leave the machine, and only during this
@@ -20,14 +22,14 @@ import argparse
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime, timezone
-import hashlib
+import importlib.util
+import io
 import json
 from pathlib import Path
-import re
 import time
 from urllib import error, parse
 
-from .config import DEFAULT_CATALOG, DEFAULT_PODCASTS
+from .config import DEFAULT_CATALOG, DEFAULT_SERIES
 from .config import DEFAULT_POSTERS as DEFAULT_DIR
 from .core import load_catalog
 from .net import get as _get
@@ -35,15 +37,43 @@ from .net import get_json
 
 API = 'https://en.wikipedia.org/w/api.php'
 MAX_BYTES = 3 * 1024 * 1024
-MAX_SHOW_BYTES = 12 * 1024 * 1024  # podcast feeds often publish 3000 px artwork
+MAX_FULL_SIZE_BYTES = 12 * 1024 * 1024  # a full-size cover, before it is shrunk
 WIDTH = 330             # one of Wikimedia's standard thumbnail widths (others are rendered on demand and throttled)
+CAN_SHRINK = importlib.util.find_spec('PIL') is not None
 BATCH = 50              # titles per Wikipedia query (the API's limit)
 WORKERS = 2             # parallel image downloads; Wikimedia rate-limits clients that ask for more
 RETRIES = 4             # after "too many requests" or a temporary failure, waiting longer each time
 DEFAULT_LIMIT = 3000
 TYPES = {'.jpg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp'}
-# Episodes of one show share their show's artwork, cached once as show-<hash>.<ext>.
-SHARED = re.compile(r'show-[0-9a-f]{12}')
+ARTWORK_FORMAT = 'flicks-artwork-v1'
+
+
+def artwork_path(catalogue: Path) -> Path:
+    """Where a catalogue's own artwork index lives: {"format", "source", "images": {ID: {"image", "page", "full"?}}}.
+
+    `image` is ready to show; `full`, when present, is the full-size original, to be shrunk to WIDTH.
+    """
+    return catalogue.with_suffix('.artwork.json')
+
+
+def listed_artwork(catalogue: Path, catalogue_ids, shrink=CAN_SHRINK):
+    """{ID: (image URL, credit page, shrink it?)} from the catalogue's artwork index; {} without a valid one."""
+    try:
+        data = json.loads(artwork_path(catalogue).read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return {}
+    if not isinstance(data, dict) or data.get('format') != ARTWORK_FORMAT or not isinstance(data.get('images'), dict):
+        return {}
+    listed = {}
+    for key, entry in data['images'].items():
+        if key not in catalogue_ids or not isinstance(entry, dict):
+            continue
+        full, image = entry.get('full'), entry.get('image')
+        if shrink and isinstance(full, str) and full.startswith('https://'):
+            listed[key] = (full, entry.get('page'), True)
+        elif isinstance(image, str) and image.startswith('https://'):
+            listed[key] = (image, entry.get('page'), False)
+    return listed
 
 
 def sniff(data):
@@ -68,11 +98,11 @@ class PosterLibrary:
             return
         for content_id, entry in (manifest.get('posters') or {}).items():
             name = entry.get('file') if isinstance(entry, dict) else None
-            # Only "<id><ext>" or a shared show file in this directory: a hand-edited manifest cannot point
-            # elsewhere, nor give one title another title's poster.
+            # Only "<id><ext>" in this directory: a hand-edited manifest cannot point elsewhere, nor give one
+            # title another title's poster.
             stem, ext = (Path(name).stem, Path(name).suffix) if isinstance(name, str) else ('', '')
             if content_id in catalog_ids and name == f'{stem}{ext}' and ext in TYPES \
-                    and (stem == content_id or SHARED.fullmatch(stem)) and (self.directory/name).is_file():
+                    and stem == content_id and (self.directory/name).is_file():
                 self.files[content_id] = name
 
     def ids(self):
@@ -87,12 +117,13 @@ class PosterLibrary:
 
 @dataclass(frozen=True)
 class Job:
-    """One title's poster: where to get it, the cache file stem (shared by a show's episodes) and its credit page."""
+    """One title's poster: where to get it, the cache file stem and its credit page."""
     content_id: str
     title: str
     image: str
     stem: str
     page: str | None
+    shrink: bool = False  # a full-size image, shrunk to WIDTH before it is cached
 
 
 # ---------- finding images ----------
@@ -163,6 +194,20 @@ def download_image(url, limit=MAX_BYTES):
     return data, ext
 
 
+def shrink(data, width=WIDTH):
+    """(JPEG at most `width` wide, '.jpg') for a larger image; smaller ones are kept as they are. Needs Pillow."""
+    from PIL import Image  # the datasets extra; only for full-size covers
+
+    with Image.open(io.BytesIO(data)) as image:
+        if image.width <= width:
+            return data, sniff(data)
+        small = image.convert('RGB')
+    small.thumbnail((width, width * 4))  # keeps the aspect ratio
+    out = io.BytesIO()
+    small.save(out, 'JPEG', quality=88, optimize=True)
+    return out.getvalue(), '.jpg'
+
+
 def fetch(jobs, directory, refresh=False, fetch_image=download_image, log=print):
     """Download each distinct image once and record every title's file in posters.json. Returns (found, missing)."""
     directory = Path(directory)
@@ -185,10 +230,11 @@ def fetch(jobs, directory, refresh=False, fetch_image=download_image, log=print)
         by_image.setdefault(job.image, []).append(job)
 
     def get_one(image):
-        shared = SHARED.fullmatch(by_image[image][0].stem)
+        full_size = any(job.shrink for job in by_image[image])
         try:
-            return image, fetch_image(image, MAX_SHOW_BYTES if shared else MAX_BYTES), None
-        except (OSError, ValueError, error.URLError) as exc:
+            data, ext = fetch_image(image, MAX_FULL_SIZE_BYTES if full_size else MAX_BYTES)
+            return image, shrink(data) if full_size else (data, ext), None
+        except (OSError, ValueError, error.URLError) as exc:  # Pillow's errors for a broken image are OSErrors
             return image, None, exc
 
     found = len(jobs) - len(todo)
@@ -199,21 +245,20 @@ def fetch(jobs, directory, refresh=False, fetch_image=download_image, log=print)
                 log(f'  failed: {waiting[0].title} ({problem})')
                 continue
             data, ext = result
-            stem = waiting[0].stem
-            for old in directory.glob(f'{stem}.*'):
-                if old.suffix in TYPES:
-                    old.unlink()
-            tmp = directory/f'{stem}{ext}.tmp'
-            tmp.write_bytes(data)
-            tmp.replace(directory/f'{stem}{ext}')
-            for job in waiting:
-                posters[job.content_id] = {'file': f'{stem}{ext}', 'title': job.title, 'image': image, 'page': job.page}
+            for job in waiting:  # downloaded once, saved under each title that uses it
+                for old in directory.glob(f'{job.stem}.*'):
+                    if old.suffix in TYPES:
+                        old.unlink()
+                tmp = directory/f'{job.stem}{ext}.tmp'
+                tmp.write_bytes(data)
+                tmp.replace(directory/f'{job.stem}{ext}')
+                posters[job.content_id] = {'file': f'{job.stem}{ext}', 'title': job.title, 'image': image, 'page': job.page}
             found += len(waiting)
             if done % 250 == 0:
                 log(f'  {done} of {len(by_image)} images')
                 manifest_path.write_text(json.dumps({**manifest, 'posters': posters}, ensure_ascii=False) + '\n',
                                          encoding='utf-8')  # an interrupted run keeps what it fetched
-    manifest = {'source': 'English Wikipedia page images and podcast feed artwork '
+    manifest = {'source': 'English Wikipedia page images and TVmaze covers '
                           '(copyrighted; local cache for personal use, do not redistribute)',
                 'fetched': datetime.now(timezone.utc).isoformat(timespec='seconds'), 'posters': posters}
     manifest_path.write_text(json.dumps(manifest, indent=1, ensure_ascii=False) + '\n', encoding='utf-8')
@@ -222,7 +267,7 @@ def fetch(jobs, directory, refresh=False, fetch_image=download_image, log=print)
 
 
 def prune(directory: Path, posters):
-    """Delete cached images no title refers to any more (a replaced show image, a re-fetched poster)."""
+    """Delete cached images no title refers to any more (a re-fetched poster)."""
     kept = {entry.get('file') for entry in posters.values() if isinstance(entry, dict)}
     for path in directory.iterdir():
         if path.suffix in TYPES and path.name not in kept:
@@ -240,29 +285,28 @@ def popularity(catalog_path: Path):
     return {k: v for k, v in (data.get('popularity') or {}).items() if isinstance(v, int)}
 
 
-def plan(catalog_path: Path, limit=DEFAULT_LIMIT, articles=None, episodes=None, fetch_json=get_json, log=print):
-    """The poster jobs for one catalogue: films (most liked first, up to `limit`) and podcast episodes."""
+def plan(catalog_path: Path, limit=DEFAULT_LIMIT, articles=None, fetch_json=get_json, log=print):
+    """The poster jobs for one catalogue: titles, most liked first, up to `limit`."""
     from .datasets.movielens import wikipedia_articles  # build-time helper; avoids a cycle at import time
-    from .podcasts import PodcastIndex, episodes_path
 
     catalog = load_catalog(catalog_path)
-    if episodes is None and episodes_path(catalog_path).is_file():
-        episodes = PodcastIndex.load(episodes_path(catalog_path), {item.id for item in catalog}).episodes
-    episodes = episodes or {}
     articles = wikipedia_articles() if articles is None else articles
     jobs = []
-    for item in catalog:
-        episode = episodes.get(item.id)
-        if episode and episode.image:
-            stem = 'show-' + hashlib.sha1(episode.image.encode()).hexdigest()[:12]
-            jobs.append(Job(item.id, item.title, episode.image, stem, episode.link or None))
-    films = [item for item in catalog if item.id not in episodes]
+    films = list(catalog)
     likes = popularity(catalog_path)
     films.sort(key=lambda item: -likes.get(item.id, 0))  # stable: catalogue order among equals
     if limit is not None:
         # Films that can be played are the ones people click: they always get artwork, popular or not.
         streamable = streamable_ids(catalog_path, {item.id for item in catalog})
         films = films[:limit] + [item for item in films[limit:] if item.id in streamable]
+    listed = listed_artwork(catalog_path, {item.id for item in films})
+    if listed:
+        log(f'{len(listed)} titles list their own artwork')
+        for item in films:
+            if item.id in listed:
+                image, page, full_size = listed[item.id]
+                jobs.append(Job(item.id, item.title, image, item.id, page, full_size))
+        films = [item for item in films if item.id not in listed]
     known = [item for item in films if item.id in articles]
     if known:
         log(f'Looking up page images for {len(known)} films on English Wikipedia')
@@ -290,8 +334,7 @@ def streamable_ids(catalog_path: Path, catalogue_ids):
 
 def default_catalogs():
     from .datasets.movielens import DEFAULT_OUT as MOVIELENS
-    films = MOVIELENS if MOVIELENS.is_file() else DEFAULT_CATALOG
-    return [films, DEFAULT_PODCASTS] if DEFAULT_PODCASTS.is_file() else [films]
+    return [MOVIELENS if MOVIELENS.is_file() else DEFAULT_CATALOG, *([DEFAULT_SERIES] if DEFAULT_SERIES.is_file() else [])]
 
 
 def main(argv=None):

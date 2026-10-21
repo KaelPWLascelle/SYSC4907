@@ -300,8 +300,8 @@ class HostCouchApiTests(unittest.TestCase):
             with self.assertRaises(OSError):
                 http_request('127.0.0.1', old_port, '/join')
 
-    def test_couch_routes_are_absent_without_the_flag(self):
-        with tempfile.TemporaryDirectory() as folder, app_client(Path(folder)) as (client, _):
+    def test_couch_routes_are_absent_with_no_couch(self):
+        with tempfile.TemporaryDirectory() as folder, app_client(Path(folder), couch=False) as (client, _):
             self.assertFalse(client.get('/api/state').json()['couch'])
             self.assertEqual(client.get('/api/couch').status_code, 404)
             self.assertEqual(client.post('/api/couch/start', json={}).status_code, 404)

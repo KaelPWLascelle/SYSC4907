@@ -1,6 +1,6 @@
 import { createContext, useContext } from 'react';
 
-import type { Content, DownloadStatus, MediaEntry, Progress, Rating, TitleRef } from '../api/types';
+import type { Content, MediaEntry, Progress, Rating, TitleRef } from '../api/types';
 
 /**
  * What any title-showing component needs: the user's ratings and progress, availability, and actions.
@@ -11,13 +11,9 @@ export interface Library {
   media: ReadonlyMap<string, MediaEntry>;
   feedback: Readonly<Record<string, Rating>>;
   progress: ReadonlyMap<string, Progress>;
-  /** Podcast episodes that are downloaded, downloading or failed; absent means not downloaded. */
-  downloads: ReadonlyMap<string, DownloadStatus>;
   rate: (id: string, value: Rating | 0) => void;
   openDetails: (item: Content) => void;
   play: (item: TitleRef, fromStart?: boolean) => void;
-  download: (id: string) => void;
-  removeDownload: (id: string) => void;
 }
 
 export const LibraryContext = createContext<Library | null>(null);

@@ -7,7 +7,7 @@ import { spokenTime } from '../../lib/format';
 import { DEFAULT_SESSION } from '../session';
 import { SceneBar } from './SceneBar';
 
-function Harness({ onTaste }: { onTaste?: () => void }) {
+function Harness({ onTaste, series }: { onTaste?: () => void; series?: boolean }) {
   const [session, setSession] = useState<Session>(DEFAULT_SESSION);
   const [mode, setMode] = useState<Mode>('session');
   return (
@@ -16,7 +16,7 @@ function Harness({ onTaste }: { onTaste?: () => void }) {
         session={session}
         mode={mode}
         genres={['drama', 'horror']}
-        podcasts
+        series={series}
         onSession={setSession}
         onMode={setMode}
         onTaste={onTaste}
@@ -29,9 +29,7 @@ const state = () => JSON.parse(screen.getByTestId('session').textContent ?? '{}'
 
 test('the scene reads as a sentence, and each word opens its choices', async () => {
   render(<Harness />);
-  expect(screen.getByText(/I have/)).toHaveTextContent(
-    'I have 2 hours for something any mood, balanced, to watch or listen.',
-  );
+  expect(screen.getByText(/I have/)).toHaveTextContent('I have 2 hours for something any mood, balanced.');
   await userEvent.click(screen.getByRole('button', { name: 'Time: 2 hours. Change' }));
   await userEvent.click(screen.getByRole('button', { name: '1h 30m' }));
   expect(screen.getByRole('button', { name: 'Time: 1½ hours. Change' })).toHaveAttribute('aria-expanded', 'true');
@@ -66,4 +64,17 @@ test('time is said the way people say it', () => {
     '2½ hours',
     '1h 40m',
   ]);
+});
+
+test('with series loaded, the sentence also asks for a film, a series or either', async () => {
+  render(<Harness series />);
+  expect(screen.getByText(/I have/)).toHaveTextContent(
+    'I have 2 hours for something any mood, balanced, film or series.',
+  );
+  await userEvent.click(screen.getByRole('button', { name: 'Films or series: film or series. Change' }));
+  await userEvent.click(screen.getByRole('radio', { name: 'Series' }));
+  expect(state()).toMatchObject({ kind: 'series' });
+  expect(screen.getByText(/I have/)).toHaveTextContent('balanced, a series.');
+  await userEvent.click(screen.getByRole('button', { name: 'Reset scene' }));
+  expect(state()).toMatchObject({ kind: 'any' });
 });

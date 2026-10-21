@@ -29,6 +29,9 @@ test('home shows a top pick with its reasons and a full row of picks', async ({ 
   await expect(page.getByRole('list', { name: 'Why this pick' }).first()).toBeVisible();
   await expect(page.locator('#picks .tile')).toHaveCount(12);
   await expect(page.locator('.scene-sentence')).toHaveText('I have 2 hours for something any mood, balanced.');
+  // Couch mode is offered without a flag; nothing listens on the network until a session starts.
+  await expect(page.getByRole('navigation', { name: 'Sections' }).getByRole('link', { name: 'Couch' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Start a couch session' })).toBeVisible();
 });
 
 test('a like shows at once, survives a reload, and clears on a second press', async ({ page }) => {

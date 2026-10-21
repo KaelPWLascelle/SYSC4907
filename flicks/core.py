@@ -10,10 +10,29 @@ from typing import Protocol
 STOP_WORDS = frozenset(['a', 'an', 'and', 'are', 'as', 'at', 'be', 'by', 'for', 'from', 'has', 'her', 'his', 'in', 'into', 'is', 'it', 'its', 'of', 'on', 'or', 'that', 'the', 'their', 'them', 'they', 'this', 'to', 'two', 'while', 'who', 'with'])
 
 MOODS = ('any', 'relaxing', 'uplifting', 'curious', 'tense', 'reflective')
-# What the scene asks for: anything, something to watch, or something to listen to (podcast episodes).
-MEDIUMS = ('any', 'watch', 'listen')
+# What the scene asks for: films, TV series or either (docs/adr/0018-tv-series.md).
+KINDS = ('any', 'films', 'series')
 DEFAULT_MIX = (0.55, 0.20, 0.15, 0.10)
-AUDIO_KINDS = frozenset({'episode'})
+
+
+@dataclass(frozen=True)
+class Series:
+    """What a TV series has that a film does not. Its title's `minutes` is one episode's typical length."""
+    seasons: int
+    episodes: int
+    ended: int | None   # the year it last aired; None while it is still running
+    network: str | None
+    page: str           # its TVmaze page, where the description comes from (CC BY-SA)
+    votes: int          # IMDb votes: public popularity, on a different scale from films' MovieLens likes
+
+    def __post_init__(self):
+        if any(type(n) is not int or n <= 0 for n in (self.seasons, self.episodes)) or type(self.votes) is not int \
+                or self.votes < 0 or not (self.ended is None or type(self.ended) is int):
+            raise ValueError('A series needs positive seasons and episodes, votes, and an end year or none')
+        if not (self.network is None or (isinstance(self.network, str) and self.network.strip())) \
+                or not isinstance(self.page, str) or not self.page.startswith('https://'):
+            raise ValueError('A series network must be text or none, and its page an https address')
+
 
 @dataclass(frozen=True)
 class Content:
@@ -27,11 +46,11 @@ class Content:
     moods: list[str]
     intensity: float
     description: str
-    series: str | None = None  # the show a podcast episode belongs to
+    series: Series | None = None  # set for TV series (kind "series") only
 
     @property
-    def audio(self):
-        return self.kind in AUDIO_KINDS
+    def is_series(self):
+        return self.series is not None
 
 
 def load_catalog(path: Path) -> list[Content]:
@@ -40,7 +59,10 @@ def load_catalog(path: Path) -> list[Content]:
         raise ValueError('Catalogue must be a nonempty JSON array')
     result, ids = [], set()
     for row in rows:
-        item = Content(**row)
+        if not isinstance(row, dict):
+            raise ValueError('Catalogue entries must be objects')
+        series = row.get('series')
+        item = Content(**{**row, 'series': Series(**series) if isinstance(series, dict) else series})
         if not isinstance(item.id, str) or not item.id or item.id in ids:
             raise ValueError('Content IDs must be unique nonempty strings')
         for value in (item.title, item.kind, item.description):
@@ -55,8 +77,8 @@ def load_catalog(path: Path) -> list[Content]:
                 raise ValueError('Genres, tags and moods must be nonempty text arrays')
         if any(m not in MOODS[1:] for m in item.moods):
             raise ValueError('Unknown catalogue mood')
-        if item.series is not None and (not isinstance(item.series, str) or not item.series.strip()):
-            raise ValueError('Series must be nonempty text when present')
+        if (item.kind == 'series') != isinstance(item.series, Series):
+            raise ValueError('A title has series details exactly when its kind is "series"')
         ids.add(item.id)
         result.append(item)
     return result
@@ -68,7 +90,7 @@ class Session:
     intensity: float = 0.5
     novelty: float = 0.3
     excluded_genres: tuple[str, ...] = ()
-    medium: str = 'any'
+    kind: str = 'any'       # films, series or either; a hard constraint like the time limit
     playable: bool = False  # only titles that can be played right now (a local file or a stream)
     # How much each factor counts: (taste, mood, intensity, novelty), non-negative, summing to 1, so a score
     # stays in [0, 1] and its factors still add up to it. The user can tune it ("Your taste").
@@ -86,8 +108,8 @@ class Session:
         object.__setattr__(self, 'excluded_genres', tuple(sorted(set(self.excluded_genres))))
         if self.mood not in MOODS:
             raise ValueError('Unknown mood')
-        if self.medium not in MEDIUMS:
-            raise ValueError('Medium must be any, watch or listen')
+        if self.kind not in KINDS:
+            raise ValueError('Kind must be any, films or series')
         if type(self.playable) is not bool:
             raise ValueError('Playable must be true or false')
         if type(self.minutes) is not int or not 1 <= self.minutes <= 600:
@@ -175,10 +197,6 @@ class HeuristicDecision:
 
 
 class Recommender:
-    # Picks per show: one podcast's episodes often score alike (same genres and moods), and a row of
-    # six episodes of one show is not a set of recommendations.
-    MAX_PER_SERIES = 2
-
     def __init__(self, catalog, taste: TasteModel | None = None, decision: DecisionLayer | None = None, playable=None):
         self.catalog = catalog
         self.playable = playable or (lambda content_id: False)  # content ID -> can it be played here now?
@@ -208,7 +226,7 @@ class Recommender:
             # Hard constraints belong to the application, never to a future model.
             if item.id in feedback or item.minutes > session.minutes or excluded.intersection(item.genres):
                 continue
-            if (session.medium == 'watch' and item.audio) or (session.medium == 'listen' and not item.audio):
+            if session.kind != 'any' and item.is_series != (session.kind == 'series'):
                 continue
             if session.playable and not self.playable(item.id):
                 continue
@@ -216,9 +234,6 @@ class Recommender:
             factors = self.decision.factors(item, taste, session) if mode == 'session' else {'taste': taste['taste']}
             ranked.append((-sum(factors.values()), item.id, item, factors))
         ranked.sort(key=lambda row: (row[0], row[1]))
-        ranked = self._cap_series(ranked)
-        if session.medium == 'any':
-            ranked = self._alternate_media(ranked)
         return ranked
 
     def picks(self, feedback, rows, scores):
@@ -246,29 +261,3 @@ class Recommender:
                     evidence=taste.get('evidence', []), negative_evidence=taste.get('negative_evidence', []),
                     because=taste.get('because', []), popular=taste.get('popular', False),
                     familiarity=taste['familiarity'])
-
-    @classmethod
-    def _cap_series(cls, ranked):
-        """Drop a show's episodes beyond its best MAX_PER_SERIES; films (no series) are never capped."""
-        kept, per_series = [], Counter()
-        for row in ranked:
-            series = row[2].series
-            if series is None or per_series[series] < cls.MAX_PER_SERIES:
-                per_series[series] += 1
-                kept.append(row)
-        return kept
-
-    @staticmethod
-    def _alternate_media(ranked):
-        """For "either": the best films and the best episodes in turn, led by whichever ranks higher.
-
-        Film and episode scores rest on different evidence (public popularity and collaborative patterns
-        exist for films only), so they are compared within each medium, not across them.
-        """
-        video = [row for row in ranked if not row[2].audio]
-        audio = [row for row in ranked if row[2].audio]
-        if not video or not audio:
-            return ranked
-        first, second = (video, audio) if (video[0][0], video[0][1]) <= (audio[0][0], audio[0][1]) else (audio, video)
-        merged = [row for pair in zip(first, second, strict=False) for row in pair]
-        return merged + first[len(second):] + second[len(first):]

@@ -6,7 +6,7 @@ import uvicorn
 
 from .api.app import create_app
 from .assistant.voice import LocalWhisper
-from .config import DEFAULT_CATALOG, DEFAULT_DB, DEFAULT_PODCAST_DOWNLOADS, DEFAULT_PODCASTS, DEFAULT_POSTERS, Settings
+from .config import DEFAULT_CATALOG, DEFAULT_DB, DEFAULT_POSTERS, DEFAULT_SERIES, Settings
 from .services import build_services
 from .systemone import DecisionClient, HttpBackend, LexicalBackend
 
@@ -22,9 +22,8 @@ def parse_args(argv=None):
                         help='Folder of video files to play; repeatable. Name files "Title (Year).mp4" or by content ID')
     parser.add_argument('--posters', type=Path, default=DEFAULT_POSTERS, help=f'Local poster cache from python -m flicks.posters (default {DEFAULT_POSTERS})')
     parser.add_argument('--voice-model', type=Path, help='Local faster-whisper model directory; no runtime downloads')
-    parser.add_argument('--podcasts', type=Path, help=f'Podcast catalogue (default: {DEFAULT_PODCASTS} when present)')
-    parser.add_argument('--podcast-downloads', type=Path, default=DEFAULT_PODCAST_DOWNLOADS,
-                        help=f'Where downloaded episodes are kept (default {DEFAULT_PODCAST_DOWNLOADS})')
+    parser.add_argument('--series', type=Path, help=f'TV series from python -m flicks.datasets.tvmaze (default: {DEFAULT_SERIES} when present)')
+    parser.add_argument('--no-series', action='store_true', help='Films only, even when a series catalogue is present')
     parser.add_argument('--archive', type=Path, help='Internet Archive matches to stream (default: <catalog>.archive.json when present)')
     parser.add_argument('--trailers', type=Path, help='Trailer index for Discover (default: <catalog>.trailers.json when present)')
     parser.add_argument('--neighbours', type=Path, help='Collaborative-filtering neighbours (default: <catalog>.neighbours.json when present)')
@@ -34,7 +33,9 @@ def parse_args(argv=None):
                         'http://127.0.0.1:11434 for Ollama. Needs several GB of free memory; Flicks does not need it')
     parser.add_argument('--llm-model', default='qwen3.5:2b', help='Model name in that server (default qwen3.5:2b)')
     parser.add_argument('--no-ask-student', action='store_true', help='Turn off the distilled Ask student (rules only)')
-    parser.add_argument('--couch', action='store_true', help='Allow couch sessions: phones on your Wi-Fi join by QR code to vote and use a remote')
+    parser.add_argument('--couch', action=argparse.BooleanOptionalAction, default=True,
+                        help='Offer couch sessions: phones on your Wi-Fi join by QR code to vote and use a remote. '
+                             'Nothing listens on the network until you start one (default: on; --no-couch hides it)')
     parser.add_argument('--couch-host', help='Home-network address guests connect to (default: detected)')
     parser.add_argument('--couch-port', type=int, default=8770, help='Port for the guest server while a couch session runs')
     parser.add_argument('--dev', action='store_true', help='Also accept API calls from the Vite dev server (npm run dev)')
@@ -53,8 +54,7 @@ def main(argv=None):
                         media_dirs=tuple(args.media), tags=args.tags, neighbours=args.neighbours or _sidecar(args.catalog),
                         archive=args.archive or _sidecar(args.catalog, '.archive.json'),
                         trailers=args.trailers or _sidecar(args.catalog, '.trailers.json'),
-                        podcasts=args.podcasts or (DEFAULT_PODCASTS if DEFAULT_PODCASTS.is_file() else None),
-                        podcast_downloads=args.podcast_downloads,
+                        series=None if args.no_series else args.series or (DEFAULT_SERIES if DEFAULT_SERIES.is_file() else None),
                         couch=args.couch, couch_host=args.couch_host,
                         couch_port=args.couch_port, llm_url=args.llm_url, llm_model=args.llm_model,
                         ask_student=None if args.no_ask_student else Settings.ask_student,
@@ -68,12 +68,11 @@ def main(argv=None):
         print(f'Media: {len(services.media.unmatched)} file(s) did not match a catalogue title, e.g. {services.media.unmatched[0].name}')
     mode = ' + '.join(['content', *(['collaborative'] if services.collaborative else []),
                         *(['popularity prior'] if services.popularity_prior else [])])
-    episodes = f' · podcast episodes: {len(services.podcasts.index)}' if services.podcasts else ''
-    streamed = len(services.streams) - (len(services.podcasts.index) if services.podcasts else 0)
-    episodes += f' · films to stream: {streamed}' if streamed else ''
+    streamed = f' · films to stream: {len(services.streams)}' if len(services.streams) else ''
+    streamed += f' · series: {services.series}' if services.series else ''
     llm = f' · {services.chat.name}' if services.chat else ''
     print(f'Flicks: http://127.0.0.1:{settings.port} · ratings: {settings.db} · {mode} recommendations · '
-          f'playable titles: {len(services.media.files)}{episodes}{llm}', flush=True)
+          f'playable titles: {len(services.media.files)}{streamed}{llm}', flush=True)
     try:
         uvicorn.run(create_app(settings, services), host='127.0.0.1', port=settings.port, log_level='warning')
     finally:

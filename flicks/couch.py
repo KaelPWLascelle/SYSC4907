@@ -4,9 +4,10 @@ the guest server lives in flicks/api/guest.py.
 Phones on the same Wi-Fi join by QR code, vote on a shortlist and act as a remote.
 
 Privacy model:
-- Off unless Flicks starts with --couch. The host server stays on 127.0.0.1 and keeps every
-  existing route (feedback, voice, commands). Guests reach a *separate* server that listens on the
-  local network only while a session runs and exposes only join, vote, remote and its own page.
+- Nothing listens on the network until the host starts a session (--no-couch removes the option).
+  The host server stays on 127.0.0.1 and keeps every existing route (feedback, voice, commands).
+  Guests reach a *separate* server that listens on the local network only while a session runs and
+  exposes only join, vote, remote and its own page.
 - Only private-network (or loopback) addresses are accepted, never a public interface.
 - Joining needs the code shown on the TV. Wrong guesses rotate the code. Each guest then gets a
   random token sent in a header, so every later request is authenticated and cannot be forged by
@@ -29,7 +30,6 @@ MAX_FAILED_JOINS = 10
 MAX_GUESTS = 8
 SESSION_SECONDS = 3 * 60 * 60
 PUBLIC_FIELDS = ('id', 'title', 'year', 'kind', 'minutes', 'genres', 'moods', 'intensity', 'description')
-OPTIONAL_PUBLIC_FIELDS = ('series',)  # a podcast episode's show
 PLAYER_ACTIONS = ('play', 'pause', 'stop', 'select')
 
 
@@ -96,8 +96,8 @@ class CouchSession:
     def __init__(self, shortlist, clock=time.monotonic, seconds=SESSION_SECONDS, posters=()):
         if len(shortlist) < 2:
             raise CouchError('Couch mode needs at least two titles to vote on; widen the scene settings')
-        self.items = [{**{k: row['content'][k] for k in PUBLIC_FIELDS}, **{k: row['content'].get(k) for k in OPTIONAL_PUBLIC_FIELDS},
-                       'poster': row['content']['id'] in posters} for row in shortlist]
+        self.items = [{**{k: row['content'][k] for k in PUBLIC_FIELDS}, 'poster': row['content']['id'] in posters}
+                      for row in shortlist]
         self.order = {item['id']: rank for rank, item in enumerate(self.items)}  # Flicks' ranking
         self.clock, self.expires = clock, clock() + seconds
         self.code, self.failed_joins = new_code(), 0

@@ -24,7 +24,6 @@ function setup(command: Command) {
           intensity: 0.5,
           novelty: 0.3,
           excluded_genres: [],
-          medium: 'any',
           playable: false,
           mix: [0.55, 0.2, 0.15, 0.1] as Mix,
         },

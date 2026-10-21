@@ -3,8 +3,8 @@
     python -m flicks.datasets.ask --out flicks/data/ask_student.json
 
 The student reads the scene a person describes in their own words ("long week, I want to switch off,
-nothing scary") into the same settings as the scene bar: mood, intensity, novelty, watch or listen, and
-a genre to avoid. It replaces a local language model at runtime: it is ~1 MB of weights, answers in well
+nothing scary") into the same settings as the scene bar: mood, intensity, novelty, and a
+genre to avoid. It replaces a local language model at runtime: it is ~1 MB of weights, answers in well
 under a millisecond, and needs no model server (docs/adr/0014-ask-student.md).
 
 Training requests are generated from a phrase bank: each phrase carries its labels, and a request joins
@@ -68,13 +68,6 @@ BANK = {
                          'a hidden gem', 'something weird', 'broaden my horizons', 'something unusual',
                          'something i have never heard of', 'try something new', 'surprising', 'random pick',
                          'something obscure', 'mix it up', 'something unexpected for once', 'throw me a curveball', 'scroll right past', 'stuff i would never pick', 'new to me', 'fresh', 'different from my usual', 'something left field', 'experimental', 'wild card', 'shake things up', 'an oddball pick', 'something unfamiliar', 'go off the map', 'something outside my taste'],
-    ('medium', 'listen'): ['to listen to', 'while i cook', 'while driving', 'on my commute',
-                           'in the background while i work', 'a podcast', 'for my walk', 'while i do the dishes',
-                           'something to hear', 'for the gym', 'audio only', 'while i clean', 'for a run',
-                           'on the train', 'while i drive', 'an episode', 'headphones on', 'while i work out',
-                           'during chores', 'in the car', 'background noise', 'while i fold laundry', 'for my ears', 'drive home', 'on my run', 'in my earbuds', 'something to listen', 'listen while', 'podcast episode', 'while walking the dog', 'while i paint', 'commute home', 'in the background'],
-    ('medium', 'watch'): ['to watch', 'a movie', 'a film', 'on the tv', 'on the big screen', 'something to see',
-                          'movie night', 'a flick', 'a feature film', 'watch tonight', 'tv time', 'screen time', 'a picture', 'cinema', 'a movie to watch', 'a film to watch'],
     ('avoid', 'horror'): ['nothing scary', 'no horror', 'nothing creepy', 'no gore', 'not too scary',
                           'no jump scares', 'nothing frightening', 'no blood', 'nothing gory', 'i scare easily',
                           'no monsters', 'nothing violent and scary', 'keep the gore away', 'nothing that gives me nightmares', 'no nightmares', 'keep the blood out', 'squeamish', 'nothing spooky', 'no slashers', 'no ghosts', 'i hate horror', 'not horror', 'nothing disturbing', 'no zombies', 'no creepy stuff', 'easily scared'],
@@ -105,7 +98,7 @@ DEV = [
      {'mood': 'relaxing', 'avoid': 'horror'}],
     ['get my blood pumping', {'mood': 'tense'}],
     ['crack me up, today was awful', {'mood': 'uplifting'}],
-    ['background noise while i fold laundry', {'medium': 'listen'}],
+    ['background noise while i fold laundry', {}],
     ['show me stuff i would normally scroll right past', {'novelty': 'new'}],
     ['let me sink into the sofa and forget about work', {'mood': 'relaxing'}],
     ['i need a jolt of excitement', {'mood': 'tense'}],
@@ -115,17 +108,17 @@ DEV = [
     ['something mellow for a rainy evening', {'mood': 'relaxing'}],
     ['a twisty one i will not figure out', {'mood': 'curious'}],
     ['something that will make me grin, no lovey stuff', {'mood': 'uplifting', 'avoid': 'romance'}],
-    ['something for my ears on the drive home', {'medium': 'listen'}],
+    ['something for my ears on the drive home', {}],
     ['pure chaos, explosions everywhere', {'intensity': 'high'}],
     ['soft and slow, i want to doze off', {'mood': 'relaxing', 'intensity': 'low'}],
     ['throw me a curveball', {'novelty': 'new'}],
-    ['an old cosy favourite kind of film', {'novelty': 'familiar', 'medium': 'watch'}],
+    ['an old cosy favourite kind of film', {'novelty': 'familiar'}],
     ['skip the cartoons, give me something brainy', {'mood': 'curious', 'avoid': 'animation'}],
     ['what is the stock price of apple', {}],
     ['i am squeamish so keep the blood out of it', {'avoid': 'horror'}],
     ['something that will wreck me emotionally', {'mood': 'reflective'}],
     ['something to keep me awake and on my toes', {'mood': 'tense'}],
-    ['i want to learn about ancient rome on my run', {'mood': 'curious', 'medium': 'listen'}],
+    ['i want to learn about ancient rome on my run', {'mood': 'curious'}],
     ['feeling low, need something warm and sunny', {'mood': 'uplifting'}],
 ]
 
@@ -139,7 +132,7 @@ TEST = [
     ['one where i try to work out who did it', {'mood': 'curious'}],
     ['an evening of sobbing into my pillow', {'mood': 'reflective'}],
     ['heart in my throat the whole time', {'mood': 'tense'}],
-    ['an audio thing for my jog', {'medium': 'listen'}],
+    ['an audio thing for my jog', {}],
     ['nothing too heavy, slow and gentle', {'intensity': 'low'}],
     ['big dumb action with car chases', {'intensity': 'high'}],
     ['pick something offbeat i have not seen', {'novelty': 'new'}],
@@ -150,7 +143,7 @@ TEST = [
     ['get my pulse up, but not a cartoon', {'mood': 'tense', 'avoid': 'animation'}],
     ['a calming thing to drift to sleep with', {'mood': 'relaxing'}],
     ['a deep, quiet drama about growing old', {'mood': 'reflective'}],
-    ['teach me about the ocean while i do chores', {'mood': 'curious', 'medium': 'listen'}],
+    ['teach me about the ocean while i do chores', {'mood': 'curious'}],
     ['comfort rewatch energy', {'novelty': 'familiar'}],
     ['hit me with an oddity', {'novelty': 'new'}],
     ['no smooching scenes please', {'avoid': 'romance'}],
@@ -161,11 +154,11 @@ TEST = [
     ['frantic and loud, all action', {'intensity': 'high'}],
     ['made up stories only, nothing nonfiction', {'avoid': 'documentary'}],
     ['a poignant story about friendship', {'mood': 'reflective'}],
-    ['an audio show to keep me company on the bus', {'medium': 'listen'}],
+    ['an audio show to keep me company on the bus', {}],
 ]
 
 
-def generate(n=6000, seed=4907):
+def generate(n=8000, seed=4907):
     """Labelled requests from the bank: (text, {head: value}) with every head present."""
     rng = random.Random(seed)
     slots = list(BANK)
@@ -252,7 +245,7 @@ def evaluate(student, cases=None):
 def main(argv=None):
     parser = argparse.ArgumentParser(description='Train the Ask student and evaluate it on held-out requests')
     parser.add_argument('--out', type=Path, default=Path(__file__).resolve().parents[1]/'data'/'ask_student.json')
-    parser.add_argument('--examples', type=int, default=6000)
+    parser.add_argument('--examples', type=int, default=8000)
     parser.add_argument('--evaluate-only', action='store_true', help='Score the weights at --out without retraining')
     args = parser.parse_args(argv)
     if not args.evaluate_only:

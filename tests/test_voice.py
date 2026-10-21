@@ -23,7 +23,7 @@ class CommandTests(unittest.TestCase):
         self.assertEqual(result['patch'], {'mood': 'relaxing', 'minutes': 89, 'intensity': .2, 'excluded_genres': ['horror']})
 
     def test_time_language(self):
-        for text, expected in [('ninety minutes', 90), ('an hour', 60), ('an hour and a half', 90), ('half an hour', 30), ('one hundred and twenty minutes', 120), ('one hundred minutes', 100), ('under a hundred minutes', 99), ('two hours', 120), ('at most 90 minutes', 90), ('less than 90 minutes', 89)]:
+        for text, expected in [('ninety minutes', 90), ('an hour', 60), ('an hour and a half', 90), ('half an hour', 30), ('one hundred and twenty minutes', 120), ('one hundred minutes', 100), ('under a hundred minutes', 99), ('two hours', 120), ('at most 90 minutes', 90), ('less than 90 minutes', 89), ('not too long', 90), ('something short', 90)]:
             with self.subTest(text=text): self.assertEqual(self.parser.parse(text)['patch']['minutes'], expected)
 
     def test_feedback_and_negation(self):

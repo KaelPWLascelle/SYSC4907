@@ -95,10 +95,8 @@ class FeedTests(unittest.TestCase):
         online = [i['content']['id'] for i in self.discover.feed({}, Session(), limit=4, online=True)]
         self.assertTrue({'m001', 'm011'} & set(online) or offline == online)
 
-    def test_films_only_at_any_length(self):
-        items = self.discover.feed({}, Session(minutes=60, medium='listen'), limit=10)
-        self.assertTrue(items)
-        self.assertTrue(all(i['content']['kind'] != 'episode' for i in items))
+    def test_any_length(self):
+        items = self.discover.feed({}, Session(minutes=60), limit=10)
         self.assertTrue(any(i['content']['minutes'] > 60 for i in items))
 
     def test_runs_out_gracefully(self):

@@ -9,16 +9,16 @@ architecture. Machine: Apple M2, 8 GB, macOS 26, Python 3.12, Node 24. Raw outpu
 
 | Area | Result |
 |---|---|
-| Backend unit and integration tests | 272 passed, 3 skipped (optional voice packages), 345 subtests, 6.9 s |
-| Interface unit tests (Vitest) | 89 passed in 20 files |
+| Backend unit and integration tests | 269 passed, 3 skipped (optional voice packages), 338 subtests, 6.1 s (with TV series) |
+| Interface unit tests (Vitest) | 85 passed in 19 files |
 | Browser end-to-end (Playwright) | 19 passed (13 Chrome desktop, 3 phone, 3 Safari/WebKit), 25 s including the build |
 | Lint, types, format | ruff, ESLint, `tsc` (app and test configs), Prettier: all clean; `npm audit`: 0 vulnerabilities |
 | Recommendation latency | 0.1–0.4 ms on 36 titles; 13–62 ms median on 9,349 titles |
 | HTTP latency | 1.3–1.8 ms on 36 titles; 2–57 ms median on 9,349 titles |
 | Server memory | 233 MB peak with both catalogues loaded in one process (about 90 MB serving one) |
 | Recommendation quality (MovieLens, 3 likes) | HR@10 0.108, coverage 0.038, personalisation 0.942; popularity alone 0.127 / 0.010 / 0.676 |
-| Ask student | 16 / 30 exact on the held-out test set, 0.14 ms per request |
-| Ask pipeline without a language model | 7 / 11 agent cases at 0.4 ms (the 4B model: 10 / 11 at 4.2 s) |
+| Ask student | 18 / 30 exact on the held-out test set, 0.14 ms per request |
+| Ask pipeline without a language model | 6 / 10 agent cases at 0.4 ms (the 4B model: 10 / 11 at 4.2 s) |
 | Discover and "Pick for me" | 77 ms per feed page and 54 ms per pick on 9,349 titles; 65% of films have an embeddable trailer |
 
 ## Correctness
@@ -132,23 +132,27 @@ change ranking. The reasoning is in [ADR 0009](adr/0009-popularity-prior.md) and
 
 ### Ask student (`flicks/assistant/ask_student.py`)
 
-`python -m flicks.datasets.ask --evaluate-only` scores the shipped weights (1.7 MB) without retraining.
+`python -m flicks.datasets.ask --evaluate-only` scores the shipped weights (1.4 MB) without retraining.
+Retrained on 21 October without the watch-or-listen head when podcasts were removed
+([ADR 0017](adr/0017-films-only.md)); the first run's figures were 16 / 30 on the test set.
 
-| Set | Exact | Mood | Intensity | Novelty | Watch/listen | Avoid | Time per request |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| Test (30, held out, no phrase shared with the training bank) | 16 / 30 | 0.67 | 0.97 | 0.97 | 1.00 | 0.93 | 0.14 ms |
-| Dev (25, used to grow the bank, so optimistic) | 22 / 25 | 0.92 | 1.00 | 1.00 | 0.96 | 1.00 | 0.14 ms |
+| Set | Exact | Mood | Intensity | Novelty | Avoid | Time per request |
+|---|---:|---:|---:|---:|---:|---:|
+| Test (30, held out, no phrase shared with the training bank) | 18 / 30 | 0.70 | 1.00 | 0.97 | 0.93 | 0.14 ms |
+| Dev (25, used to grow the bank, so optimistic) | 22 / 25 | 0.88 | 1.00 | 1.00 | 1.00 | 0.11 ms |
 
 Mood is the weak head; most misses are abstentions, which leave the scene unchanged.
 
 ### The whole Ask pipeline against the language model
 
-`python -m flicks.assistant.agent_eval --no-llm` sends the 11 agent cases (requests the rules alone cannot
-read) through the shipped pipeline, rules then student, and scores them the same way as the model.
+`python -m flicks.assistant.agent_eval --no-llm` sends the agent cases (requests the rules alone cannot
+read) through the shipped pipeline, rules then student, and scores them the same way as the model. There
+are 10 since podcasts were removed: "something to listen to while i cook" was dropped. The model figures
+are from the earlier 11-case run.
 
 | Reader | Passed | Median latency | Memory |
 |---|---:|---:|---|
-| Rules + student (shipped) | 7 / 11 | 0.4 ms | inside the server |
+| Rules + student (shipped) | 6 / 10 | 0.4 ms | inside the server |
 | qwen3.5:4b agent (ADR 0013) | 10 / 11 | 4.2 s | about 4 GB; froze the 8 GB machine |
 | qwen3.5:2b agent (ADR 0013) | 6 / 11 | 1.8 s | about 2 GB |
 

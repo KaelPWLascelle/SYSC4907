@@ -3,7 +3,6 @@ import { type SyntheticEvent, useCallback, useEffect, useRef, useState } from 'r
 import { mediaUrl } from '../../api/flicks';
 import type { PlayerState, Rating, TitleRef } from '../../api/types';
 import { Icon } from '../../components/Icon';
-import { Poster } from '../../components/Poster';
 import { RateButtons } from '../../components/RateButtons';
 import { cx } from '../../lib/cx';
 import { prefersReducedMotion } from '../../lib/motion';
@@ -17,8 +16,6 @@ interface PlayerProps {
   item: TitleRef;
   startAt: number;
   directPlay: boolean;
-  /** A podcast episode: an audio player over the title's art instead of a video. */
-  audio?: boolean;
   /** Where a remote title streams from (through Flicks), for error messages; null for local files. */
   streamedFrom?: string | null;
   /** Couch-mode remote commands for this title; applied whenever `version` changes. */
@@ -38,7 +35,6 @@ export function Player({
   item,
   startAt,
   directPlay,
-  audio = false,
   streamedFrom = null,
   remote,
   onProgress,
@@ -100,12 +96,11 @@ export function Player({
     setChromeVisible(true);
     clearTimeout(hideTimer.current);
     hideTimer.current = setTimeout(() => {
-      if (video.current && !video.current.paused && !audio) setChromeVisible(false);
+      if (video.current && !video.current.paused) setChromeVisible(false);
     }, CHROME_HIDE_MS);
   };
   useEffect(() => () => clearTimeout(hideTimer.current), []);
 
-  // The same element behaviour for <video> and <audio>.
   const media = {
     ref: (node: HTMLMediaElement | null) => {
       video.current = node;
@@ -136,7 +131,7 @@ export function Player({
     onEnded: () => {
       save();
       setChromeVisible(true);
-      if (!audio && remote === null) setEnded(true); // a couch remote decides what plays next
+      if (remote === null) setEnded(true); // a couch remote decides what plays next
     },
     onError: (event: SyntheticEvent<HTMLMediaElement>) => {
       const code = event.currentTarget.error?.code;
@@ -146,12 +141,8 @@ export function Player({
       }
       setError(
         code === MEDIA_ERR_SRC_NOT_SUPPORTED
-          ? audio
-            ? 'This browser can’t play this episode’s audio format.'
-            : `This browser can’t play this file${directPlay ? '' : ' (MKV or MOV)'}. Convert it to MP4 (H.264/AAC) or WebM.`
-          : audio
-            ? 'The episode could not be played. Try removing the download and downloading it again.'
-            : 'The file could not be played. Check that it is still in your media folder.',
+          ? `This browser can’t play this file${directPlay ? '' : ' (MKV or MOV)'}. Convert it to MP4 (H.264/AAC) or WebM.`
+          : 'The file could not be played. Check that it is still in your media folder.',
       );
     },
   };
@@ -159,7 +150,7 @@ export function Player({
   return (
     <dialog
       ref={dialog}
-      className={cx('player', audio && 'player-audio', !chromeVisible && 'player-idle')}
+      className={cx('player', !chromeVisible && 'player-idle')}
       aria-label={`Playing ${item.title}`}
       onCancel={event => {
         event.preventDefault(); // Escape: save progress first, then close
@@ -176,21 +167,14 @@ export function Player({
     >
       <header className="player-bar">
         <div>
-          <p className="eyebrow">{audio ? 'Now listening' : 'Now playing'}</p>
+          <p className="eyebrow">Now playing</p>
           <h2>{item.title}</h2>
         </div>
         <button type="button" className="round" aria-label="Close player" onClick={close}>
           <Icon name="close" />
         </button>
       </header>
-      {audio ? (
-        <div className="player-listen">
-          <Poster item={item} hasPoster={false} className="poster poster-listen" eager />
-          <audio className="player-audio-controls" {...media} />
-        </div>
-      ) : (
-        <video className="player-video" playsInline {...media} />
-      )}
+      <video className="player-video" playsInline {...media} />
       {ended && (
         <EndCard
           item={item}

@@ -2,7 +2,7 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import { MOODS } from '../api/types';
-import { ALPHA, CATALOG, GAMMA, appState, pick } from '../test/fixtures';
+import { ALPHA, CATALOG, GAMMA, SERIES, SERIES_INFO, appState, pick } from '../test/fixtures';
 import { mockFetch } from '../test/fetchMock';
 import { App } from './App';
 
@@ -88,4 +88,26 @@ test('a load failure is reported instead of a blank page', async () => {
   mockFetch({ 'GET /api/state': () => [503, { error: 'Local storage is unavailable' }] });
   render(<App />);
   expect(await screen.findByText(/Could not load Flicks: Local storage is unavailable/)).toBeInTheDocument();
+});
+
+test('a series shows its seasons, episodes and where its description is from', async () => {
+  const { calls } = mockFetch({
+    'GET /api/state': () => [200, appState({ series: 1 })],
+    'GET /api/history': () => [200, { items: [] }],
+    'GET /api/titles': () => [200, { items: [SERIES], total: 1 }],
+    'POST /api/recommend': () => [200, { recommendations: [pick(SERIES)], cold_start: true }],
+  });
+  render(<App />);
+  await screen.findByRole('heading', { level: 1, name: 'Delta Station' });
+  await userEvent.click(screen.getByRole('button', { name: 'Films or series: film or series. Change' }));
+  await userEvent.click(screen.getByRole('radio', { name: 'Series' }));
+  await waitFor(() =>
+    expect(calls.filter(c => c.path === '/api/recommend').at(-1)?.body).toMatchObject({ session: { kind: 'series' } }),
+  );
+  await userEvent.click(screen.getByRole('button', { name: 'Why this pick' }));
+  const sheet = screen.getByRole('dialog', { name: 'Delta Station' });
+  expect(within(sheet).getByText(/2008–2013 · 5 seasons/)).toBeInTheDocument();
+  expect(within(sheet).getByText('62 episodes of about 1h · AMC')).toBeInTheDocument();
+  expect(within(sheet).getByRole('link', { name: 'View it on TVmaze' })).toHaveAttribute('href', SERIES_INFO.page);
+  expect(within(sheet).queryByRole('button', { name: 'Play' })).not.toBeInTheDocument();
 });

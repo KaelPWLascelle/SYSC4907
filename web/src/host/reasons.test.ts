@@ -1,5 +1,6 @@
 import type { Mix } from '../api/types';
 import type { Recommendation, Session } from '../api/types';
+import { SERIES, pick } from '../test/fixtures';
 import { explanation, reasons } from './reasons';
 
 const session: Session = {
@@ -8,7 +9,7 @@ const session: Session = {
   intensity: 0.2,
   novelty: 0.3,
   excluded_genres: [],
-  medium: 'any',
+  kind: 'any',
   playable: false,
   mix: [0.55, 0.2, 0.15, 0.1] as Mix,
 };
@@ -75,4 +76,9 @@ test('the explanation sentence says only what the factors used', () => {
   expect(explanation(row({ taste: 0.3 }, [], 0.5, [], true), { ...session, mood: 'any' })).toMatch(
     /^It’s a crowd favourite/,
   );
+});
+
+test('a series is timed by the episode', () => {
+  expect(reasons(pick(SERIES), session).at(-1)).toBe('1h episodes · fits 2h');
+  expect(explanation(pick(SERIES), session)).toMatch(/At 1h an episode, it fits the 2h you have\.$/);
 });

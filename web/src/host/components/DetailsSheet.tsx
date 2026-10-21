@@ -2,14 +2,13 @@ import { type CSSProperties, useEffect, useRef, useState } from 'react';
 
 import { flicksApi } from '../../api/flicks';
 
-import { type Content, isEpisode, type Recommendation, type Session } from '../../api/types';
+import type { Content, Recommendation, Session } from '../../api/types';
 import { Icon } from '../../components/Icon';
 import { Poster } from '../../components/Poster';
 import { RateButtons } from '../../components/RateButtons';
-import { capitalize, subtitle, timestamp } from '../../lib/format';
+import { capitalize, episodes, subtitle, timestamp } from '../../lib/format';
 import { useLibrary } from '../library';
 import { explanation, FACTOR_LABELS, reasons, weightOf } from '../reasons';
-import { DownloadButton } from './DownloadButton';
 
 interface DetailsSheetProps {
   item: Content | null;
@@ -67,8 +66,6 @@ export function DetailsSheet({ item, picks, session, narrate = false, drawn, onC
   const media = item ? library.media.get(item.id) : undefined;
   const progress = item ? library.progress.get(item.id) : undefined;
   const rating = item ? library.feedback[item.id] : undefined;
-  const episode = item !== null && isEpisode(item);
-  const downloaded = item !== null && library.downloads.get(item.id)?.state === 'ready';
   const narration = useNarration(pick?.content.id, narrate, session);
 
   return (
@@ -114,9 +111,9 @@ export function DetailsSheet({ item, picks, session, narrate = false, drawn, onC
             </p>
             <h2 id="details-title">{item.title}</h2>
             <p className="hero-meta">
-              {episode && 'Podcast · '}
               {subtitle(item)} · {item.genres.map(capitalize).join(' · ')}
             </p>
+            {item.series && <p className="hero-meta">{episodes({ ...item, series: item.series })}</p>}
             <p className="details-description">{item.description}</p>
             {pick && (
               <p className="narration" aria-label="In plain words">
@@ -146,34 +143,30 @@ export function DetailsSheet({ item, picks, session, narrate = false, drawn, onC
                       Start over
                     </button>
                   )}
-                  {episode && downloaded && (
-                    <button
-                      type="button"
-                      className="button button-quiet"
-                      onClick={() => library.removeDownload(item.id)}
-                    >
-                      <Icon name="remove" />
-                      Remove download
-                    </button>
-                  )}
                 </>
               )}
-              {episode && !downloaded && <DownloadButton item={item} />}
               <RateButtons title={item.title} rating={rating} large onRate={value => library.rate(item.id, value)} />
             </div>
             {media?.source && (
               <p className="fine">
-                {episode
-                  ? `Streams from ${media.source}’s public feed when you press Play; download it to listen offline.`
-                  : `Streams from the ${media.source}, where this film is in the public domain in the United States.`}
+                {`Streams from the ${media.source}, where this film is in the public domain in the United States.`}
                 {media.page && (
                   <>
                     {' '}
                     <a href={media.page} target="_blank" rel="noopener noreferrer">
-                      {episode ? `Visit ${media.source}’s page` : `View it on the ${media.source}`}
+                      {`View it on the ${media.source}`}
                     </a>
                   </>
                 )}
+              </p>
+            )}
+            {item.series && (
+              <p className="fine">
+                Description from TVmaze (CC BY-SA).{' '}
+                <a href={item.series.page} target="_blank" rel="noopener noreferrer">
+                  View it on TVmaze
+                </a>
+                . Series can be rated and chosen here; playing episodes is not supported yet.
               </p>
             )}
             {media && !media.direct_play && (
@@ -213,7 +206,9 @@ export function DetailsSheet({ item, picks, session, narrate = false, drawn, onC
                   {pick.because.length > 0 &&
                     ` People who liked ${pick.because.join(' and ')} also rated this highly (MovieLens ratings).`}
                   {pick.popular &&
-                    ' Widely liked in MovieLens ratings; popularity counts for less with every film you rate.'}
+                    (item.series
+                      ? ' Widely watched, by IMDb votes; popularity counts for less with every title you rate.'
+                      : ' Widely liked in MovieLens ratings; popularity counts for less with every film you rate.')}
                   {pick.evidence.length > 0 && ` Terms shared with films you liked: ${pick.evidence.join(', ')}.`}
                   {pick.negative_evidence.length > 0 &&
                     ` Terms from films you passed on: ${pick.negative_evidence.join(', ')}.`}

@@ -1,9 +1,8 @@
-"""Outbound HTTP for explicit, user-requested actions (poster fetch, dataset, podcast and archive
-import, and playing or downloading remote media).
+"""Outbound HTTP for explicit, user-requested actions (poster fetch, dataset, trailer and archive
+import, and playing remote media).
 
 Browsing, rating and asking never make remote requests (docs/adr/0001-local-first.md); only these
-actions do, and they send public catalogue data only (docs/adr/0010-podcasts.md,
-docs/adr/0011-streaming.md).
+actions do, and they send public catalogue data only (docs/adr/0011-streaming.md).
 """
 import functools
 import ipaddress
@@ -67,7 +66,7 @@ def _require_public(url):
 
 
 class _PublicWebRedirects(request.HTTPRedirectHandler):
-    """Podcast and archive links pass through several redirects; none may leave the public web."""
+    """Archive links pass through several redirects; none may leave the public web."""
 
     def redirect_request(self, req, fp, code, msg, headers, newurl):
         _require_public(newurl)
@@ -84,23 +83,3 @@ def _open(url, headers, *, method='GET', timeout):
 def open_stream(url, headers=None, *, method='GET', timeout=30):
     """An open response for relaying remote media; the caller reads and closes it. Raises HTTPError for 4xx/5xx."""
     return _open(url, headers or {}, method=method, timeout=timeout)
-
-
-def download(url, path: Path, limit, *, progress=None, timeout=60):
-    """Stream the body to `path`, refusing more than `limit` bytes; returns the number of bytes.
-
-    `progress(received, total)` is called after each chunk; total is None when the server does not say.
-    """
-    with _open(url, {}, timeout=timeout) as reply, Path(path).open('wb') as out:
-        total = int(reply.headers.get('Content-Length') or 0) or None
-        if total and total > limit:
-            raise ValueError('file too large')
-        received = 0
-        while chunk := reply.read(CHUNK):
-            received += len(chunk)
-            if received > limit:
-                raise ValueError('file too large')
-            out.write(chunk)
-            if progress:
-                progress(received, total)
-    return received

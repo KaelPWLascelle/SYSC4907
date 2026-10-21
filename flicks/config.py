@@ -9,8 +9,7 @@ DEFAULT_STATIC = PACKAGE/'static'
 HOME = Path.home()/'.flicks'
 DEFAULT_DB = HOME/'feedback.sqlite3'
 DEFAULT_POSTERS = HOME/'posters'
-DEFAULT_PODCASTS = HOME/'catalogs'/'podcasts.json'
-DEFAULT_PODCAST_DOWNLOADS = HOME/'podcasts'
+DEFAULT_SERIES = HOME/'catalogs'/'series.json'
 
 
 @dataclass(frozen=True)
@@ -24,14 +23,14 @@ class Settings:
     tags: Path | None = None
     # Item-to-item neighbours for collaborative filtering (flicks.datasets.neighbours); None: content only.
     neighbours: Path | None = None
-    # A podcast catalogue (flicks.datasets.podcasts) shown alongside the films; None: films only.
-    podcasts: Path | None = None
-    podcast_downloads: Path = DEFAULT_PODCAST_DOWNLOADS
+    # TV series shown beside the films (flicks.datasets.tvmaze); None: films only.
+    series: Path | None = None
     # Public-domain films to stream from the Internet Archive (flicks.datasets.archive); None: none.
     archive: Path | None = None
     # Trailer video IDs for the Discover feed (flicks.datasets.trailers); None: previews and posters only.
     trailers: Path | None = None
-    couch: bool = False
+    # Couch mode is offered in the interface; nothing listens on the network until a session starts.
+    couch: bool = True
     couch_host: str | None = None
     couch_port: int = 8770
     # The distilled Ask student's weights (flicks.datasets.ask); None turns it off.

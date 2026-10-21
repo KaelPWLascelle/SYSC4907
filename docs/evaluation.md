@@ -11,9 +11,9 @@ measured yet (whether the recommendations are good), and sets out how to measure
 
 | Suite | Count | Covers |
 |---|---:|---|
-| Backend (`pytest`) | 253 | Ranking and explanations, hard constraints, validation, migrations, the request guard, range-request streaming, watch history, posters, couch rules and the guest server over a real socket, command parsing (scene, ratings, play, search, similar titles), System One validation, everyday-language search, the MovieLens and podcast importers (offline fixtures), podcast downloads and the streaming relay (with a fake network), the Internet Archive importer and its rights rule, collaborative filtering (neighbour build, predictions, blend, leakage-free evaluation split), the popularity prior, local profiles (PINs, export and import), the taste summary, and the Ask student and agent |
-| Interface (Vitest) | 77 | The voice and command state machine (cancellation, stale results, permissions), couch phone flows, the player (video and audio), the couch panel, server-side browsing, streaming and podcast downloads, profiles, ratings, the scene sentence, "Your taste", and the main screens |
-| Browser (Playwright) | 10 | The real server and built interface in Chromium, desktop and phone: picks, ratings, the scene sentence, "Why this pick", Ask, "Your taste", the request guard and PIN profiles; any console error fails a test |
+| Backend (`pytest`) | 269 | Ranking and explanations, hard constraints, validation, migrations, the request guard, range-request streaming, watch history, posters, couch rules and the guest server over a real socket, command parsing (scene, ratings, play, search, similar titles), System One validation, everyday-language search, the MovieLens, TVmaze series and trailer importers (offline fixtures), films and series in one ranking, the streaming relay (with a fake network), the Internet Archive importer and its rights rule, collaborative filtering (neighbour build, predictions, blend, leakage-free evaluation split), the popularity prior, local profiles (PINs, export and import), the taste summary, and the Ask student and agent |
+| Interface (Vitest) | 85 | The voice and command state machine (cancellation, stale results, permissions), couch phone flows, the player and its Up next card, the couch panel, server-side browsing, Discover and Pick for me, profiles, ratings, the scene sentence (with its films-or-series word), series details, "Your taste", and the main screens |
+| Browser (Playwright) | 19 | The real server and built interface in Chromium (desktop and phone) and WebKit (Safari): picks, couch mode offered, ratings, the scene sentence, "Why this pick", Ask, "Your taste", Discover and its trailer consent, Pick for me, layout at several window shapes, the request guard and PIN profiles; any console error fails a test |
 
 Regression tests for bugs found during manual testing (a stale poll overwriting a vote, a background
 tab not loading the couch session) were each checked to fail with the bug reintroduced. CI runs the
@@ -164,7 +164,6 @@ the relay (`/media/{id}`), with a handful of requests each:
 | Title | First bytes | Seek |
 |---|---:|---:|
 | *The General* (1926), Internet Archive, 640×480 MP4 | 1.4 s | 1.0–1.3 s typical; one seek near the end took 7 s |
-| *In Our Time* episode, publisher's CDN | 3.1 s (several tracking redirects) | about 1 s |
 
 Local files start well under a second. Remote start-up depends on the source and the network, so the
 target can be claimed for local and downloaded media but not for every stream. A proper measurement
@@ -193,6 +192,9 @@ samples do not establish an accuracy rate.
 - **TF-IDF captures word overlap, not meaning.** Disliking one film can suppress a whole shared
   genre (disliking *Alien* also pushes down other science fiction).
 - **The weights are not learned or tuned,** and scores are not calibrated confidences.
+- **Films and series together are not evaluated.** MovieLens has no series, so the offline measures
+  cover films only. Series are ranked by content taste and IMDb-vote popularity, scaled separately from
+  films (ADR 0018); whether a mixed list helps people choose is for the user study.
 - **Offline measures are proxies.** Held-out MovieLens ratings show which model finds films people
   liked, not whether Flicks' users are happier with their picks; that still needs the user study below.
 
@@ -204,13 +206,15 @@ samples do not establish an accuracy rate.
 2. **Relevance judgments.** Ask each participant for seed likes and dislikes, then collect held-out
    judgments for several chosen scenes. Keep judgments separate from training data, and never derive
    ground truth from the system's own tags.
-3. **Taste only vs taste + scene.** Show both lists in randomized, blinded order over the same
+3. **Films, series or both.** In the same study, compare a mixed list with films-only and
+   series-only lists for the same scene: which one people choose from, and how quickly.
+4. **Taste only vs taste + scene.** Show both lists in randomized, blinded order over the same
    candidates. Measure the preferred list, time to choose, precision@5, NDCG@5 (graded), coverage
    and constraint violations. Report participant counts and uncertainty.
-4. **Tuning.** Tune weights on development participants only and report final results on others.
-5. **Model comparisons.** Done offline for content, collaborative and hybrid models and the
+5. **Tuning.** Tune weights on development participants only and report final results on others.
+6. **Model comparisons.** Done offline for content, collaborative and hybrid models and the
    popularity prior (above). Next: local embeddings and System One tags, with the same protocol.
-6. **Speech.** Collect consented recordings from the team (varied voices, accents and noise). Measure
+7. **Speech.** Collect consented recordings from the team (varied voices, accents and noise). Measure
    word error rate, exact command match, rejection rate and latency. Keep recordings out of git.
 
 ## Repeatable manual checklist
@@ -234,8 +238,8 @@ with 3 likes). Flicks now ships 1.0: on test users with 3 likes HR@10 0.108 ± 0
 ## Ask student
 
 `python -m flicks.datasets.ask` trains the student and scores it on 30 hand-written test requests that share
-no phrase with its training bank: 16 of 30 exactly right; per setting, mood 0.67, intensity 0.97, novelty
-0.97, watch or listen 1.00, genre to avoid 0.93; about 0.2 ms per request. Details and negative results
+no phrase with its training bank: 18 of 30 exactly right; per setting, mood 0.70, intensity 1.00, novelty
+0.97, genre to avoid 0.93; about 0.14 ms per request (after podcasts were removed, [ADR 0017](adr/0017-films-only.md)). Details and negative results
 (static embeddings) are in [ADR 0014](adr/0014-ask-student.md).
 
 ## Ask agent (local language model, optional)

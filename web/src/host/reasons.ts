@@ -34,7 +34,7 @@ export function reasons(row: Recommendation, session: Session): string[] {
     list.push(content.intensity < 0.35 ? 'Easygoing' : content.intensity > 0.65 ? 'Full throttle' : 'Right intensity');
   }
   if (evidence.length) list.push(`Your taste: ${evidence.slice(0, 2).join(' · ')}`);
-  list.push(`${runtime(content.minutes)} · fits ${runtime(session.minutes)}`);
+  list.push(`${runtime(content.minutes)}${content.series ? ' episodes' : ''} · fits ${runtime(session.minutes)}`);
   return list;
 }
 
@@ -44,10 +44,9 @@ export function reasons(row: Recommendation, session: Session): string[] {
  */
 export function explanation(row: Recommendation, session: Session): string {
   const { content, evidence, because, popular } = row;
-  const kind = content.kind === 'episode' ? 'episode' : 'film';
   let lead: string;
   if (because.length) {
-    lead = `People who liked ${because.slice(0, 2).join(' and ')} also rated this ${kind} highly`;
+    lead = `People who liked ${because.slice(0, 2).join(' and ')} also rated this film highly`;
   } else if (popular) {
     lead = `It’s a crowd favourite while Flicks learns what you like`;
   } else if (evidence.length) {
@@ -67,5 +66,6 @@ export function explanation(row: Recommendation, session: Session): string {
     );
   }
   const scene = fits.length ? `, and it ${fits.join(' and ')}` : '';
-  return `${lead}${scene}. At ${runtime(content.minutes)}, it fits the ${runtime(session.minutes)} you have.`;
+  const length = content.series ? `${runtime(content.minutes)} an episode` : runtime(content.minutes);
+  return `${lead}${scene}. At ${length}, it fits the ${runtime(session.minutes)} you have.`;
 }

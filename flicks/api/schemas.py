@@ -22,7 +22,7 @@ class SessionIn(Body):
     intensity: Number = 0.5
     novelty: Number = 0.3
     excluded_genres: list[StrictStr] = Field(default_factory=list)
-    medium: StrictStr = 'any'
+    kind: StrictStr = 'any'
     playable: StrictBool = False
     mix: list[Number] = Field(default_factory=lambda: list(DEFAULT_MIX))
 

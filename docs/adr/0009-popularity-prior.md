@@ -1,6 +1,6 @@
 # 0009. New users start from a popularity prior that gives way as they rate
 
-**Status:** Accepted · strength lowered from 2.0 to 1.0 by [0015](0015-your-taste.md) for more personal lists
+**Status:** Accepted · strength lowered from 2.0 to 1.0 by [0015](0015-your-taste.md) for more personal lists; each kind of title scaled separately by [0018](0018-tv-series.md)
 
 ## Context
 A new user has no ratings, so the content and collaborative models (ADR 0008) know nothing about

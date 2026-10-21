@@ -25,7 +25,7 @@ test('a row offers what can be played now, ranked for you', async () => {
   const row = await screen.findByRole('region', { name: 'Ready to watch now' });
   expect(within(row).getByRole('heading', { name: 'Alpha' })).toBeInTheDocument();
   const asked = calls.filter(c => c.path === '/api/recommend').map(c => (c.body as { session: Session }).session);
-  expect(asked.some(s => s.playable && s.medium === 'watch')).toBe(true);
+  expect(asked.some(s => s.playable && s.minutes === 600)).toBe(true);
 });
 
 test('the scene can be limited to what can be played now', async () => {

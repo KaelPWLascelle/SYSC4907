@@ -15,6 +15,15 @@ export const content = (id: string, title: string, over: Partial<Content> = {}):
 });
 
 export const ALPHA = content('m1', 'Alpha');
+export const SERIES_INFO = {
+  seasons: 5,
+  episodes: 62,
+  ended: 2013,
+  network: 'AMC',
+  page: 'https://www.tvmaze.com/shows/1/x',
+  votes: 9000,
+};
+export const SERIES = content('tv1', 'Delta Station', { kind: 'series', year: 2008, minutes: 60, series: SERIES_INFO });
 export const BETA = content('m2', 'Beta', { genres: ['horror'] });
 export const GAMMA = content('m3', 'Gamma');
 export const CATALOG = [ALPHA, BETA, GAMMA];
@@ -28,9 +37,8 @@ export const appState = (over: Partial<AppState> = {}): AppState => ({
   tagged: false,
   collaborative: false,
   couch: false,
-  podcasts: false,
   posters: [],
-  media: [{ id: 'm1', direct_play: true, audio: false, remote: false, source: null, page: null }],
+  media: [{ id: 'm1', direct_play: true, remote: false, source: null, page: null }],
   ...over,
 });
 

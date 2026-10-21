@@ -14,7 +14,7 @@ import threading
 from ..text import normalize
 from .llm import LLMError
 
-SYSTEM = ('You explain a movie or podcast recommendation to the viewer in one or two short sentences '
+SYSTEM = ('You explain a film or TV series recommendation to the viewer in one or two short sentences '
           '(at most 45 words), speaking to them as "you". Use only the facts given; describe the story only '
           'with the "about" fact. Do not invent plot details, actors, awards, quotes, or other titles. Do not '
           'mention scores or percentages. '
@@ -33,7 +33,10 @@ def facts(pick, session):
     strongest = sorted(factors, key=lambda k: -factors[k])[:2]
     scene = {'mood': session.mood, 'minutes available': session.minutes}
     return {
-        'title': content['title'], 'year': content['year'], 'kind': content['kind'], 'minutes': content['minutes'],
+        'title': content['title'], 'year': content['year'], 'kind': content['kind'],
+        # A series' length is one episode's (docs/adr/0018-tv-series.md).
+        ('minutes per episode' if content.get('series') else 'minutes'): content['minutes'],
+        **({'seasons': content['series']['seasons']} if content.get('series') else {}),
         'genres': content['genres'][:4], 'moods': content['moods'][:3],
         # The catalogue's own first sentence, so anything said about the story is grounded in it.
         'about': _first_sentence(content['description']),

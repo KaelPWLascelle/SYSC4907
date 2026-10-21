@@ -28,9 +28,14 @@ def number_words(text):
 
 
 HINT = 'Try “relaxing, 90 minutes”, “no horror”, “Like Arrival”, “play The General” or “funny films from the 90s”.'
-PLAY = re.compile(r'(?:play|watch|start|put on|listen to|resume) (.+)')
+PLAY = re.compile(r'(?:play|watch|start|put on|resume) (.+)')
 SEARCH_VERBS = re.compile(r'(?:find|search(?: for)?|show me|look for|looking for|any) ')
 NEGATED = re.compile(r'\b(?:no|without|avoid|exclude|not) \w+(?: \w+)?')
+# The scene's kind, read only when the catalogue has TV series (docs/adr/0018-tv-series.md).
+SERIES_WORDS = re.compile(r'\b(?:an?|some) (?:tv )?(?:show|series|sitcom)\b|\btv (?:shows?|series)\b|\bseries\b'
+                          r'|\b(?:an )?episodes?\b|\bto binge\b|\bbinge ?watch|\bsitcoms?\b')
+FILM_WORDS = re.compile(r'\b(?:an?|some) (?:film|movie|flick)\b|\b(?:films?|movies?)\b')
+KIND_LABELS = {'any': 'films and series', 'films': 'films only', 'series': 'series only'}
 SIMILAR = re.compile(r'(?:show me |find |give me )?(?:more like|something like|similar to|titles like|films like|movies like|shows like) (.+)')
 
 
@@ -41,6 +46,7 @@ def describe_patch(patch):
         if key == 'excluded_genres': labels.append('avoid ' + ', '.join(value) if value else 'allow all genres')
         elif key == 'minutes': labels.append(f'time limit {value} minutes')
         elif key in ('intensity', 'novelty'): labels.append(f'{key} {round(value*100)}%')
+        elif key == 'kind': labels.append(KIND_LABELS[value])
         else: labels.append(f'{key}: {value}')
     return 'Set ' + '; '.join(labels) + '.'
 
@@ -53,6 +59,7 @@ class CommandInterpreter:
         self.titles = titles or TitleIndex(catalog)
         self.playable = playable or (lambda content_id: False)  # content ID -> can it be played here?
         self.genres = sorted({g for c in catalog for g in c.genres})
+        self.series = any(c.is_series for c in catalog)
 
     def find_title(self, text, to_play=False):
         """The one title `text` names, or None. Never a guess between alternatives.
@@ -93,7 +100,7 @@ class CommandInterpreter:
 
     def genre_named(self, text):
         """The catalogue genre `text` names ("horror", "scary movies", "musicals"), or None."""
-        words = re.sub(r'\b(?:movies?|films?|shows?|podcasts?)\b', '', text).strip()
+        words = re.sub(r'\b(?:movies?|films?|flicks?)\b', '', text).strip()
         genres = GENRE_WORDS.get(words) or ((words,) if words in self.genres else ())
         return genres[0] if len(genres) == 1 and genres[0] in self.genres else None
 
@@ -157,6 +164,8 @@ class CommandInterpreter:
         numeric = re.sub(r'\b(?:an?|one|1) hour and a half\b', '90 minutes', numeric)
         numeric = re.sub(r'\bhalf an hour\b', '30 minutes', numeric)
         numeric = re.sub(r'\ban? hour\b', '1 hour', numeric)
+        # "not too long" or "something short" without a number: a feature that fits an evening, 90 minutes.
+        numeric = re.sub(r'\b(?:not too long|nothing too long|something short|a short one|a quick one)\b', '90 minutes', numeric)
         durations = list(re.finditer(r'\b(\d+)\s*(minutes?|mins?|hours?|hrs?)\b', numeric))
         if len(durations) > 1:
             return self.unknown('Give one time limit in minutes or hours, for example “90 minutes”.')
@@ -176,12 +185,17 @@ class CommandInterpreter:
         excluded = [g for g in self.genres if re.search(rf'\b(?:no|without|avoid|exclude) {re.escape(normalize(g))}\b', text)]
         if excluded: patch['excluded_genres'] = excluded
         if re.search(r'\b(?:allow all genres|clear exclusions)\b', text): patch['excluded_genres'] = []
+        if self.series:
+            # "a show for tonight", "a film": the kind; both ("a film or a series") means either.
+            kinds = {kind for kind, words in (('series', SERIES_WORDS), ('films', FILM_WORDS)) if words.search(text)}
+            if kinds or re.search(r'\b(?:either|film or series|movie or show)\b', text):
+                patch['kind'] = kinds.pop() if len(kinds) == 1 else 'any'
         if not patch:
             if text in ('recommend something', 'find my next watch', 'show recommendations', 'recommendations'):
                 return {'intent': 'session', 'patch': {}, 'summary': 'Refresh recommendations with the current session.', 'parser': 'rules'}
             if play and len(self.same_name(play[1])) > 1:
                 return self.not_found(play[1], 'play')
-            # "listen to something about Rome": not a title, so a search ("listen" asks for podcasts).
+            # "something about Rome": not a title, so a search.
             return self.search(text) or self.unknown(f'Nothing matched. {HINT}', 'unrecognized')
         if self.wants_search(text) and (found := self.search(text)):
             # "scary movies under 90 minutes" describes what to find; the length becomes a search filter.
@@ -192,9 +206,9 @@ class CommandInterpreter:
                 'parser': 'rules', 'note': 'Only the listed settings will change. Other wording is not interpreted.'}
 
     def wants_search(self, text):
-        """True when a request describes what to find: a genre it does not negate, films or podcasts, a period, or "find…"."""
+        """True when a request describes what to find: a genre it does not negate, a period, or "find…"."""
         wanted = self.titles.understand(NEGATED.sub(' ', text))
-        return bool(SEARCH_VERBS.match(text) or wanted.genres or wanted.kind or wanted.years)
+        return bool(SEARCH_VERBS.match(text) or wanted.genres or wanted.years)
 
     def search(self, text):
         """A `search` command for an everyday request that matches titles, or None."""

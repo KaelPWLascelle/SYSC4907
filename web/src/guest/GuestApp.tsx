@@ -211,7 +211,7 @@ function VoteCard({ item }: { item: CouchItem }) {
       <Poster item={item} hasPoster={item.poster} eager />
       <div className="couch-card-body">
         <p className="meta">
-          {item.kind === 'episode' ? `PODCAST · ${item.series ?? ''}` : item.year} / {item.minutes} MIN
+          {item.year} / {item.minutes} MIN{item.kind === 'series' ? ' EPISODES' : ''}
         </p>
         <h2>{item.title}</h2>
         <p className="description">{item.description}</p>
@@ -241,8 +241,9 @@ function Results({ results, items, people, busy, onPlay }: ResultsProps) {
         <div>
           <h2>{best.title}</h2>
           <p>
-            {top.yes} of {people} said yes{top.no ? `, ${top.no} said no` : ''}. {best.minutes} min ·{' '}
-            {best.genres.join(' / ')}. Ties go to Flicks’ own ranking (#{top.flicks_rank}).
+            {top.yes} of {people} said yes{top.no ? `, ${top.no} said no` : ''}. {best.minutes} min
+            {best.kind === 'series' ? ' episodes' : ''} · {best.genres.join(' / ')}. Ties go to Flicks’ own ranking (#
+            {top.flicks_rank}).
           </p>
         </div>
       </div>

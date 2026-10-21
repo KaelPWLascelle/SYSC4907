@@ -19,6 +19,7 @@ def state(svc: Services = Depends(services), me: Viewer = Depends(viewer)):
     # The catalogue itself is not sent: it can hold thousands of titles. Clients search /api/titles.
     return {
         'catalog_size': len(svc.titles),
+        'series': svc.series,
         'genres': svc.titles.genres,
         'feedback': me.ratings.all(),
         'profile': {'id': me.profile.id, 'name': me.profile.name, 'locked': me.profile.locked, 'chosen': me.chosen,
@@ -30,24 +31,23 @@ def state(svc: Services = Depends(services), me: Viewer = Depends(viewer)):
         'trailers': len(svc.discover.trailers),
         'collaborative': svc.collaborative,
         'couch': svc.couch is not None,
-        'podcasts': svc.podcasts is not None,
         'posters': svc.posters.ids() if svc.posters else [],
         'media': _playable(svc),
     }
 
 
 def _playable(svc: Services):
-    """Every title that can be played: local files (scanned videos, downloaded episodes) and remote streams.
+    """Every film that can be played: local files (scanned videos) and remote streams.
 
     `remote` means it plays from elsewhere through the relay; `source` and `page` credit where from.
     """
     entries = {}
     for content_id, remote in svc.streams.items():
-        entries[content_id] = {'id': content_id, 'direct_play': True, 'audio': remote.audio, 'remote': True,
+        entries[content_id] = {'id': content_id, 'direct_play': True, 'remote': True,
                                'source': remote.source, 'page': remote.page or None}
-    for file in [*svc.media.files.values(), *(svc.podcasts.media() if svc.podcasts else ())]:
+    for file in svc.media.files.values():
         credit = entries.get(file.content_id, {})
-        entries[file.content_id] = {'id': file.content_id, 'direct_play': file.direct_play, 'audio': file.audio,
+        entries[file.content_id] = {'id': file.content_id, 'direct_play': file.direct_play,
                                     'remote': False, 'source': credit.get('source'), 'page': credit.get('page')}
     return list(entries.values())
 

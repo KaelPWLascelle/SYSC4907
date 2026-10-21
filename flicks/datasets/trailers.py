@@ -90,8 +90,6 @@ def match(catalog, rows):
         by_title.setdefault((title_key(title), year), video)
     found = {}
     for item in catalog:
-        if item.audio:
-            continue  # podcast episodes have no trailers
         movie = int(item.id[2:]) if re.fullmatch(r'ml\d+', item.id) else None
         video = by_movie.get(movie) if movie is not None else by_title.get((title_key(item.title), item.year))
         if video:
@@ -129,7 +127,7 @@ def import_trailers(catalog_path, *, cache=DEFAULT_CACHE, check=False, log=print
                 'verified': check, 'created': datetime.now(timezone.utc).isoformat(timespec='seconds'),
                 'trailers': dict(sorted(found.items()))}
     out.write_text(json.dumps(document, indent=1) + '\n', encoding='utf-8')
-    films = sum(1 for item in catalog if not item.audio)
+    films = len(catalog)
     return {'path': out, 'films': films, 'matched': matched, 'kept': len(found)}
 
 

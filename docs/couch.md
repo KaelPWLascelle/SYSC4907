@@ -5,7 +5,7 @@ built from the host's scene, and the group pick appears on the TV. Any phone the
 No app, no accounts, no internet.
 
 ```sh
-.venv/bin/flicks --couch                              # then press "Start a couch session"
+.venv/bin/flicks                                      # then press "Start a couch session"
 .venv/bin/flicks --couch --couch-host 192.168.1.23    # if the address is detected wrongly
 ```
 
@@ -48,8 +48,8 @@ first) and average-score rules are natural variants to compare in a user study.
 Enforced in code and covered by `tests/test_couch.py` (including the guest app over a real socket)
 and `web/src/guest/`:
 
-- **Off by default.** Without `--couch`, the couch routes do not exist and nothing listens on the
-  network.
+- **Nothing listens until you start.** The guest server opens only while a session runs, and only
+  after the host presses "Start a couch session". With `--no-couch` the couch routes do not exist.
 - **Home network only.** Only private or loopback IPv4 addresses are accepted, never a public
   interface.
 - **A code to join.** 8 characters from an alphabet with no look-alikes. After 10 wrong guesses it
