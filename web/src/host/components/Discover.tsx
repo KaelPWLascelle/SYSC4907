@@ -18,7 +18,32 @@ const STREAM_LABELS: Record<DiscoverItem['stream'], string> = {
   wildcard: 'Wildcard',
 };
 // YouTube's privacy-enhanced domain; the server's Content Security Policy allows frames from it alone.
-const EMBED = 'https://www.youtube-nocookie.com/embed/';
+const EMBED_ORIGIN = 'https://www.youtube-nocookie.com';
+// How long to wait for the player to say whether a trailer plays before showing the frame anyway.
+const TRAILER_TIMEOUT_MS = 8000;
+// Player states that mean the trailer is there: playing, paused, buffering, cued.
+const SHOWN_STATES = new Set([1, 2, 3, 5]);
+
+// Trailers YouTube refused here (removed, embedding turned off, or blocked in this country), remembered
+// in this browser so those films show their poster at once next time. Video IDs only.
+const BLOCKED_KEY = 'flicks.trailers.unavailable';
+const BLOCKED_LIMIT = 1000;
+function blockedTrailers(): Set<string> {
+  try {
+    const value = JSON.parse(localStorage.getItem(BLOCKED_KEY) ?? '[]') as unknown;
+    return new Set(Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : []);
+  } catch {
+    return new Set();
+  }
+}
+function rememberBlocked(video: string) {
+  const blocked = [...blockedTrailers(), video].slice(-BLOCKED_LIMIT);
+  try {
+    localStorage.setItem(BLOCKED_KEY, JSON.stringify([...new Set(blocked)]));
+  } catch {
+    // Storage is unavailable: the card still falls back for this visit.
+  }
+}
 
 const trailersKey = (profile: number | undefined) => `flicks.trailers.${profile ?? 0}`;
 function trailersAllowed(profile: number | undefined) {
@@ -248,6 +273,7 @@ interface CardProps {
 function Card({ item, index, total, playing, near, online, muted, onMute, onRate }: CardProps) {
   const library = useLibrary();
   const { content, media } = item;
+  const [unavailable, setUnavailable] = useState(false);
   const playable = library.media.has(content.id);
   const titleId = `discover-title-${content.id}`;
   return (
@@ -261,22 +287,27 @@ function Card({ item, index, total, playing, near, online, muted, onMute, onRate
       <div className="discover-media">
         {playing && (media.kind === 'file' || media.kind === 'stream') ? (
           <Preview id={content.id} muted={muted} onMute={onMute} />
-        ) : playing && media.trailer && online ? (
-          <iframe
-            className="discover-frame"
-            src={`${EMBED}${media.trailer}?autoplay=${prefersReducedMotion() ? 0 : 1}&mute=1&playsinline=1&rel=0`}
-            title={`Trailer: ${content.title}`}
-            allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-            // The page sends no Referer; YouTube's player needs this origin (and only this) to load.
-            referrerPolicy="strict-origin-when-cross-origin"
+        ) : playing && media.trailer && online && !unavailable && !blockedTrailers().has(media.trailer) ? (
+          <Trailer
+            video={media.trailer}
+            title={content.title}
+            onUnavailable={() => {
+              rememberBlocked(media.trailer as string);
+              setUnavailable(true);
+            }}
           />
         ) : (
-          <Poster
-            item={content}
-            hasPoster={library.posters.has(content.id)}
-            className="poster discover-poster"
-            eager={near}
-          />
+          <>
+            <Poster
+              item={content}
+              hasPoster={library.posters.has(content.id)}
+              className="poster discover-poster"
+              eager={near}
+            />
+            {online && media.trailer && (unavailable || blockedTrailers().has(media.trailer)) && (
+              <p className="discover-note">This trailer can’t be played here.</p>
+            )}
+          </>
         )}
       </div>
       <div className="discover-info">
@@ -333,5 +364,88 @@ function Preview({ id, muted, onMute }: { id: string; muted: boolean; onMute: ()
         <Icon name={muted ? 'volumeOff' : 'volumeUp'} />
       </button>
     </>
+  );
+}
+
+/**
+ * A YouTube trailer that reports back. With `enablejsapi`, the embedded player posts its state and errors
+ * to this page; listening needs no YouTube script here (the CSP allows none). The frame stays hidden until
+ * the trailer is there, so a trailer YouTube refuses (error 100, 101 or 150: removed, not embeddable, or
+ * blocked in this country) never shows YouTube's error screen: the card falls back to its poster.
+ */
+function Trailer({ video, title, onUnavailable }: { video: string; title: string; onUnavailable: () => void }) {
+  const frame = useRef<HTMLIFrameElement>(null);
+  const [shown, setShown] = useState(false);
+  const failed = useRef(onUnavailable);
+  useEffect(() => {
+    failed.current = onUnavailable;
+  });
+  useEffect(() => {
+    const node = frame.current;
+    if (!node) return;
+    let heard = false;
+    // The player answers once it has been told someone is listening; repeat until it does.
+    const listen = setInterval(() => {
+      if (heard) clearInterval(listen);
+      else
+        node.contentWindow?.postMessage(
+          JSON.stringify({ event: 'listening', id: video, channel: 'widget' }),
+          EMBED_ORIGIN,
+        );
+    }, 250);
+    const fallback = setTimeout(() => setShown(true), TRAILER_TIMEOUT_MS);
+    const onMessage = (event: MessageEvent) => {
+      if (event.origin !== EMBED_ORIGIN || event.source !== node.contentWindow || typeof event.data !== 'string')
+        return;
+      let message: { event?: string; info?: unknown };
+      try {
+        message = JSON.parse(event.data) as typeof message;
+      } catch {
+        return;
+      }
+      heard = true;
+      if (message.event === 'onError') {
+        clearTimeout(fallback);
+        failed.current();
+      } else if (message.event === 'infoDelivery' || message.event === 'initialDelivery') {
+        const state = (message.info as { playerState?: number } | null)?.playerState;
+        if (state !== undefined && SHOWN_STATES.has(state)) {
+          clearTimeout(fallback);
+          setShown(true);
+        }
+      }
+    };
+    window.addEventListener('message', onMessage);
+    return () => {
+      clearInterval(listen);
+      clearTimeout(fallback);
+      window.removeEventListener('message', onMessage);
+    };
+  }, [video]);
+  const params = new URLSearchParams({
+    autoplay: prefersReducedMotion() ? '0' : '1',
+    mute: '1',
+    playsinline: '1',
+    rel: '0',
+    enablejsapi: '1',
+    origin: window.location.origin,
+  });
+  return (
+    <div className="discover-trailer">
+      {!shown && (
+        <p className="discover-note" role="status">
+          Loading trailer…
+        </p>
+      )}
+      <iframe
+        ref={frame}
+        className={shown ? 'discover-frame' : 'discover-frame discover-frame-hidden'}
+        src={`${EMBED_ORIGIN}/embed/${video}?${params}`}
+        title={`Trailer: ${title}`}
+        allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+        // The page sends no Referer; YouTube's player needs this origin (and only this) to load.
+        referrerPolicy="strict-origin-when-cross-origin"
+      />
+    </div>
   );
 }

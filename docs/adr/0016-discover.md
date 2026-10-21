@@ -27,6 +27,13 @@ nothing. It saved playback progress on every `timeupdate` event, several request
   will see. It uses YouTube's privacy-enhanced domain and only on the card in view. The Content Security
   Policy allows frames from that one origin, on the host app only. The page still sends no Referer; the
   frame alone sends its origin, which YouTube's player needs.
+- **A refused trailer never shows YouTube's error screen.** Some trailers cannot be played in the
+  viewer's country, and the import cannot know which: YouTube's oEmbed check answers the same everywhere.
+  So the embed runs with `enablejsapi=1`, and Flicks listens for the player's own messages (from that
+  origin and that frame only), without loading any YouTube script into the page. The frame stays hidden
+  until the player reports the trailer is playing or cued. On an error (100, 101 or 150: removed, not
+  embeddable, or blocked here), the card shows its poster and says the trailer can't be played here. The
+  video ID is remembered in this browser, so that film shows its poster at once next time.
 - **Up next.** When a film ends, the player asks for a like or pass and offers the best playable pick for
   the scene, which is not the film just watched or one already finished. It starts after a 10-second
   countdown that the viewer can cancel. With reduced motion there is no countdown, and in couch mode the
@@ -57,5 +64,7 @@ nothing. It saved playback progress on every `timeupdate` event, several request
 ## Consequences
 - Discover's quality is the recommender's: it adds ordering and variety, not a new model.
 - A third of 2015 trailers are gone and more will go; re-run the import with `--verify` occasionally.
+- Coverage is lower than 65% in practice, by however many trailers are blocked in the viewer's country
+  (the first one met in Canada was *Forrest Gump*'s). Each is found once, on the card, and then skipped.
 - Turning trailers on sends YouTube the viewer's IP address and which trailers play, which is why the
   feature is off by default and asks first. Ratings and history are never sent.

@@ -139,7 +139,8 @@ This matches the catalogue to the MovieLens YouTube Trailers dataset (GroupLens)
 only; nothing is downloaded from YouTube. `--verify` asks YouTube which videos can still be embedded,
 sending video IDs only (about 13 minutes; 6,101 of 9,349 films kept). Discover plays a trailer only
 after you turn on **Online trailers**, in YouTube's privacy-enhanced mode, and only for the card on
-screen. Without trailers, Discover previews the films you can play here and shows posters for the rest.
+screen. A trailer YouTube won't play in your country shows the film's poster instead, and is skipped from
+then on. Without trailers, Discover previews the films you can play here and shows posters for the rest.
 See [ADR 0016](docs/adr/0016-discover.md).
 
 ### Add posters (optional)

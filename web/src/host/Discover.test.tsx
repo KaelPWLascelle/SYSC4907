@@ -132,3 +132,43 @@ test('“Pick for me” opens a random pick with its chance, and can draw from a
     'anything',
   ]);
 });
+
+function fromPlayer(frame: HTMLIFrameElement, message: object, origin = 'https://www.youtube-nocookie.com') {
+  window.dispatchEvent(
+    new MessageEvent('message', { data: JSON.stringify(message), origin, source: frame.contentWindow }),
+  );
+}
+
+test('a trailer stays hidden until it plays, and one YouTube refuses falls back to the poster for good', async () => {
+  localStorage.clear();
+  localStorage.setItem('flicks.trailers.0', 'on');
+  setup(appState({ trailers: 120 }));
+  const feed = await openDiscover();
+  await within(feed).findByRole('article', { name: 'Alpha' });
+  await userEvent.keyboard('j'); // Beta has a trailer
+  const frame = feed.querySelector('iframe') as HTMLIFrameElement;
+  expect(frame.src).toContain('enablejsapi=1');
+  expect(frame).toHaveClass('discover-frame-hidden');
+  expect(within(feed).getByRole('status', { name: '' })).toHaveTextContent('Loading trailer…');
+
+  fromPlayer(frame, { event: 'onError', info: 150 }, 'https://evil.example'); // not from the player: ignored
+  expect(feed.querySelector('iframe')).not.toBeNull();
+  fromPlayer(frame, { event: 'onError', info: 150 }); // e.g. blocked in this country
+  await waitFor(() => expect(feed.querySelector('iframe')).toBeNull());
+  expect(within(feed).getByText('This trailer can’t be played here.')).toBeInTheDocument();
+  expect(JSON.parse(localStorage.getItem('flicks.trailers.unavailable') ?? '[]')).toEqual(['tn2ffzzvC4o']);
+  localStorage.clear();
+});
+
+test('a trailer that starts playing is shown', async () => {
+  localStorage.clear();
+  localStorage.setItem('flicks.trailers.0', 'on');
+  setup(appState({ trailers: 120 }));
+  const feed = await openDiscover();
+  await within(feed).findByRole('article', { name: 'Alpha' });
+  await userEvent.keyboard('j');
+  const frame = feed.querySelector('iframe') as HTMLIFrameElement;
+  fromPlayer(frame, { event: 'infoDelivery', info: { playerState: 1 } });
+  await waitFor(() => expect(frame).not.toHaveClass('discover-frame-hidden'));
+  localStorage.clear();
+});
