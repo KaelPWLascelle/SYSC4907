@@ -14,7 +14,7 @@ import threading
 from ..text import normalize
 from .llm import LLMError
 
-SYSTEM = ('You explain a movie or podcast recommendation to the viewer in one or two short sentences '
+SYSTEM = ('You explain a film recommendation to the viewer in one or two short sentences '
           '(at most 45 words), speaking to them as "you". Use only the facts given; describe the story only '
           'with the "about" fact. Do not invent plot details, actors, awards, quotes, or other titles. Do not '
           'mention scores or percentages. '

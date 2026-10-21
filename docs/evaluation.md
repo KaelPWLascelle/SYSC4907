@@ -11,9 +11,9 @@ measured yet (whether the recommendations are good), and sets out how to measure
 
 | Suite | Count | Covers |
 |---|---:|---|
-| Backend (`pytest`) | 253 | Ranking and explanations, hard constraints, validation, migrations, the request guard, range-request streaming, watch history, posters, couch rules and the guest server over a real socket, command parsing (scene, ratings, play, search, similar titles), System One validation, everyday-language search, the MovieLens and podcast importers (offline fixtures), podcast downloads and the streaming relay (with a fake network), the Internet Archive importer and its rights rule, collaborative filtering (neighbour build, predictions, blend, leakage-free evaluation split), the popularity prior, local profiles (PINs, export and import), the taste summary, and the Ask student and agent |
-| Interface (Vitest) | 77 | The voice and command state machine (cancellation, stale results, permissions), couch phone flows, the player (video and audio), the couch panel, server-side browsing, streaming and podcast downloads, profiles, ratings, the scene sentence, "Your taste", and the main screens |
-| Browser (Playwright) | 10 | The real server and built interface in Chromium, desktop and phone: picks, ratings, the scene sentence, "Why this pick", Ask, "Your taste", the request guard and PIN profiles; any console error fails a test |
+| Backend (`pytest`) | 249 | Ranking and explanations, hard constraints, validation, migrations, the request guard, range-request streaming, watch history, posters, couch rules and the guest server over a real socket, command parsing (scene, ratings, play, search, similar titles), System One validation, everyday-language search, the MovieLens and trailer importers (offline fixtures), the streaming relay (with a fake network), the Internet Archive importer and its rights rule, collaborative filtering (neighbour build, predictions, blend, leakage-free evaluation split), the popularity prior, local profiles (PINs, export and import), the taste summary, and the Ask student and agent |
+| Interface (Vitest) | 81 | The voice and command state machine (cancellation, stale results, permissions), couch phone flows, the player and its Up next card, the couch panel, server-side browsing, Discover and Pick for me, profiles, ratings, the scene sentence, "Your taste", and the main screens |
+| Browser (Playwright) | 19 | The real server and built interface in Chromium, desktop and phone: picks, ratings, the scene sentence, "Why this pick", Ask, "Your taste", the request guard and PIN profiles; any console error fails a test |
 
 Regression tests for bugs found during manual testing (a stale poll overwriting a vote, a background
 tab not loading the couch session) were each checked to fail with the bug reintroduced. CI runs the
@@ -164,7 +164,6 @@ the relay (`/media/{id}`), with a handful of requests each:
 | Title | First bytes | Seek |
 |---|---:|---:|
 | *The General* (1926), Internet Archive, 640×480 MP4 | 1.4 s | 1.0–1.3 s typical; one seek near the end took 7 s |
-| *In Our Time* episode, publisher's CDN | 3.1 s (several tracking redirects) | about 1 s |
 
 Local files start well under a second. Remote start-up depends on the source and the network, so the
 target can be claimed for local and downloaded media but not for every stream. A proper measurement
@@ -234,8 +233,8 @@ with 3 likes). Flicks now ships 1.0: on test users with 3 likes HR@10 0.108 ± 0
 ## Ask student
 
 `python -m flicks.datasets.ask` trains the student and scores it on 30 hand-written test requests that share
-no phrase with its training bank: 16 of 30 exactly right; per setting, mood 0.67, intensity 0.97, novelty
-0.97, watch or listen 1.00, genre to avoid 0.93; about 0.2 ms per request. Details and negative results
+no phrase with its training bank: 18 of 30 exactly right; per setting, mood 0.70, intensity 1.00, novelty
+0.97, genre to avoid 0.93; about 0.14 ms per request (after podcasts were removed, [ADR 0017](adr/0017-films-only.md)). Details and negative results
 (static embeddings) are in [ADR 0014](adr/0014-ask-student.md).
 
 ## Ask agent (local language model, optional)

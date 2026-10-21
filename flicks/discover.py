@@ -38,8 +38,8 @@ class Discover:
 
     @staticmethod
     def scene(session):
-        """Discover is for films, at any length: the scene's mood, intensity and mix still apply."""
-        return replace(session, medium='watch', minutes=max(session.minutes, 600), playable=False)
+        """Discover is for any length: the scene's mood, intensity and mix still apply."""
+        return replace(session, minutes=max(session.minutes, 600), playable=False)
 
     def media(self, content_id):
         """{'kind': 'file' | 'stream' | None (a preview of the film itself), 'trailer': a YouTube ID or None}."""

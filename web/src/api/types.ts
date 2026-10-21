@@ -2,9 +2,6 @@
 
 export const MOODS = ['any', 'relaxing', 'uplifting', 'curious', 'tense', 'reflective'] as const;
 export type Mood = (typeof MOODS)[number];
-export const MEDIUMS = ['any', 'watch', 'listen'] as const;
-/** Anything, something to watch, or something to listen to (podcast episodes). */
-export type Medium = (typeof MEDIUMS)[number];
 export type Mode = 'session' | 'baseline';
 export type Rating = 1 | -1;
 
@@ -19,12 +16,7 @@ export interface Content {
   moods: Exclude<Mood, 'any'>[];
   intensity: number;
   description: string;
-  /** The show a podcast episode belongs to; absent or null for films. */
-  series?: string | null;
 }
-
-/** Podcast episodes are the only audio titles. */
-export const isEpisode = (item: { kind: string }) => item.kind === 'episode';
 
 export interface VoiceStatus {
   available: boolean;
@@ -37,11 +29,9 @@ export interface MediaEntry {
   id: string;
   /** False for containers some browsers cannot play (MKV, MOV). */
   direct_play: boolean;
-  /** A podcast episode rather than a video. */
-  audio: boolean;
-  /** Plays from elsewhere through Flicks (a podcast feed, the Internet Archive) rather than from this machine. */
+  /** Plays from elsewhere through Flicks (the Internet Archive) rather than from this machine. */
   remote: boolean;
-  /** Where it comes from, for credit: the show's name or "Internet Archive"; null for your own files. */
+  /** Where it comes from, for credit: "Internet Archive"; null for your own files. */
   source: string | null;
   /** The source's page for this title, when there is one. */
   page: string | null;
@@ -64,8 +54,6 @@ export interface AppState {
   /** Recommendations also use public ratings (item-to-item collaborative filtering). */
   collaborative: boolean;
   couch: boolean;
-  /** A podcast catalogue is loaded: episodes can be recommended, downloaded and played. */
-  podcasts: boolean;
   posters: string[];
   media: MediaEntry[];
   /** The profile these ratings and history belong to (absent from older servers). */
@@ -131,8 +119,7 @@ export interface Session {
   intensity: number;
   novelty: number;
   excluded_genres: string[];
-  medium: Medium;
-  /** Only titles that can be played right now (a local file, a download or a stream). */
+  /** Only titles that can be played right now (a local file or a stream). */
   playable: boolean;
   /** How much each factor counts: [taste, mood, intensity, discovery], summing to 1. */
   mix: Mix;
@@ -238,18 +225,9 @@ export type TitleFilter = 'all' | 'liked' | 'passed' | 'unrated';
 export interface TitlesResponse {
   items: Content[];
   total: number;
-  /** What the search understood, in plain words: ["Comedy", "1990s", "Films"] or ["Like Alien"]. */
+  /** What the search understood, in plain words: ["Comedy", "1990s"] or ["Like Alien"]. */
   understood: string[];
 }
-
-// ---------- podcasts ----------
-
-export type DownloadStatus =
-  | { state: 'remote' }
-  | { state: 'queued' }
-  | { state: 'downloading'; received: number; total: number | null }
-  | { state: 'ready'; size: number }
-  | { state: 'failed'; error: string };
 
 // ---------- couch mode ----------
 
@@ -266,8 +244,6 @@ export interface CouchItem {
   title: string;
   year: number;
   kind: string;
-  /** The show, for a podcast episode. */
-  series: string | null;
   minutes: number;
   genres: string[];
   moods: string[];

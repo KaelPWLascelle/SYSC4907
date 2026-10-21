@@ -1,10 +1,10 @@
 """Remote media played through Flicks: the browser only ever talks to this machine (docs/adr/0011-streaming.md).
 
-When a title's media lives elsewhere (a podcast episode on its publisher's server, a public-domain
-film on the Internet Archive), pressing Play makes the host app fetch it and pass it on, chunk by
-chunk, with the browser's Range header so seeking works. The URL comes from an imported index,
-never from the request; the response is always labelled with the expected audio or video type,
-whatever the remote server claims; and the first bytes of a file must look like audio or video.
+When a film's media lives elsewhere (a public-domain copy on the Internet Archive), pressing Play
+makes the host app fetch it and pass it on, chunk by chunk, with the browser's Range header so seeking
+works. The URL comes from an imported index, never from the request; the response is always labelled
+with the expected video type, whatever the remote server claims; and the first bytes of a file must
+look like video.
 """
 from dataclasses import dataclass
 import re
@@ -15,29 +15,15 @@ from . import net
 CHUNK = 256 * 1024
 # Bytes needed to recognise a container (an MP4 box type sits at bytes 4-8). Smaller responses, such as
 # Safari's "bytes=0-1" probe before it plays anything, cannot be judged and are passed on as they are:
-# they are still labelled as audio or video with nosniff, so they cannot become a page.
+# they are still labelled as video with nosniff, so they cannot become a page.
 SNIFF_BYTES = 8
 # One range, as browsers send for media: "bytes=0-", "bytes=1000-1999" or "bytes=-500".
 RANGE = re.compile(r'bytes=(\d+-\d*|-\d+)')
 PASSED_HEADERS = ('Content-Length', 'Content-Range')
 
 
-def sniff_audio(head: bytes):
-    """File extension from the first bytes, or None. Never trust the server's content type."""
-    if head[:3] == b'ID3':
-        return '.mp3'
-    if len(head) >= 2 and head[0] == 0xFF and head[1] & 0xE0 == 0xE0:
-        # MPEG frame sync: layer bits 00 mean AAC in an ADTS stream, anything else is MP3.
-        return '.aac' if (head[1] >> 1) & 0b11 == 0 else '.mp3'
-    if head[4:8] == b'ftyp':
-        return '.m4a'
-    if head[:4] == b'OggS':
-        return '.ogg'
-    return None
-
-
 def sniff_video(head: bytes):
-    """'.mp4' for an MP4/QuickTime box, '.webm' for Matroska/WebM, or None."""
+    """'.mp4' for an MP4/QuickTime box, '.webm' for Matroska/WebM, or None. Never trust the server's type."""
     if head[4:8] in (b'ftyp', b'moov', b'mdat', b'free', b'wide', b'skip'):
         return '.mp4'
     if head[:4] == b'\x1a\x45\xdf\xa3':
@@ -50,8 +36,7 @@ class Remote:
     """Where a title's media lives, and how to present it."""
     url: str
     media_type: str     # always sent to the browser, whatever the remote server says
-    audio: bool
-    source: str         # shown to the user: the show's name, or "Internet Archive"
+    source: str         # shown to the user, e.g. "Internet Archive"
     page: str = ''      # attribution link; empty when there is none
 
 
@@ -114,10 +99,9 @@ def relay(remote: Remote, range_header=None, method='GET', opener=net.open_strea
         return Relayed(reply.status, out, iter(()))
     first = reply.read(CHUNK)
     from_start = reply.status == 200 or (reply.headers.get('Content-Range') or '').startswith('bytes 0-')
-    if from_start and len(first) >= SNIFF_BYTES and (sniff_audio if remote.audio else sniff_video)(first[:16]) is None:
+    if from_start and len(first) >= SNIFF_BYTES and sniff_video(first[:16]) is None:
         reply.close()
-        kind = 'audio' if remote.audio else 'video'
-        raise RelayError(502, f'{remote.source} did not send {kind} Flicks can play')
+        raise RelayError(502, f'{remote.source} did not send video Flicks can play')
 
     def chunks():
         try:

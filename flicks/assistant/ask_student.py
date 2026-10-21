@@ -26,7 +26,6 @@ HEADS = {
     'mood': ['none', 'relaxing', 'uplifting', 'curious', 'tense', 'reflective'],
     'intensity': ['none', 'low', 'high'],
     'novelty': ['none', 'familiar', 'new'],
-    'medium': ['none', 'watch', 'listen'],
     'avoid': ['none', 'horror', 'romance', 'musical', 'animation', 'war', 'documentary'],
 }
 VALUES = {'intensity': {'low': 0.2, 'high': 0.9}, 'novelty': {'familiar': 0.1, 'new': 0.9}}
@@ -34,7 +33,7 @@ MIN_CONFIDENCE = 0.6
 CUE = re.compile(r'\b(like|similar to|in the vein of|same as|reminds me of|play|put on|watch|start|resume)\s+')
 PLAY_CUES = frozenset({'play', 'put on', 'watch', 'start', 'resume'})
 # Words that say a request is about something to find, so a keyword search must not be dropped for a scene.
-TOPIC = re.compile(r'\b(?:about|featuring|starring|set in|based on|with|find|search|show me|play|put on|listen to)\b')
+TOPIC = re.compile(r'\b(?:about|featuring|starring|set in|based on|with|find|search|show me|play|put on)\b')
 
 
 def featurize(text):
@@ -141,7 +140,7 @@ class StudentInterpreter:
                     'note': 'The Ask student read the rest of your words. Review before applying.'}
         if result['intent'] == 'search':
             understood = self.titles.understand(text)
-            if understood.genres or understood.years or understood.kind:
+            if understood.genres or understood.years:
                 return result  # a search that understood what to find ("funny films from the 90s") stands
         if result['intent'] == 'search' and TOPIC.search(normalize(text)):
             # "something sad about dogs": keep the search for what it is about, and set the scene too.
@@ -160,8 +159,6 @@ class StudentInterpreter:
         for head in ('intensity', 'novelty'):
             if head in settings:
                 patch[head] = VALUES[head][settings[head]]
-        if 'medium' in settings:
-            patch['medium'] = settings['medium']
         if settings.get('avoid') in self.genres:
             patch['excluded_genres'] = [settings['avoid']]
         return patch

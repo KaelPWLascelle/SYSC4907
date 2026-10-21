@@ -80,18 +80,18 @@ class PosterLibraryTests(unittest.TestCase):
         self.assertFalse(plausible({'description': '2016 novel'}, item('m001')))
         self.assertFalse(plausible({}, item('m001')))
 
-    def test_episodes_may_share_their_show_artwork(self):
-        write_cache(self.dir, {'p1': {'file': 'show-0123456789ab.jpg'}, 'p2': {'file': 'show-0123456789ab.jpg'},
-                               'p3': {'file': 'show-../../x.jpg'}, 'p4': {'file': 'show-nothex.jpg'}},
-                    {'show-0123456789ab.jpg': JPEG})
-        self.assertEqual(PosterLibrary(self.dir, {'p1', 'p2', 'p3', 'p4'}).ids(), ['p1', 'p2'])
+    def test_a_title_may_only_use_its_own_file(self):
+        write_cache(self.dir, {'m001': {'file': 'm001.jpg'}, 'm002': {'file': 'm001.jpg'}, 'm003': {'file': '../x.jpg'}},
+                    {'m001.jpg': JPEG})
+        self.assertEqual(PosterLibrary(self.dir, {'m001', 'm002', 'm003'}).ids(), ['m001'])
 
     def test_fetch_downloads_each_image_once_and_rejects_non_images(self):
         jobs = [posters.Job('m001', 'Arrival', 'https://upload.example/a.jpg', 'm001', 'https://en.wikipedia.org/wiki/Arrival_(film)'),
                 posters.Job('m002', 'Contact', 'https://upload.example/c', 'm002', None),
-                posters.Job('p1', 'Episode 1', 'https://cdn.example/show.png', 'show-0123456789ab', 'https://show.example'),
-                posters.Job('p2', 'Episode 2', 'https://cdn.example/show.png', 'show-0123456789ab', 'https://show.example')]
-        bodies = {'https://upload.example/a.jpg': JPEG, 'https://upload.example/c': b'<html>', 'https://cdn.example/show.png': PNG}
+                # Two titles whose Wikipedia articles share one image (a film and its director's cut, say).
+                posters.Job('m003', 'Blade Runner', 'https://upload.example/b.png', 'm003', None),
+                posters.Job('m004', 'Blade Runner: The Final Cut', 'https://upload.example/b.png', 'm004', None)]
+        bodies = {'https://upload.example/a.jpg': JPEG, 'https://upload.example/c': b'<html>', 'https://upload.example/b.png': PNG}
         calls = []
 
         def fetch(url, limit, accept='*/*'):
@@ -101,12 +101,12 @@ class PosterLibraryTests(unittest.TestCase):
         with mock.patch.object(posters, '_get', side_effect=fetch):
             found, missing = posters.fetch(jobs, self.dir, log=lambda *_: None)
         self.assertEqual((found, missing), (3, 1))
-        self.assertEqual(sorted(calls), sorted(bodies))                  # the show's artwork is fetched once
+        self.assertEqual(sorted(calls), sorted(bodies))                  # a shared image is fetched once
         manifest = json.loads((self.dir/'posters.json').read_text(encoding='utf-8'))
-        self.assertEqual(set(manifest['posters']), {'m001', 'p1', 'p2'})
-        self.assertEqual(manifest['posters']['p2']['file'], 'show-0123456789ab.png')
+        self.assertEqual(set(manifest['posters']), {'m001', 'm003', 'm004'})
+        self.assertEqual(manifest['posters']['m004']['file'], 'm004.png')
         self.assertEqual((self.dir/'m001.jpg').read_bytes(), JPEG)
-        self.assertEqual(PosterLibrary(self.dir, {'m001', 'm002', 'p1', 'p2'}).ids(), ['m001', 'p1', 'p2'])
+        self.assertEqual(PosterLibrary(self.dir, {'m001', 'm002', 'm003', 'm004'}).ids(), ['m001', 'm003', 'm004'])
         with mock.patch.object(posters, '_get', side_effect=fetch):     # cached titles are not fetched again
             posters.fetch(jobs, self.dir, log=lambda *_: None)
         self.assertEqual(calls.count('https://upload.example/a.jpg'), 1)
@@ -141,7 +141,7 @@ class PosterLibraryTests(unittest.TestCase):
             return {'query': {'pages': [{'title': t, 'thumbnail': {'source': f'https://upload.example/{t}.jpg'}}
                                         for t in params['titles'].split('|')]}}
 
-        jobs = posters.plan(catalog, limit=1, articles=articles, episodes={}, fetch_json=fetch_json, log=lambda *_: None)
+        jobs = posters.plan(catalog, limit=1, articles=articles, fetch_json=fetch_json, log=lambda *_: None)
         self.assertEqual(sorted(job.content_id for job in jobs), ['m0', 'm2'])   # the top one, and the streamable one
 
     def test_page_images_are_looked_up_in_batches_following_redirects(self):

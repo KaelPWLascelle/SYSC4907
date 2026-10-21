@@ -72,9 +72,9 @@ at a time; a second request is asked to retry.
 | "Clear my rating for Arrival" | Remove that rating |
 | "Show recommendations" | Refresh with the current scene |
 | "I hate horror" / "I don't like musicals" | Avoid that genre (a genre, not a title) |
-| "Play The General" / "Listen to The Gracchi" | Play it, or open its details if it cannot be played |
+| "Play The General" / "Put on Metropolis" | Play it, or open its details if it cannot be played |
 | "More like Alien" / "Similar to Moon" | List titles like it in Browse |
-| "Funny films from the 90s" / "podcasts about Rome" | Search the catalogue in Browse |
+| "Funny films from the 90s" / "something about Rome" | Search the catalogue in Browse |
 
 - **Time** is in whole minutes. "Under 90" means strictly below, so up to 89; "90 minutes" and "at
   most 90 minutes" include 90. Use one duration per request.

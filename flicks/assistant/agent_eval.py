@@ -29,7 +29,6 @@ CASES = [
     ('honestly just need to decompress, keep it mellow', {'intent': 'session', 'mood': 'relaxing'}),
     ('i want my heart pounding', {'intent': 'session', 'intensity_at_least': 0.7}),
     ('make me laugh, i had a rough day', {'intent': ('session', 'search')}),
-    ('something to listen to while i cook', {'intent': ('session', 'search')}),
     ('how do i bake bread', {'intent': 'unknown'}),
     ('what time is it in tokyo', {'intent': 'unknown'}),
 ]

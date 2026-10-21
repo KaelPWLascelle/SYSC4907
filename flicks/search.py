@@ -1,9 +1,8 @@
 """Catalogue lookup and everyday-language search, in memory (docs/adr/0007-catalogue-artifact.md).
 
 A query is first read for what it asks to narrow by: a decade or year ("from the 90s", "before 1980"),
-a length ("under 90 minutes"), a kind ("podcasts", "films"), genres ("funny", "sci-fi") and moods
-("chill"). Whatever is left is matched as words against titles, shows, genres, tags and plot
-descriptions, so "keaton" finds Buster Keaton's films and "tom hanks" finds his. Results rank by where
+a length ("under 90 minutes"), genres ("funny", "sci-fi") and moods ("chill"). Whatever is left is
+matched as words against titles, genres, tags and plot descriptions, so "keaton" finds Buster Keaton's films and "tom hanks" finds his. Results rank by where
 the words matched (title first), then by how widely liked a title is. A query that is itself part of a
 title ("scary movie", "star wars") is searched as words, never reinterpreted.
 """
@@ -19,13 +18,11 @@ STOP_WORDS = frozenset({
     'a', 'an', 'and', 'any', 'anything', 'about', 'are', 'at', 'be', 'best', 'by', 'can', 'do', 'find', 'for', 'from',
     'fun', 'get', 'give', 'good', 'great', 'i', 'im', 'in', 'into', 'is', 'it', 'like', 'looking', 'me', 'more', 'my',
     'of', 'on', 'or', 'please', 'recommend', 'recommendation', 'see', 'set', 'show', 'some', 'something', 'that', 'the',
-    'them', 'there', 'these', 'this', 'to', 'want', 'watch', 'we', 'what', 'with', 'would', 'you'})
+    'them', 'there', 'these', 'this', 'to', 'want', 'watch', 'we', 'what', 'with', 'would', 'you',
+    # Everything in the catalogue is a film, so these narrow nothing ("funny films from the 90s").
+    'film', 'films', 'movie', 'movies', 'flick', 'flicks'})
 
-KIND_WORDS = {'podcast': 'episode', 'podcasts': 'episode', 'episode': 'episode', 'episodes': 'episode',
-              'listen': 'episode', 'movie': 'movie', 'movies': 'movie', 'film': 'movie', 'films': 'movie',
-              'flick': 'movie', 'flicks': 'movie'}
-
-# Everyday words -> catalogue genres (film genres and podcast categories). Only genres the catalogue has are used.
+# Everyday words -> catalogue genres. Only genres the catalogue has are used.
 GENRE_WORDS = {
     'funny': ('comedy',), 'comedy': ('comedy',), 'comedies': ('comedy',), 'hilarious': ('comedy',),
     'romcom': ('romance', 'comedy'), 'rom com': ('romance', 'comedy'),
@@ -83,14 +80,11 @@ class Query:
     words: tuple = ()
     genres: tuple = ()
     moods: tuple = ()
-    kind: str | None = None
     years: tuple | None = None
     max_minutes: int | None = None
     notes: tuple = field(default=(), compare=False)
 
     def keeps(self, item):
-        if self.kind and (item.kind == 'episode') != (self.kind == 'episode'):
-            return False
         if self.years and not self.years[0] <= item.year <= self.years[1]:
             return False
         if self.max_minutes and item.minutes > self.max_minutes:
@@ -99,10 +93,10 @@ class Query:
 
     @property
     def filtered(self):
-        return bool(self.genres or self.moods or self.kind or self.years or self.max_minutes)
+        return bool(self.genres or self.moods or self.years or self.max_minutes)
 
     def labels(self):
-        """Plain-language chips for what was understood: ["Comedy", "1990s", "Films"]."""
+        """Plain-language chips for what was understood: ["Comedy", "1990s"]."""
         out = [g.replace('-and-', ' & ').replace('-', ' ').capitalize() for g in self.genres]
         out += [m.capitalize() for m in self.moods]
         if self.years:
@@ -111,8 +105,6 @@ class Query:
                        else f'before {hi + 1}' if lo <= 1800 else f'since {lo}')
         if self.max_minutes:
             out.append(f'up to {self.max_minutes} min')
-        if self.kind:
-            out.append('Podcasts' if self.kind == 'episode' else 'Films')
         return out
 
 
@@ -128,11 +120,11 @@ class TitleIndex:
         self.titles = [title_key(item.title) for item in self.items]
         self.compact = [title.replace(' ', '') for title in self.titles]
         self.title_words = [frozenset(tokens(item.title)) for item in self.items]
-        self.meta_words = [frozenset(tokens(' '.join([item.series or '', *item.genres, *item.tags]).replace('-', ' ')))
+        self.meta_words = [frozenset(tokens(' '.join([*item.genres, *item.tags]).replace('-', ' ')))
                            for item in self.items]
         self.postings = {}  # token -> indexes of titles whose text contains it
         for index, item in enumerate(self.items):
-            text = ' '.join([item.title, str(item.year), item.series or '', ' '.join(item.genres).replace('-', ' '),
+            text = ' '.join([item.title, str(item.year), ' '.join(item.genres).replace('-', ' '),
                              ' '.join(item.tags), item.description])
             for token in set(tokens(text)):
                 self.postings.setdefault(token, set()).add(index)
@@ -147,10 +139,10 @@ class TitleIndex:
     def understand(self, text):
         clean = title_key(text)
         words = [stem(w) for w in clean.split()]
-        filter_word = clean in GENRE_WORDS or clean in MOOD_WORDS or clean in KIND_WORDS or clean in DECADE_WORDS
+        filter_word = clean in GENRE_WORDS or clean in MOOD_WORDS or clean in DECADE_WORDS
         if len(clean) >= 3 and not filter_word and any(clean in title for title in self.titles):
             return Query(text, tuple(w for w in words if w not in STOP_WORDS) or tuple(words))
-        raw, genres, moods, kind, years, max_minutes = clean.split(), [], [], None, None, None
+        raw, genres, moods, years, max_minutes = clean.split(), [], [], None, None
         used = [False] * len(raw)
 
         def take(phrase):
@@ -170,9 +162,7 @@ class TitleIndex:
         for i, word in enumerate(raw):
             if used[i]:
                 continue
-            if word in KIND_WORDS:
-                kind, used[i] = KIND_WORDS[word], True
-            elif word in DECADE_WORDS:
+            if word in DECADE_WORDS:
                 years, used[i] = (DECADE_WORDS[word], DECADE_WORDS[word] + 9), True
             elif decade := re.fullmatch(r'(?:(19|20)?(\d))0s', word):
                 century = int(decade[1]) * 100 if decade[1] else (2000 if decade[2] in '01' else 1900)
@@ -197,18 +187,7 @@ class TitleIndex:
             used[start:start + len(length[0].split())] = [True] * len(length[0].split())
         left = [stem(w) for w, done in zip(raw, used, strict=True)
                 if not done and w not in STOP_WORDS and stem(w) not in STOP_WORDS]
-        return Query(text, tuple(left), tuple(genres), tuple(moods), kind, years, max_minutes)
-
-    def _spread_shows(self, order):
-        """Each show's first episode before any show's second, keeping the order otherwise (films are unaffected)."""
-        seen = Counter()
-        rounds = []
-        for i in order:
-            series = self.items[i].series
-            rounds.append(seen[series] if series else 0)
-            if series:
-                seen[series] += 1
-        return [i for _, i in sorted(zip(rounds, order, strict=True), key=lambda pair: pair[0])]
+        return Query(text, tuple(left), tuple(genres), tuple(moods), years, max_minutes)
 
     # ---------- matching ----------
 
@@ -247,7 +226,7 @@ class TitleIndex:
 
         words = understood.words
         if not words:
-            order = self._spread_shows([i for i in self.by_popularity if allowed(i)])
+            order = [i for i in self.by_popularity if allowed(i)]
             return [self.items[i] for i in order[offset:offset + limit]], len(order), understood
         sets = [self._matches(word, last=n == len(words) - 1) for n, word in enumerate(words)]
         hits = set.intersection(*sets)

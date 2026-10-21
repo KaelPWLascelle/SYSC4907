@@ -18,9 +18,9 @@ router = APIRouter()
 
 @router.api_route('/media/{content_id}', methods=['GET', 'HEAD'])
 def media(content_id: str, request: Request, svc: Services = Depends(services)):
-    # A local file wins (a scanned video or a downloaded episode); its path comes from the startup scan or
-    # the episode's ID, never from the request, and FileResponse serves Range requests.
-    file = svc.media.get(content_id) or (svc.podcasts.file(content_id) if svc.podcasts else None)
+    # A local file wins; its path comes from the startup scan, never from the request, and FileResponse
+    # serves Range requests.
+    file = svc.media.get(content_id)
     if file is not None and file.path.is_file():
         return FileResponse(file.path, media_type=file.media_type, headers={'Cache-Control': 'private, no-cache'})
     # Otherwise relay it from where it lives, forwarding the Range header so seeking works.

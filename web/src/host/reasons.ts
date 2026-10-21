@@ -44,10 +44,9 @@ export function reasons(row: Recommendation, session: Session): string[] {
  */
 export function explanation(row: Recommendation, session: Session): string {
   const { content, evidence, because, popular } = row;
-  const kind = content.kind === 'episode' ? 'episode' : 'film';
   let lead: string;
   if (because.length) {
-    lead = `People who liked ${because.slice(0, 2).join(' and ')} also rated this ${kind} highly`;
+    lead = `People who liked ${because.slice(0, 2).join(' and ')} also rated this film highly`;
   } else if (popular) {
     lead = `It’s a crowd favourite while Flicks learns what you like`;
   } else if (evidence.length) {

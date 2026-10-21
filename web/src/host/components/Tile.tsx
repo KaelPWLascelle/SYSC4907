@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react';
 
-import { type Content, isEpisode } from '../../api/types';
+import type { Content } from '../../api/types';
 import { Icon } from '../../components/Icon';
 import { Poster } from '../../components/Poster';
 import { RateButtons } from '../../components/RateButtons';
@@ -40,17 +40,10 @@ export function Tile({ item, rank, resume = false }: TileProps) {
         onClick={() => (resumeAt !== null ? library.play(item) : library.openDetails(item))}
       >
         <Poster item={item} hasPoster={library.posters.has(item.id)} />
-        {playable ? (
+        {playable && (
           <span className="tile-badge" aria-hidden="true">
-            <Icon name={entry.audio ? 'headphones' : 'play'} />{' '}
-            {resumeAt !== null ? timestamp(resumeAt) : entry.remote ? 'Stream' : 'Ready'}
+            <Icon name="play" /> {resumeAt !== null ? timestamp(resumeAt) : entry.remote ? 'Stream' : 'Ready'}
           </span>
-        ) : (
-          isEpisode(item) && (
-            <span className="tile-badge" aria-hidden="true">
-              <Icon name="headphones" /> Podcast
-            </span>
-          )
         )}
         {progress?.resumable && (
           <span

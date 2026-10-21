@@ -1,6 +1,6 @@
 # 0010. Podcast episodes from public feeds, downloaded only when the user asks
 
-**Status:** Accepted · amends [0001](0001-local-first.md)
+**Status:** Superseded by [0017](0017-films-only.md) (podcasts removed) · amended [0001](0001-local-first.md)
 
 ## Context
 Flicks recommends something good for the time and mood you have, and long-form podcasts fit that as

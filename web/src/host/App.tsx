@@ -19,7 +19,6 @@ import { SceneBar } from './components/SceneBar';
 import { Tile } from './components/Tile';
 import { Footer, TopBar } from './components/TopBar';
 import { useCouchHost } from './hooks/useCouchHost';
-import { useDownloads } from './hooks/useDownloads';
 import { useHistory } from './hooks/useHistory';
 import { useRecommendations } from './hooks/useRecommendations';
 import { type Library, LibraryContext } from './library';
@@ -162,25 +161,14 @@ function Home({ initial, onProfile }: { initial: AppState; onProfile?: () => voi
 
   const recommendations = useRecommendations(session, mode, feedback);
   // A row of films you can press Play on now, ranked for you and this scene (minus its time limit).
-  const readyScene = useMemo(() => ({ ...session, medium: 'watch' as const, playable: true, minutes: 600 }), [session]);
+  const readyScene = useMemo(() => ({ ...session, playable: true, minutes: 600 }), [session]);
   const ready = useRecommendations(readyScene, mode, feedback);
   const history = useHistory();
   const couch = useCouchHost(initial.couch);
-  const podcasts = useDownloads(initial.podcasts);
 
   const posters = useMemo(() => new Set(initial.posters), [initial.posters]);
-  // Everything playable, from the server. An episode streams unless it is downloaded, which can change
-  // while the page is open, so episodes follow the downloads.
-  const media = useMemo(
-    () =>
-      new Map(
-        initial.media.map(entry => [
-          entry.id,
-          entry.audio ? { ...entry, remote: podcasts.downloads.get(entry.id)?.state !== 'ready' } : entry,
-        ]),
-      ),
-    [initial.media, podcasts.downloads],
-  );
+  // Everything playable, from the server: local files and public-domain streams.
+  const media = useMemo(() => new Map(initial.media.map(entry => [entry.id, entry])), [initial.media]);
   const progress = useMemo(() => new Map(history.items.map(p => [p.content_id, p])), [history.items]);
 
   // ---------- assistant ----------
@@ -278,21 +266,17 @@ function Home({ initial, onProfile }: { initial: AppState; onProfile?: () => voi
     });
   });
 
-  const { downloads, download, remove: removeDownload } = podcasts;
   const library = useMemo<Library>(
     () => ({
       posters,
       media,
       feedback,
       progress,
-      downloads,
       rate,
       openDetails: setDetails,
       play,
-      download: id => void download(id),
-      removeDownload: id => void removeDownload(id),
     }),
-    [posters, media, feedback, progress, downloads, rate, play, download, removeDownload],
+    [posters, media, feedback, progress, rate, play],
   );
 
   // ---------- couch remote -> player ----------
@@ -330,8 +314,7 @@ function Home({ initial, onProfile }: { initial: AppState; onProfile?: () => voi
   const upNext = playing
     ? (ready.picks
         .map(row => row.content)
-        .find(item => item.id !== playing.item.id && !progress.get(item.id)?.completed && !media.get(item.id)?.audio) ??
-      null)
+        .find(item => item.id !== playing.item.id && !progress.get(item.id)?.completed) ?? null)
     : null;
 
   const pickForMe = (anything: boolean) => {
@@ -352,7 +335,7 @@ function Home({ initial, onProfile }: { initial: AppState; onProfile?: () => voi
     : !picks.length && !loading
       ? 'Nothing fits yet. Add time, drop an avoided genre, or clear a rating.'
       : coldStart
-        ? `Like a few ${initial.podcasts ? 'titles' : 'films'} below and Flicks learns your taste. Until then, picks ${
+        ? `Like a few films below and Flicks learns your taste. Until then, picks ${
             picks.some(p => p.popular) ? 'start from crowd favourites' : 'follow your scene'
           }.`
         : 'Shaped by your ratings and this scene. Open any title to see why it ranks where it does.';
@@ -383,18 +366,17 @@ function Home({ initial, onProfile }: { initial: AppState; onProfile?: () => voi
           session={session}
           mode={mode}
           genres={initial.genres}
-          podcasts={initial.podcasts}
           onSession={setSession}
           onMode={setMode}
           onTaste={() => setTasteOpen(true)}
         />
-        {(notice || podcasts.error) && (
+        {notice && (
           <p className="notice page-notice" role="alert">
-            {notice || podcasts.error}
+            {notice}
           </p>
         )}
         {continueWatching.length > 0 && (
-          <Rail id="continue" title={initial.podcasts ? 'Pick up where you left off' : 'Continue watching'}>
+          <Rail id="continue" title="Continue watching">
             {continueWatching.map(item => (
               <Tile key={item.id} item={item} resume />
             ))}
@@ -411,7 +393,7 @@ function Home({ initial, onProfile }: { initial: AppState; onProfile?: () => voi
             <Tile key={row.content.id} item={row.content} rank={index + 1} />
           ))}
         </Rail>
-        {!session.playable && session.medium !== 'listen' && ready.picks.length > 0 && (
+        {!session.playable && ready.picks.length > 0 && (
           <Rail
             id="ready"
             title="Ready to watch now"
@@ -473,7 +455,6 @@ function Home({ initial, onProfile }: { initial: AppState; onProfile?: () => voi
           item={playing.item}
           startAt={playing.startAt}
           directPlay={media.get(playing.item.id)?.direct_play ?? true}
-          audio={media.get(playing.item.id)?.audio ?? false}
           streamedFrom={
             media.get(playing.item.id)?.remote ? (media.get(playing.item.id)?.source ?? 'the internet') : null
           }

@@ -28,9 +28,8 @@ export const appState = (over: Partial<AppState> = {}): AppState => ({
   tagged: false,
   collaborative: false,
   couch: false,
-  podcasts: false,
   posters: [],
-  media: [{ id: 'm1', direct_play: true, audio: false, remote: false, source: null, page: null }],
+  media: [{ id: 'm1', direct_play: true, remote: false, source: null, page: null }],
   ...over,
 });
 

@@ -16,7 +16,6 @@ function Harness({ onTaste }: { onTaste?: () => void }) {
         session={session}
         mode={mode}
         genres={['drama', 'horror']}
-        podcasts
         onSession={setSession}
         onMode={setMode}
         onTaste={onTaste}
@@ -29,9 +28,7 @@ const state = () => JSON.parse(screen.getByTestId('session').textContent ?? '{}'
 
 test('the scene reads as a sentence, and each word opens its choices', async () => {
   render(<Harness />);
-  expect(screen.getByText(/I have/)).toHaveTextContent(
-    'I have 2 hours for something any mood, balanced, to watch or listen.',
-  );
+  expect(screen.getByText(/I have/)).toHaveTextContent('I have 2 hours for something any mood, balanced.');
   await userEvent.click(screen.getByRole('button', { name: 'Time: 2 hours. Change' }));
   await userEvent.click(screen.getByRole('button', { name: '1h 30m' }));
   expect(screen.getByRole('button', { name: 'Time: 1½ hours. Change' })).toHaveAttribute('aria-expanded', 'true');

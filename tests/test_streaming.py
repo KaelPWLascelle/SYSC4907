@@ -13,8 +13,7 @@ from helpers import app_client
 
 MP3 = b'ID3\x04\x00' + bytes(range(256)) * 4
 MP4 = b'\x00\x00\x00\x20ftypisom' + bytes(range(256)) * 4
-EPISODE = Remote('https://cdn.example.com/1.mp3', 'audio/mpeg', True, 'Deep History', 'https://example.com/show')
-FILM = Remote('https://archive.org/download/TheGeneral/The_General.mp4', 'video/mp4', False, 'Internet Archive',
+FILM = Remote('https://archive.org/download/TheGeneral/The_General.mp4', 'video/mp4', 'Internet Archive',
               'https://archive.org/details/TheGeneral')
 
 
@@ -24,58 +23,56 @@ def body(relayed):
 
 class RelayTests(unittest.TestCase):
     def test_forwards_one_range_and_passes_the_partial_response_on(self):
-        upstream = Upstream(MP3)
-        relayed = relay(EPISODE, 'bytes=0-9', opener=upstream)
-        self.assertEqual(upstream.calls, [('https://cdn.example.com/1.mp3', {'Range': 'bytes=0-9'}, 'GET')])
+        upstream = Upstream(MP4)
+        relayed = relay(FILM, 'bytes=0-9', opener=upstream)
+        self.assertEqual(upstream.calls, [(FILM.url, {'Range': 'bytes=0-9'}, 'GET')])
         self.assertEqual(relayed.status, 206)
-        self.assertEqual(relayed.headers['Content-Range'], f'bytes 0-9/{len(MP3)}')
-        self.assertEqual(body(relayed), MP3[:10])
+        self.assertEqual(relayed.headers['Content-Range'], f'bytes 0-9/{len(MP4)}')
+        self.assertEqual(body(relayed), MP4[:10])
         self.assertTrue(upstream.replies[-1].closed)                     # the remote response is closed at the end
 
     def test_always_labels_the_response_with_the_expected_type(self):
-        relayed = relay(EPISODE, opener=Upstream(MP3, content_type='text/html'))  # never trust the remote's type
-        self.assertEqual((relayed.status, relayed.headers['Content-Type']), (200, 'audio/mpeg'))
+        relayed = relay(FILM, opener=Upstream(MP4, content_type='text/html'))  # never trust the remote's type
+        self.assertEqual((relayed.status, relayed.headers['Content-Type']), (200, 'video/mp4'))
         self.assertEqual(relayed.headers['Cache-Control'], 'no-store')
 
     def test_refuses_a_file_that_is_not_the_expected_media(self):
-        for remote, data in ((EPISODE, b'<html>gotcha</html>'), (FILM, MP3)):
-            with self.subTest(source=remote.source), self.assertRaises(RelayError) as caught:
-                relay(remote, opener=Upstream(data))
+        for data in (b'<html>gotcha</html>', MP3):
+            with self.subTest(data=data[:6]), self.assertRaises(RelayError) as caught:
+                relay(FILM, opener=Upstream(data))
             self.assertEqual(caught.exception.status, 502)
-        mid_file = relay(EPISODE, 'bytes=100-199', opener=Upstream(MP3))   # mid-file bytes cannot be sniffed
+        mid_file = relay(FILM, 'bytes=100-199', opener=Upstream(MP4))   # mid-file bytes cannot be sniffed
         self.assertEqual(len(body(mid_file)), 100)
 
     def test_safari_can_probe_the_first_bytes_before_playing(self):
         # Safari asks for "bytes=0-1" first; too few bytes to recognise, but it must not be refused.
-        for remote, data in ((FILM, MP4), (EPISODE, MP3)):
-            with self.subTest(source=remote.source):
-                relayed = relay(remote, 'bytes=0-1', opener=Upstream(data))
-                self.assertEqual((relayed.status, body(relayed), relayed.headers['Content-Range']),
-                                 (206, data[:2], f'bytes 0-1/{len(data)}'))
-                self.assertEqual(relayed.headers['Content-Type'], remote.media_type)
+        relayed = relay(FILM, 'bytes=0-1', opener=Upstream(MP4))
+        self.assertEqual((relayed.status, body(relayed), relayed.headers['Content-Range']),
+                         (206, MP4[:2], f'bytes 0-1/{len(MP4)}'))
+        self.assertEqual(relayed.headers['Content-Type'], FILM.media_type)
         with self.assertRaises(RelayError):                                 # 8 bytes are enough to judge
             relay(FILM, 'bytes=0-7', opener=Upstream(b'<html><body>'))
 
     def test_drops_ranges_browsers_do_not_send(self):
         for header in ('bytes=0-1,5-9', 'items=0-9', 'bytes=abc', '0-9'):
-            upstream = Upstream(MP3)
+            upstream = Upstream(MP4)
             with self.subTest(header=header):
-                self.assertEqual(relay(EPISODE, header, opener=upstream).status, 200)
+                self.assertEqual(relay(FILM, header, opener=upstream).status, 200)
                 self.assertEqual(upstream.calls[-1][1], {})
 
     def test_remote_failures_become_clear_errors(self):
-        for upstream, status, words in ((Upstream(MP3, error_code=404), 502, 'Deep History answered 404'),
-                                        (Upstream(MP3, error_code=416), 416, 'does not exist'),
-                                        (Upstream(MP3, status=302), 502, 'answered 302')):
+        for upstream, status, words in ((Upstream(MP4, error_code=404), 502, 'Internet Archive answered 404'),
+                                        (Upstream(MP4, error_code=416), 416, 'does not exist'),
+                                        (Upstream(MP4, status=302), 502, 'answered 302')):
             with self.subTest(status=status), self.assertRaises(RelayError) as caught:
-                relay(EPISODE, 'bytes=0-1', opener=upstream)
+                relay(FILM, 'bytes=0-1', opener=upstream)
             self.assertEqual(caught.exception.status, status)
             self.assertIn(words, str(caught.exception))
 
         def offline(url, headers=None, method='GET'):
             raise OSError('network is unreachable')
         with self.assertRaises(RelayError) as caught:
-            relay(EPISODE, opener=offline)
+            relay(FILM, opener=offline)
         self.assertIn('Check your internet connection', str(caught.exception))
 
     def test_head_requests_send_headers_only(self):
@@ -85,7 +82,7 @@ class RelayTests(unittest.TestCase):
 
     def test_streams_only_titles_it_knows(self):
         with self.assertRaises(RelayError) as caught:
-            Streams({'p1': EPISODE}, opener=Upstream(MP3)).open('m001')
+            Streams({'m002': FILM}, opener=Upstream(MP4)).open('m001')
         self.assertEqual(caught.exception.status, 404)
 
 
@@ -187,7 +184,7 @@ class ImportTests(unittest.TestCase):
             self.assertEqual(written['rights']['wikipedia'], 'https://en.wikipedia.org/w/index.php?oldid=42')
             self.assertEqual(written['films']['m1']['url'], 'https://archive.org/download/TheGeneral/The%20General.mp4')
             remote = ArchiveIndex.load(archive_path(path), {'m1'}).remotes()['m1']
-            self.assertEqual((remote.media_type, remote.audio, remote.source), ('video/mp4', False, 'Internet Archive'))
+            self.assertEqual((remote.media_type, remote.source), ('video/mp4', 'Internet Archive'))
 
 
 class IndexTests(unittest.TestCase):
@@ -216,7 +213,7 @@ class ApiTests(unittest.TestCase):
             with app_client(Path(folder), archive=index) as (client, svc):
                 svc.streams.opener = upstream = Upstream(MP4)
                 entry = next(e for e in client.get('/api/state').json()['media'] if e['id'] == 'm001')
-                self.assertEqual(entry, {'id': 'm001', 'direct_play': True, 'audio': False, 'remote': True,
+                self.assertEqual(entry, {'id': 'm001', 'direct_play': True, 'remote': True,
                                          'source': 'Internet Archive', 'page': 'https://archive.org/details/arrival'})
                 video = client.get('/media/m001', headers={'Range': 'bytes=0-15'})
                 self.assertEqual((video.status_code, video.headers['content-type'], video.content), (206, 'video/mp4', MP4[:16]))

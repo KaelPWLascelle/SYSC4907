@@ -21,7 +21,6 @@ def interpreter(playable=()):
 class StudentTests(unittest.TestCase):
     def test_reads_described_scenes_and_ignores_everything_else(self):
         cases = {'i need to unwind, nothing scary': {'mood': 'relaxing', 'avoid': 'horror'},
-                 'something to listen to on my commute': {'medium': 'listen'},
                  'surprise me with something i have never heard of': {'novelty': 'new'},
                  'set an alarm for seven': {}, 'what should i watch': {}}
         for text, expected in cases.items():

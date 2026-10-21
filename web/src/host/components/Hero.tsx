@@ -1,4 +1,4 @@
-import { isEpisode, type Mode, type Recommendation, type Session } from '../../api/types';
+import type { Mode, Recommendation, Session } from '../../api/types';
 import { Icon } from '../../components/Icon';
 import { Poster } from '../../components/Poster';
 import { RateButtons } from '../../components/RateButtons';
@@ -39,7 +39,6 @@ export function Hero({ pick, session, mode, loading, onPick }: HeroProps) {
   const hasPoster = library.posters.has(item.id);
   const progress = library.progress.get(item.id);
   const playable = library.media.has(item.id);
-  const episode = isEpisode(item);
   return (
     <section className="hero" aria-labelledby="hero-title" aria-live="polite">
       {hasPoster && (
@@ -53,7 +52,6 @@ export function Hero({ pick, session, mode, loading, onPick }: HeroProps) {
           <p className="eyebrow">{mode === 'baseline' ? 'Top pick for your taste' : 'Top pick for tonight'}</p>
           <h1 id="hero-title">{item.title}</h1>
           <p className="hero-meta">
-            {episode && 'Podcast · '}
             {subtitle(item)} · {item.genres.map(capitalize).join(' · ')}
           </p>
           <p className="hero-description">{item.description}</p>

@@ -3,7 +3,7 @@ import { useId } from 'react';
 /**
  * The Flicks mark: five bars that together point right like a play button, and read as a sound wave on
  * its side. The bars echo the factor bars behind every pick (you can always see why), and the wave nods
- * to everything Flicks plays, films and podcasts. White on Flicks blue, in a self-contained tile
+ * to the sound of a film starting. White on Flicks blue, in a self-contained tile
  * (everything stays on this device). The same geometry is in web/public/favicon.svg and
  * scripts/make_icons.py.
  */

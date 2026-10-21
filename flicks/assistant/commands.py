@@ -28,7 +28,7 @@ def number_words(text):
 
 
 HINT = 'Try “relaxing, 90 minutes”, “no horror”, “Like Arrival”, “play The General” or “funny films from the 90s”.'
-PLAY = re.compile(r'(?:play|watch|start|put on|listen to|resume) (.+)')
+PLAY = re.compile(r'(?:play|watch|start|put on|resume) (.+)')
 SEARCH_VERBS = re.compile(r'(?:find|search(?: for)?|show me|look for|looking for|any) ')
 NEGATED = re.compile(r'\b(?:no|without|avoid|exclude|not) \w+(?: \w+)?')
 SIMILAR = re.compile(r'(?:show me |find |give me )?(?:more like|something like|similar to|titles like|films like|movies like|shows like) (.+)')
@@ -93,7 +93,7 @@ class CommandInterpreter:
 
     def genre_named(self, text):
         """The catalogue genre `text` names ("horror", "scary movies", "musicals"), or None."""
-        words = re.sub(r'\b(?:movies?|films?|shows?|podcasts?)\b', '', text).strip()
+        words = re.sub(r'\b(?:movies?|films?|flicks?)\b', '', text).strip()
         genres = GENRE_WORDS.get(words) or ((words,) if words in self.genres else ())
         return genres[0] if len(genres) == 1 and genres[0] in self.genres else None
 
@@ -157,6 +157,8 @@ class CommandInterpreter:
         numeric = re.sub(r'\b(?:an?|one|1) hour and a half\b', '90 minutes', numeric)
         numeric = re.sub(r'\bhalf an hour\b', '30 minutes', numeric)
         numeric = re.sub(r'\ban? hour\b', '1 hour', numeric)
+        # "not too long" or "something short" without a number: a feature that fits an evening, 90 minutes.
+        numeric = re.sub(r'\b(?:not too long|nothing too long|something short|a short one|a quick one)\b', '90 minutes', numeric)
         durations = list(re.finditer(r'\b(\d+)\s*(minutes?|mins?|hours?|hrs?)\b', numeric))
         if len(durations) > 1:
             return self.unknown('Give one time limit in minutes or hours, for example “90 minutes”.')
@@ -181,7 +183,7 @@ class CommandInterpreter:
                 return {'intent': 'session', 'patch': {}, 'summary': 'Refresh recommendations with the current session.', 'parser': 'rules'}
             if play and len(self.same_name(play[1])) > 1:
                 return self.not_found(play[1], 'play')
-            # "listen to something about Rome": not a title, so a search ("listen" asks for podcasts).
+            # "something about Rome": not a title, so a search.
             return self.search(text) or self.unknown(f'Nothing matched. {HINT}', 'unrecognized')
         if self.wants_search(text) and (found := self.search(text)):
             # "scary movies under 90 minutes" describes what to find; the length becomes a search filter.
@@ -192,9 +194,9 @@ class CommandInterpreter:
                 'parser': 'rules', 'note': 'Only the listed settings will change. Other wording is not interpreted.'}
 
     def wants_search(self, text):
-        """True when a request describes what to find: a genre it does not negate, films or podcasts, a period, or "find…"."""
+        """True when a request describes what to find: a genre it does not negate, a period, or "find…"."""
         wanted = self.titles.understand(NEGATED.sub(' ', text))
-        return bool(SEARCH_VERBS.match(text) or wanted.genres or wanted.kind or wanted.years)
+        return bool(SEARCH_VERBS.match(text) or wanted.genres or wanted.years)
 
     def search(self, text):
         """A `search` command for an everyday request that matches titles, or None."""

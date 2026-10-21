@@ -9,7 +9,7 @@ from ..profiles import MAX_IMPORT_BYTES
 from ..services import Services
 from ..trailers import EMBED_ORIGIN
 from . import errors
-from .routes import assistant, couch, library, playback, podcasts, profiles
+from .routes import assistant, couch, library, playback, profiles
 from .security import GuardPolicy, RawBody, RequestGuard
 
 HOSTS = frozenset({'127.0.0.1', 'localhost'})
@@ -35,8 +35,6 @@ def create_app(settings: Settings, services: Services) -> FastAPI:
         app.include_router(router)
     if services.couch is not None:  # absent with --no-couch: the routes simply do not exist
         app.include_router(couch.router)
-    if services.podcasts is not None:  # likewise absent without a podcast catalogue
-        app.include_router(podcasts.router)
 
     static = settings.static_dir
 

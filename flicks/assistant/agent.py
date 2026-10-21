@@ -13,7 +13,7 @@ import json
 import threading
 import time
 
-from ..core import MEDIUMS, MOODS, Session
+from ..core import MOODS, Session
 from ..text import normalize
 from .commands import describe_patch
 from .llm import LLMError, parse_json
@@ -21,18 +21,18 @@ from .llm import LLMError, parse_json
 MAX_STEPS = 4
 CACHE_SECONDS = 15 * 60
 
-TOOLS = """You help a person choose a film or podcast in Flicks. Answer with one JSON object per turn:
+TOOLS = """You help a person choose a film in Flicks. Answer with one JSON object per turn:
 {"tool": "<name>", "args": {...}}
 Tools:
 - lookup_title {"title": str}: find catalogue titles by name; returns their ids.
 - finish_similar {"id": str, "reply": str}: show titles like one you looked up. Use for "like X", "similar to X".
 - finish_scene {"mood"?: str, "max_minutes"?: int, "intensity"?: number 0-1, "novelty"?: number 0-1,
-  "avoid_genres"?: [str], "medium"?: "any"|"watch"|"listen", "reply": str}: describe the viewing scene.
+  "avoid_genres"?: [str], "reply": str}: describe the viewing scene.
   Use when the person describes a feeling, energy, length or things to avoid.
 - finish_search {"query": str, "reply": str}: search with a few words (genre, topic, decade, person).
   Use when the person describes what the film is about.
 - finish_play {"id": str, "reply": str}: play a title you looked up, only if they asked to play or watch it now.
-- give_up {"reply": str}: the request is not about choosing something to watch or listen to.
+- give_up {"reply": str}: the request is not about choosing something to watch.
 Moods: {moods}. Genres: {genres}.
 Intensity 0.2 is gentle, 0.9 is intense. Novelty 0.1 is familiar, 0.9 is new territory.
 Only use ids returned by lookup_title. Finish within 4 turns. "reply" is one short sentence to the person.
@@ -134,7 +134,7 @@ class AgentInterpreter:
         reply = args.get('reply')
         reply = reply.strip()[:200] if isinstance(reply, str) and reply.strip() else None
         if tool == 'give_up':
-            raise GaveUp(reply or 'it can only help choose something to watch or listen to')
+            raise GaveUp(reply or 'it can only help choose something to watch')
         if tool == 'finish_scene':
             patch = self.scene(args)
             return {'intent': 'session', 'patch': patch, 'summary': describe_patch(patch), 'reply': reply}
@@ -181,10 +181,6 @@ class AgentInterpreter:
             if unknown:
                 raise ValueError(f'unknown genres {unknown}; use the genre list')
             patch['excluded_genres'] = [by_name[g.casefold()] for g in wanted]
-        if 'medium' in args:
-            if args['medium'] not in MEDIUMS:
-                raise ValueError('medium must be any, watch or listen')
-            patch['medium'] = args['medium']
         if not patch:
             raise ValueError('finish_scene needs at least one setting')
         Session(**patch)  # the same validation as the manual controls; raises ValueError

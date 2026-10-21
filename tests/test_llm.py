@@ -179,7 +179,7 @@ class LlmApiTests(unittest.TestCase):
         chat = FakeChat(call('finish_scene', mood='uplifting', max_minutes=100, reply='Something cheerful and short.'))
         # Without the Ask student, so the request reaches the language model tier.
         with tempfile.TemporaryDirectory() as temp, app_client(Path(temp), chat=chat, ask_student=None) as (client, _):
-            text = {'text': 'cheer me up after a rough day, nothing too long'}
+            text = {'text': 'cheer me up after a rough day, keep it brief'}
             preview = client.post('/api/command/preview', json=text).json()
             self.assertEqual(preview['command']['parser'], 'llm')
             applied = client.post('/api/command/apply', json=text).json()

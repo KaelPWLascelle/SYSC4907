@@ -16,9 +16,9 @@ The reasons behind each major choice are in the [decision records](adr/README.md
 │                 │                    ─────────────────────────────────┼──▶ local LLM server
 │                 │                                                     │    (127.0.0.1, optional)
 │                 ├─ routes/assistant  rules → System One → student → (LLM)
-│                 ├─ routes/playback   files · relay · watch history ──┼──▶ podcast publishers,
-│                 ├─ routes/podcasts   episode downloads ──────────────┼──▶ Internet Archive (only
-│                 └─ routes/couch      CouchManager ─┐                 │    on Play or Download)
+│                 ├─ routes/playback   files · relay · watch history ──┼──▶ Internet Archive
+│                 │                                                     │    (only on Play)
+│                 └─ routes/couch      CouchManager ─┐                 │
 │                                                    ▼                 │
 │                         SQLite (~/.flicks)   guest app (LAN, only    │
 │                                              during a session)       │
@@ -53,16 +53,15 @@ The reasons behind each major choice are in the [decision records](adr/README.md
 | `discover.py`, `trailers.py`, `datasets/trailers.py` | The Discover feed (three interleaved streams), "Pick for me", and the trailer index and its import ([ADR 0016](adr/0016-discover.md)) |
 | `taste.py` | "Your taste": genre lean, tag themes and the liked films shaping picks, from the ranking's own data ([ADR 0015](adr/0015-your-taste.md)) |
 | `media.py` | Maps local video files to catalogue titles |
-| `podcasts.py` | Podcast episodes at runtime: the validated episode index, downloads (one at a time, sniffed as audio) and downloaded files ([ADR 0010](adr/0010-podcasts.md)) |
 | `relay.py`, `archive.py` | Remote media played through Flicks (Range forwarding, forced media type, sniffing), and the validated Internet Archive index ([ADR 0011](adr/0011-streaming.md)) |
 | `assistant/commands.py`, `assistant/intent.py` | Rule-based command parsing (scene, ratings, play, search, similar titles), with an optional local System One fallback |
 | `assistant/voice.py` | Optional on-device Whisper transcription with bounded audio decoding |
 | `couch.py`, `qr.py` | Couch-session rules (joining, hidden votes, results, player state) and the QR encoder |
-| `posters.py` | The one-time artwork fetch (Wikipedia page images in batches, podcast show art) and the read-only cache |
+| `posters.py` | The one-time artwork fetch (Wikipedia page images in batches) and the read-only cache |
 | `search.py` | In-memory lookup and everyday-language search: reads decades, years, lengths, kinds, genres and moods, then ranks word matches over titles, shows, genres, tags and descriptions ([ADR 0007](adr/0007-catalogue-artifact.md)) |
 | `collaborative.py` | Item-to-item collaborative filtering, the content/collaborative blend and the popularity prior ([ADR 0008](adr/0008-collaborative-filtering.md), [0009](adr/0009-popularity-prior.md)) |
-| `datasets/` | Build-time tools: the MovieLens, podcast and Internet Archive importers, neighbour precomputation, and the offline evaluation |
-| `net.py` | Outbound HTTP for explicit, user-requested actions: posters, imports, streams and downloads; public addresses only |
+| `datasets/` | Build-time tools: the MovieLens, trailer and Internet Archive importers, neighbour precomputation, and the offline evaluation |
+| `net.py` | Outbound HTTP for explicit, user-requested actions: posters, imports and streams; public addresses only |
 | `systemone.py`, `tagging.py`, `distill.py` | System One client, catalogue tagging and the distilled student |
 
 `core.py`, `couch.py` and `repositories.py` contain no HTTP code, so they are tested directly.
@@ -77,7 +76,7 @@ React 19 and TypeScript, built by Vite into `flicks/static/` with two entry poin
 | `src/api/` | Typed client and response types mirroring the Python API |
 | `src/host/App.tsx` | Owns the user's state (ratings, scene, open sheet, playback) and wires the screens |
 | `src/host/components/` | Hero, rails and tiles, scene bar, Ask bar, details sheet, browse grid, couch panel, player |
-| `src/host/hooks/` | Recommendations (debounced, aborting stale requests), history, podcast downloads, couch host polling |
+| `src/host/hooks/` | Recommendations (debounced, aborting stale requests), history, couch host polling |
 | `src/host/commands/` | `CommandController`: the voice and command state machine, framework-free |
 | `src/host/library.ts`, `reasons.ts` | Shared title lookups and actions; plain-language reasons from score factors |
 | `src/guest/` | The couch phone app and its polling hook |
@@ -118,13 +117,12 @@ Everything here is enforced in code and covered by tests (`tests/test_flicks.py`
   no inline scripts. The one frame allowed is YouTube's privacy-enhanced embed, for Discover trailers
   the viewer has turned on (host app only; [ADR 0016](adr/0016-discover.md)).
 - **No paths from requests.** Media and poster routes serve only files matched to a catalogue ID at
-  startup, or episodes downloaded under their ID.
-- **No URLs from requests.** The running app fetches remote media only when the user presses Play
-  or Download, and only from the URL in an imported index (a podcast feed or the Internet Archive);
-  a request names only the title's ID. Only public http(s) addresses may be fetched, redirects
-  included. Relayed responses always carry the expected audio or video type with `nosniff`, and a
-  file that does not start like audio or video is refused; downloads are capped at 1 GiB. See
-  [ADR 0010](adr/0010-podcasts.md) and [ADR 0011](adr/0011-streaming.md).
+  startup.
+- **No URLs from requests.** The running app fetches remote media only when the user presses Play,
+  and only from the URL in an imported index (the Internet Archive); a request names only the title's
+  ID. Only public http(s) addresses may be fetched, redirects included. Relayed responses always carry
+  the expected video type with `nosniff`, and a file that does not start like video is refused. See
+  [ADR 0011](adr/0011-streaming.md).
 - **Couch guests are isolated.** They use a separate server with its own routes, so ratings, history,
   voice and commands are unreachable from the network. See [couch mode](couch.md).
 - **User text stays local.** Typed or spoken requests may only go to a System One model or a language
@@ -191,16 +189,14 @@ taste(i)      = w·popularity(i) + (1 − w)·taste_hybrid(i)
 ```
 
 With no ratings, picks are the most widely liked films that fit the scene; each rating moves weight
-to the user's own taste. The prior covers only the film catalogue the ratings describe; podcast episodes
-keep their own taste, since no data is not the same as unpopular. A pick is marked `popular` when the prior supplied at least half of its
+to the user's own taste. A pick is marked `popular` when the prior supplied at least half of its
 taste score, and only then does the interface call it a crowd favourite. The strength s is tuned
 offline (docs/evaluation.md).
 
 ### Session reranking
 
 Hard constraints come first and apply in both modes: rated titles, titles longer than the available
-time, titles in an avoided genre, and titles of the wrong medium (watch or listen, when podcasts are
-loaded) and, with **Ready to play**, titles that cannot be played right now are removed. The rest are scored:
+time, titles in an avoided genre and, with **Ready to play**, titles that cannot be played right now are removed. The rest are scored:
 
 | Factor | Definition | Default weight |
 |---|---|---:|
@@ -213,11 +209,7 @@ The weights are the session's `mix`, which the user can tune in "Your taste"; it
 numbers summing to 1, so a score stays in [0, 1] and its factors still add up to it.
 
 Without likes, discovery is a neutral 0.5. Results are sorted by score, then by content ID for
-stability, and the top 12 are returned, with at most two episodes of any one podcast (a show's
-episodes share genres and moods, so they would otherwise fill the row). In "either" mode the best
-films and the best episodes alternate, led by whichever scores higher: their scores rest on different
-evidence (public popularity and collaborative patterns exist for films only), so they are compared
-within each medium rather than across. The "taste only" lens ranks by taste alone. Scores are
+stability, and the top 12 are returned. The "taste only" lens ranks by taste alone. Scores are
 ranking signals in [0, 1], not probabilities, and the factors shown in the interface add up to the
 score exactly.
 
@@ -262,18 +254,13 @@ All responses are JSON unless noted. Errors have the shape `{"error": "<message>
 | `GET /api/history` | Watch progress, most recent first, with each title's details |
 | `PUT /api/history/{id}` | `{"position_seconds": 120.5, "duration_seconds": 840}` |
 | `DELETE /api/history/{id}` | Forget progress for a title |
-| `GET /media/{id}` | Play a title: a local file or downloaded episode, otherwise relayed from its source (episodes, Archive films); supports `Range` (206) and `HEAD`; 502 when the source fails |
+| `GET /media/{id}` | Play a film: a local file, otherwise relayed from the Internet Archive; supports `Range` (206) and `HEAD`; 502 when the source fails |
 | `GET /posters/{id}` | A cached poster image |
-| `GET /api/podcasts/downloads` | Downloaded, downloading, queued and failed episodes (with a podcast catalogue) |
-| `GET /api/podcasts/{id}` | An episode's show, its page and its download status |
-| `POST /api/podcasts/{id}/download` | `{}`: download the episode from its feed's audio URL (202) |
-| `DELETE /api/podcasts/{id}/download` | Delete a downloaded episode or forget a failed download (409 while downloading) |
 | `GET /api/couch`, `GET /api/couch/qr.svg` | Couch session view and QR code (absent with `--no-couch`) |
 | `POST /api/couch/start`, `stop`, `reveal`, `player` | Couch session controls (absent with `--no-couch`) |
 
-A session is `{"mood", "minutes", "intensity", "novelty", "excluded_genres", "medium", "playable", "mix"}`;
-medium is `any`, `watch` or `listen`; `playable` keeps only titles with a local file, a download or a
-stream. Moods are `any`,
+A session is `{"mood", "minutes", "intensity", "novelty", "excluded_genres", "playable", "mix"}`;
+`playable` keeps only titles with a local file or a stream. Moods are `any`,
 `relaxing`, `uplifting`, `curious`, `tense` and `reflective`; minutes are 1–600; intensity and novelty
 are 0–1.
 
@@ -291,7 +278,7 @@ and `POST /api/couch/join`, `vote` and `remote`. Requests after joining carry th
 | 401 | Missing or wrong guest token (couch), or every profile has a PIN and none is signed in |
 | 403 | Wrong `Host` or a cross-site `Origin` |
 | 404 | Unknown route, title, poster or media file |
-| 409 | Voice is busy with another transcription, or an episode is still downloading |
+| 409 | Voice is busy with another transcription |
 | 429 | Too many wrong PINs; try again in a minute |
 | 410 | The couch session has ended |
 | 413 | Request body too large |

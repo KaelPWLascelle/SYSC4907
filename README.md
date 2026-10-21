@@ -12,15 +12,13 @@ Flicks is a SYSC 4907 capstone project at Carleton University, supervised by Dr.
 
 ## Features
 
-- **Search in everyday words.** "funny films from the 90s", "tom hanks" or "history podcasts":
+- **Search in everyday words.** "funny films from the 90s", "tom hanks" or "war films before 1960":
   Flicks reads decades, lengths, genres and moods, then matches titles, people and plots.
 - **Personal recommendations, computed locally.** A TF-IDF taste profile built from your ratings,
   reranked for the current scene, with every score broken down into its factors.
 - **Streaming-style interface.** A top pick for tonight, a ranked rail, continue watching, browse
   and search, and a "why this pick" sheet for any title.
 - **Playback of your own files.** MP4 and WebM stream with seeking; progress is saved and resumed.
-- **Long-form podcasts.** Episodes from public feeds are recommended alongside films ("Watch",
-  "Listen" or either), stream when you press Play, and can be kept for offline listening.
 - **Public-domain films.** Films in the catalogue that are public domain in the US stream from the
   Internet Archive, so a recommendation can be played straight away. A "Ready to watch now" row lists them
   (and your own files) ranked for you, and **Ready to play** limits the picks to what can play now.
@@ -104,19 +102,6 @@ MovieLens ratings:
 
 See [evaluation](docs/evaluation.md) for the protocol and results.
 
-### Add podcasts (optional)
-
-```sh
-.venv/bin/python -m flicks.datasets.podcasts                       # nine long-form starter shows
-.venv/bin/python -m flicks.datasets.podcasts --feed https://example.com/feed.xml   # or your own feeds
-```
-
-This reads the feeds (only their URLs are requested) and writes about 400 episodes of 20 minutes or
-more to `~/.flicks/catalogs/podcasts.json`, which Flicks then loads automatically. Choose **Listen**
-in the scene for something to listen to. **Play** streams an episode from its publisher through
-Flicks; **Download for offline** keeps a copy in `~/.flicks/podcasts` for your own listening. Flicks
-never alters or shares episodes. See [ADR 0010](docs/adr/0010-podcasts.md).
-
 ### Stream public-domain films (optional)
 
 ```sh
@@ -150,8 +135,8 @@ See [ADR 0016](docs/adr/0016-discover.md).
 ```
 
 This caches artwork for the catalogues Flicks loads: Wikipedia poster images for the 3,000 most
-popular films (`--all` for every film; about 25 KB each, fetched politely so it takes a few minutes),
-and each podcast's show artwork. Only titles, years and image addresses are sent, and only when you
+popular films (`--all` for every film; about 25 KB each, fetched politely so it takes a few minutes).
+Only titles, years and image addresses are sent, and only when you
 run the command. Artwork is copyrighted, so it stays in your local cache and out of git. Without it,
 Flicks draws title cards.
 
@@ -159,9 +144,9 @@ Flicks draws title cards.
 
 Press <kbd>/</kbd> and type a request, or record one if voice is set up:
 
-- **Search in everyday words:** "funny films from the 90s", "keaton", "podcasts about Rome", "war
+- **Search in everyday words:** "funny films from the 90s", "keaton", "something about Rome", "war
   films before 1960". Results open in Browse with what Flicks understood shown as chips.
-- **Play a title:** "play The General", "listen to The Gracchi".
+- **Play a title:** "play The General", "put on Metropolis".
 - **Find similar titles:** "more like Alien".
 - **Change the scene or rate:** "relaxing, under 90 minutes, no horror", "I hate musicals", "Like Arrival".
 
@@ -171,8 +156,8 @@ until you press Apply. See [voice commands](docs/voice.md) to enable on-device s
 ### How Ask reads you
 
 Requests go to the cheapest reader that understands them: exact rules first, then the **Ask student**, a
-small classifier distilled for Flicks that turns a described scene into mood, intensity, novelty, watch or
-listen, and a genre to avoid. It answers in well under a millisecond and only when confident; you still
+small classifier distilled for Flicks that turns a described scene into mood, intensity, novelty and a
+genre to avoid. It answers in well under a millisecond and only when confident; you still
 preview and apply. Rebuild and evaluate it with `python -m flicks.datasets.ask` (needs the `datasets` extra);
 see [ADR 0014](docs/adr/0014-ask-student.md).
 
@@ -213,8 +198,6 @@ votes are forgotten when the session ends. See [how couch mode works](docs/couch
 | `--llm-model NAME` | `qwen3.5:2b` | Model name in that server |
 | `--no-ask-student` | off | Turn off the Ask student (rules only) |
 | `--catalog FILE` | bundled | Your own catalogue ([format](flicks/data/README.md)) |
-| `--podcasts FILE` | `~/.flicks/catalogs/podcasts.json` if present | Podcast catalogue from `python -m flicks.datasets.podcasts` |
-| `--podcast-downloads DIR` | `~/.flicks/podcasts` | Where downloaded episodes are kept |
 | `--archive FILE` | `<catalog>.archive.json` if present | Internet Archive matches from `python -m flicks.datasets.archive` |
 | `--trailers FILE` | `<catalog>.trailers.json` if present | Trailer video IDs for Discover from `python -m flicks.datasets.trailers` |
 | `--dev` | off | Accept requests from the Vite dev server |
@@ -228,7 +211,7 @@ Phones on Wi-Fi  ──HTTP──▶  couch guest server (only during a session,
 
 The server binds to loopback, so the app is reachable only from this machine. Couch mode is the one
 opt-in exception, and it runs as a separate server with no access to your data. The running app
-makes remote requests only when you play or download an episode or a public-domain film, and then
+makes remote requests only when you play a public-domain film or turn on Discover trailers, and then
 only to that title's source. Security rules
 (Host and Origin checks, JSON-only requests, size limits, a strict Content Security Policy) are
 enforced in one place and covered by tests.
@@ -239,10 +222,10 @@ See [architecture](docs/architecture.md) for the components, the ranking model a
 ## Project layout
 
 ```
-flicks/            Python package: recommender, API, storage, media, podcasts, couch mode, voice, System One
+flicks/            Python package: recommender, API, storage, media, Discover, couch mode, voice, System One
   api/             FastAPI apps, routes and the request guard
   data/            Bundled demo catalogue
-  datasets/        MovieLens, podcast and Internet Archive importers, neighbours, offline evaluation
+  datasets/        MovieLens, trailer and Internet Archive importers, neighbours, offline evaluation
 web/               React + TypeScript interface (built into flicks/static/)
 tests/             Backend tests (pytest)
 scripts/           Voice-model download and icon generation

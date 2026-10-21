@@ -46,7 +46,7 @@ class ArchiveIndex:
             if not isinstance(url, str) or not is_archive_url(url) or media_type is None \
                     or not isinstance(page, str) or (page and not is_archive_url(page)):
                 raise ValueError(f'{path} has an invalid entry for {content_id}')
-            films[content_id] = Remote(url, media_type, False, SOURCE, page)
+            films[content_id] = Remote(url, media_type, SOURCE, page)
         return cls(films)
 
     def remotes(self):

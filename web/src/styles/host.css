@@ -963,10 +963,6 @@
   justify-content: center;
   margin-top: 28px;
 }
-.download-error {
-  flex-basis: 100%;
-  margin: 0;
-}
 
 /* Profiles: "Who's watching?", the top-bar button and the profile menu */
 .avatar {

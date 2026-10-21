@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 
-import { DEFAULT_MIX, type Medium, MOODS, type Mode, type Session } from '../../api/types';
+import { DEFAULT_MIX, MOODS, type Mode, type Session } from '../../api/types';
 import { RadioChips, ToggleChips } from '../../components/Chips';
 import { cx } from '../../lib/cx';
 import { capitalize, runtime, spokenTime } from '../../lib/format';
@@ -12,11 +12,6 @@ const MODE_OPTIONS = [
   { value: 'session', label: 'Taste + scene' },
   { value: 'baseline', label: 'Taste only' },
 ] as const;
-const MEDIUM_OPTIONS: { value: Medium; label: string }[] = [
-  { value: 'any', label: 'Watch or listen' },
-  { value: 'watch', label: 'Watch' },
-  { value: 'listen', label: 'Listen' },
-];
 const ENERGY = [
   { value: 0.2, label: 'Gentle' },
   { value: 0.5, label: 'Balanced' },
@@ -24,14 +19,12 @@ const ENERGY = [
 ] as const;
 const TIME_PRESETS = [45, 90, 120, 180];
 
-type Field = 'time' | 'mood' | 'energy' | 'medium';
+type Field = 'time' | 'mood' | 'energy';
 
 interface SceneBarProps {
   session: Session;
   mode: Mode;
   genres: string[];
-  /** Offer watch / listen when a podcast catalogue is loaded. */
-  podcasts?: boolean;
   onSession: (session: Session) => void;
   onMode: (mode: Mode) => void;
   /** Open "Your taste" to tune how picks are scored. */
@@ -41,11 +34,11 @@ interface SceneBarProps {
 const energyWord = (intensity: number) => (intensity < 0.35 ? 'gentle' : intensity > 0.65 ? 'intense' : 'balanced');
 
 /**
- * The scene as one sentence ("I have 2 hours for something relaxing, gentle, to watch"): tap a word to
+ * The scene as one sentence ("I have 2 hours for something relaxing, gentle."): tap a word to
  * change it. Everything else (discovery, exact intensity, genres to avoid, the lens and the scoring mix)
  * waits behind "More", with a count of what has been changed there.
  */
-export function SceneBar({ session, mode, genres, podcasts = false, onSession, onMode, onTaste }: SceneBarProps) {
+export function SceneBar({ session, mode, genres, onSession, onMode, onTaste }: SceneBarProps) {
   const [field, setField] = useState<Field | null>(null);
   const [more, setMore] = useState(false);
   const pickerId = useId();
@@ -79,7 +72,6 @@ export function SceneBar({ session, mode, genres, podcasts = false, onSession, o
     session.mood !== DEFAULT_SESSION.mood ||
     session.minutes !== DEFAULT_SESSION.minutes ||
     session.intensity !== DEFAULT_SESSION.intensity ||
-    session.medium !== DEFAULT_SESSION.medium ||
     session.playable;
 
   const token = (name: Field, text: string, label: string) => (
@@ -104,24 +96,7 @@ export function SceneBar({ session, mode, genres, podcasts = false, onSession, o
         <span className="nowrap">
           {token('mood', session.mood === 'any' ? 'any mood' : session.mood, 'Mood')},
         </span>{' '}
-        <span className="nowrap">
-          {token('energy', energyWord(session.intensity), 'Energy')}
-          {podcasts ? ',' : '.'}
-        </span>
-        {podcasts && (
-          <>
-            {' '}
-            to{' '}
-            <span className="nowrap">
-              {token(
-                'medium',
-                session.medium === 'any' ? 'watch or listen' : session.medium === 'watch' ? 'watch' : 'listen to',
-                'Watch or listen',
-              )}
-              .
-            </span>
-          </>
-        )}
+        <span className="nowrap">{token('energy', energyWord(session.intensity), 'Energy')}.</span>
       </p>
 
       {field && (
@@ -138,15 +113,6 @@ export function SceneBar({ session, mode, genres, podcasts = false, onSession, o
               onChange={value => set({ intensity: Number(value) })}
             />
           )}
-          {field === 'medium' && (
-            <RadioChips
-              label="Watch or listen"
-              className="segmented"
-              options={MEDIUM_OPTIONS}
-              value={session.medium}
-              onChange={medium => set({ medium })}
-            />
-          )}
         </div>
       )}
 
@@ -155,7 +121,7 @@ export function SceneBar({ session, mode, genres, podcasts = false, onSession, o
           type="button"
           className="chip"
           aria-pressed={session.playable}
-          title="Only titles you can press Play on now: your files, downloads and free streams"
+          title="Only films you can press Play on now: your files and free streams"
           onClick={() => onSession({ ...session, playable: !session.playable })}
         >
           Ready to play

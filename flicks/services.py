@@ -16,7 +16,6 @@ from .core import Recommender, TfidfTaste, load_catalog
 from .db import Database
 from .discover import Discover
 from .media import MediaLibrary
-from .podcasts import PodcastIndex, PodcastLibrary, episodes_path
 from .posters import PosterLibrary
 from .profiles import ProfileSessions
 from .relay import Streams
@@ -44,8 +43,7 @@ class Services:
     speech: object            # LocalWhisper or a test double with status() and transcribe()
     posters: PosterLibrary | None
     media: MediaLibrary
-    podcasts: PodcastLibrary | None
-    streams: Streams            # titles that play from elsewhere through the relay (episodes, Archive films)
+    streams: Streams            # films that play from elsewhere through the relay (the Internet Archive)
     couch: CouchManager | None
     tagged: bool
     collaborative: bool
@@ -65,20 +63,8 @@ def build_services(settings, *, speech=None, system_one=None, chat=None):
     chat: a language model client (llm.Chat); by default one is made from settings.llm_url, which must be local.
     """
     catalog = load_catalog(settings.catalog)
-    films = {item.id for item in catalog}
-    podcasts = None
-    if settings.podcasts:
-        episodes = load_catalog(settings.podcasts)
-        clashes = films & {item.id for item in episodes}
-        if clashes:
-            raise ValueError(f'The podcast catalogue reuses catalogue IDs, e.g. {min(clashes)}')
-        catalog = catalog + episodes
-        index = PodcastIndex.load(episodes_path(settings.podcasts), {item.id for item in episodes})
-        podcasts = PodcastLibrary(index, settings.podcast_downloads)
     ids = frozenset(item.id for item in catalog)
-    remotes = podcasts.index.remotes() if podcasts else {}
-    if settings.archive:
-        remotes |= ArchiveIndex.load(settings.archive, films).remotes()
+    remotes = ArchiveIndex.load(settings.archive, ids).remotes() if settings.archive else {}
     decision = TaggedDecision(load_tags(settings.tags, catalog)) if settings.tags else None
     taste = similar = TfidfTaste(catalog)
     collaborative = prior = False
@@ -89,16 +75,15 @@ def build_services(settings, *, speech=None, system_one=None, chat=None):
         collaborative = True
         likes = neighbours.popularity
         if neighbours.popularity:
-            # The ratings describe the film catalogue only; podcast episodes keep their own taste.
             similar = taste  # "more like X" should be about X, not about what is popular
-            taste = PopularityPrior(taste, neighbours.popularity, covered=films)
+            taste = PopularityPrior(taste, neighbours.popularity)
             prior = True
     titles = TitleIndex(catalog, likes)
     media = MediaLibrary(settings.media_dirs, catalog)
     streams = Streams(remotes)
 
     def playable(content_id):
-        return content_id in media.files or content_id in streams.remotes or bool(podcasts and podcasts.file(content_id))
+        return content_id in media.files or content_id in streams.remotes
 
     database = Database(settings.db)
     posters = PosterLibrary(settings.poster_dir, ids) if settings.poster_dir else None
@@ -114,7 +99,7 @@ def build_services(settings, *, speech=None, system_one=None, chat=None):
     if chat is not None:
         interpreter = AgentInterpreter(interpreter, chat, catalog, titles, playable)
     recommender = Recommender(catalog, taste=taste, decision=decision, playable=playable)
-    trailers = TrailerIndex.load(settings.trailers, films) if settings.trailers else TrailerIndex()
+    trailers = TrailerIndex.load(settings.trailers, ids) if settings.trailers else TrailerIndex()
 
     def media_kind(content_id):
         return 'file' if content_id in media.files else 'stream' if content_id in streams.remotes else None
@@ -132,7 +117,6 @@ def build_services(settings, *, speech=None, system_one=None, chat=None):
         speech=speech if speech is not None else LocalWhisper(),
         posters=posters,
         media=media,
-        podcasts=podcasts,
         streams=streams,
         couch=couch,
         tagged=decision is not None,
