@@ -9,8 +9,8 @@ architecture. Machine: Apple M2, 8 GB, macOS 26, Python 3.12, Node 24. Raw outpu
 
 | Area | Result |
 |---|---|
-| Backend unit and integration tests | 249 passed, 3 skipped (optional voice packages), 333 subtests, 5.9 s (after podcasts were removed) |
-| Interface unit tests (Vitest) | 81 passed in 19 files |
+| Backend unit and integration tests | 269 passed, 3 skipped (optional voice packages), 338 subtests, 6.1 s (with TV series) |
+| Interface unit tests (Vitest) | 85 passed in 19 files |
 | Browser end-to-end (Playwright) | 19 passed (13 Chrome desktop, 3 phone, 3 Safari/WebKit), 25 s including the build |
 | Lint, types, format | ruff, ESLint, `tsc` (app and test configs), Prettier: all clean; `npm audit`: 0 vulnerabilities |
 | Recommendation latency | 0.1–0.4 ms on 36 titles; 13–62 ms median on 9,349 titles |
