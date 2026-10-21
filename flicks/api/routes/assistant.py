@@ -7,7 +7,7 @@ from starlette.concurrency import run_in_threadpool
 from ...core import Session
 from ...services import Services
 from ...voice import VoiceBusy, VoiceUnavailable
-from ..deps import services
+from ..deps import Viewer, services, viewer
 from ..errors import client_errors
 from ..schemas import CommandIn
 
@@ -20,23 +20,23 @@ def _parse(body: CommandIn, svc: Services):
 
 
 @router.post('/api/command/preview')
-def preview(body: CommandIn, svc: Services = Depends(services)):
+def preview(body: CommandIn, svc: Services = Depends(services), me: Viewer = Depends(viewer)):
     session, command = _parse(body, svc)
-    return {'command': command, 'session': asdict(session), 'feedback': svc.ratings.all()}
+    return {'command': command, 'session': asdict(session), 'feedback': me.ratings.all()}
 
 
 @router.post('/api/command/apply')
-def apply(body: CommandIn, svc: Services = Depends(services)):
+def apply(body: CommandIn, svc: Services = Depends(services), me: Viewer = Depends(viewer)):
     session, command = _parse(body, svc)
     if command['intent'] == 'unknown':
         raise HTTPException(400, command['summary'])
     with client_errors():
         if command['intent'] == 'feedback':
-            svc.ratings.set(command['id'], command['value'])
+            me.ratings.set(command['id'], command['value'])
         elif command['intent'] == 'session':
             session = Session(**{**asdict(session), **command['patch']})
         # 'play' and 'search' change nothing stored; the interface plays the title or shows the results.
-    return {'command': command, 'session': asdict(session), 'feedback': svc.ratings.all()}
+    return {'command': command, 'session': asdict(session), 'feedback': me.ratings.all()}
 
 
 @router.post('/api/transcribe')

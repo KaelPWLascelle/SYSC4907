@@ -60,3 +60,18 @@ class PlayerIn(Body):
 
 class EmptyIn(Body):
     pass
+
+
+class ProfileIn(Body):
+    name: StrictStr
+    pin: StrictStr | None = None
+
+
+class SelectIn(Body):
+    pin: StrictStr | None = None
+
+
+class ProfileUpdateIn(Body):
+    name: StrictStr | None = None
+    pin: StrictStr | None = 'unchanged'   # a new PIN, None to remove it, or leave it as it is
+    current_pin: StrictStr | None = None

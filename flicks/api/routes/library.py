@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response
 
 from ...services import Services
-from ..deps import services
+from ..deps import Viewer, services, viewer
 from ..errors import client_errors
 from ..schemas import FeedbackIn, RecommendIn
 
@@ -14,12 +14,14 @@ router = APIRouter()
 
 
 @router.get('/api/state')
-def state(svc: Services = Depends(services)):
+def state(svc: Services = Depends(services), me: Viewer = Depends(viewer)):
     # The catalogue itself is not sent: it can hold thousands of titles. Clients search /api/titles.
     return {
         'catalog_size': len(svc.titles),
         'genres': svc.titles.genres,
-        'feedback': svc.ratings.all(),
+        'feedback': me.ratings.all(),
+        'profile': {'id': me.profile.id, 'name': me.profile.name, 'locked': me.profile.locked, 'chosen': me.chosen,
+                    'count': len(svc.profiles.all())},
         'voice': svc.speech.status(),
         'assistant': svc.interpreter.name,
         'tagged': svc.tagged,
@@ -55,12 +57,13 @@ def titles(
     offset: int = Query(0, ge=0),
     limit: int = Query(48, ge=1, le=100),
     svc: Services = Depends(services),
+    me: Viewer = Depends(viewer),
 ):
     """Search the catalogue (everyday language, see flicks/search.py), or list titles like `similar`.
 
     Without a query, titles come most popular first. Results can be limited by the user's ratings.
     """
-    feedback = svc.ratings.all()
+    feedback = me.ratings.all()
     wanted = {'liked': 1, 'passed': -1}.get(show)
     keep = (None if show == 'all' else
             (lambda item: item.id not in feedback) if show == 'unrated' else
@@ -79,17 +82,17 @@ def titles(
 
 
 @router.post('/api/feedback')
-def feedback(body: FeedbackIn, svc: Services = Depends(services)):
+def feedback(body: FeedbackIn, svc: Services = Depends(services), me: Viewer = Depends(viewer)):
     if body.id not in svc.ids:
         raise HTTPException(400, 'Unknown content ID')
     with client_errors():
-        svc.ratings.set(body.id, body.value)
-    return {'feedback': svc.ratings.all()}
+        me.ratings.set(body.id, body.value)
+    return {'feedback': me.ratings.all()}
 
 
 @router.post('/api/recommend')
-def recommend(body: RecommendIn, svc: Services = Depends(services)):
-    feedback = svc.ratings.all()
+def recommend(body: RecommendIn, svc: Services = Depends(services), me: Viewer = Depends(viewer)):
+    feedback = me.ratings.all()
     with client_errors():
         picks = svc.recommender.recommend(feedback, body.session.to_domain(), body.mode)
     return {'recommendations': picks, 'cold_start': not any(k in svc.ids and v == 1 for k, v in feedback.items())}

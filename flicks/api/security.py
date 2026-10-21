@@ -10,7 +10,6 @@ from starlette.datastructures import Headers
 
 CSP = ("default-src 'self'; img-src 'self' blob:; media-src 'self'; style-src 'self'; script-src 'self'; "
        "connect-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
-UNSAFE_METHODS = frozenset({'POST', 'PUT', 'PATCH', 'DELETE'})
 BODY_METHODS = frozenset({'POST', 'PUT', 'PATCH'})
 
 

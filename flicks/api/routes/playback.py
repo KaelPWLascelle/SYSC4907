@@ -9,7 +9,7 @@ from fastapi.responses import FileResponse, JSONResponse, Response, StreamingRes
 
 from ...relay import RelayError
 from ...services import Services
-from ..deps import catalogue_id, services
+from ..deps import Viewer, catalogue_id, services, viewer
 from ..errors import client_errors
 from ..schemas import ProgressIn
 
@@ -37,21 +37,21 @@ def _progress_json(progress, content=None):
 
 
 @router.get('/api/history')
-def history(svc: Services = Depends(services)):
+def history(svc: Services = Depends(services), me: Viewer = Depends(viewer)):
     """Most recent first, each with its title's details (clients do not hold the whole catalogue)."""
     by_id = svc.titles.by_id
-    return {'items': [_progress_json(p, by_id[p.content_id]) for p in svc.history.recent() if p.content_id in by_id]}
+    return {'items': [_progress_json(p, by_id[p.content_id]) for p in me.history.recent() if p.content_id in by_id]}
 
 
 @router.put('/api/history/{content_id}')
-def save_progress(content_id: str, body: ProgressIn, svc: Services = Depends(services)):
+def save_progress(content_id: str, body: ProgressIn, svc: Services = Depends(services), me: Viewer = Depends(viewer)):
     catalogue_id(content_id, svc)
     with client_errors():
-        return _progress_json(svc.history.save(content_id, body.position_seconds, body.duration_seconds))
+        return _progress_json(me.history.save(content_id, body.position_seconds, body.duration_seconds))
 
 
 @router.delete('/api/history/{content_id}', status_code=204)
-def clear_progress(content_id: str, svc: Services = Depends(services)):
+def clear_progress(content_id: str, svc: Services = Depends(services), me: Viewer = Depends(viewer)):
     catalogue_id(content_id, svc)
-    svc.history.clear(content_id)
+    me.history.clear(content_id)
     return Response(status_code=204)

@@ -28,6 +28,45 @@ MIGRATIONS = (
     );
     CREATE INDEX watch_history_updated ON watch_history (updated_at DESC);
     """,
+    # 3: local profiles (docs/adr/0012-local-profiles.md). Ratings and progress become per profile; existing
+    # rows move to profile 1. Timestamps become ISO 8601 UTC with milliseconds so exports compare cleanly.
+    """
+    CREATE TABLE profiles (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,  -- never reuse an ID: an open page names its profile by ID
+        name TEXT NOT NULL UNIQUE COLLATE NOCASE CHECK (length(trim(name)) BETWEEN 1 AND 40),
+        pin_hash TEXT,
+        created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+    );
+    INSERT INTO profiles (id, name) VALUES (1, 'Me');
+    CREATE TABLE feedback_v3 (
+        profile_id INTEGER NOT NULL REFERENCES profiles (id) ON DELETE CASCADE,
+        content_id TEXT NOT NULL,
+        value INTEGER NOT NULL CHECK (value IN (-1, 1)),
+        updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+        PRIMARY KEY (profile_id, content_id)
+    );
+    INSERT INTO feedback_v3 (profile_id, content_id, value, updated_at)
+        SELECT 1, content_id, value,
+               CASE WHEN length(updated_at) = 19 THEN replace(updated_at, ' ', 'T') || '.000Z' ELSE updated_at END
+        FROM feedback;
+    DROP TABLE feedback;
+    ALTER TABLE feedback_v3 RENAME TO feedback;
+    CREATE TABLE watch_history_v3 (
+        profile_id INTEGER NOT NULL REFERENCES profiles (id) ON DELETE CASCADE,
+        content_id TEXT NOT NULL,
+        position_seconds REAL NOT NULL CHECK (position_seconds >= 0),
+        duration_seconds REAL NOT NULL CHECK (duration_seconds > 0),
+        completed INTEGER NOT NULL DEFAULT 0 CHECK (completed IN (0, 1)),
+        started_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+        updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+        PRIMARY KEY (profile_id, content_id)
+    );
+    INSERT INTO watch_history_v3 (profile_id, content_id, position_seconds, duration_seconds, completed, started_at, updated_at)
+        SELECT 1, content_id, position_seconds, duration_seconds, completed, started_at, updated_at FROM watch_history;
+    DROP TABLE watch_history;
+    ALTER TABLE watch_history_v3 RENAME TO watch_history;
+    CREATE INDEX watch_history_updated ON watch_history (profile_id, updated_at DESC);
+    """,
 )
 SCHEMA_VERSION = len(MIGRATIONS)
 

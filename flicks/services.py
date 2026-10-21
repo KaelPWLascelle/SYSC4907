@@ -11,8 +11,9 @@ from .intent import SystemOneInterpreter
 from .media import MediaLibrary
 from .podcasts import PodcastIndex, PodcastLibrary, episodes_path
 from .posters import PosterLibrary
+from .profiles import ProfileSessions
 from .relay import Streams
-from .repositories import RatingsRepository, WatchHistoryRepository
+from .repositories import ProfileRepository, RatingsRepository, WatchHistoryRepository
 from .search import TitleIndex
 from .tagging import TaggedDecision, load_tags
 from .voice import LocalWhisper
@@ -25,7 +26,9 @@ class Services:
     titles: TitleIndex
     similar: object             # the taste model behind "more like X" (no popularity prior)
     recommender: Recommender
-    ratings: RatingsRepository
+    profiles: ProfileRepository
+    sessions: ProfileSessions   # who is signed in to which profile (in memory)
+    ratings: RatingsRepository          # profile 1's; routes use the request's profile (api/deps.viewer)
     history: WatchHistoryRepository
     interpreter: object       # CommandInterpreter or SystemOneInterpreter
     speech: object            # LocalWhisper or a test double with status() and transcribe()
@@ -84,6 +87,8 @@ def build_services(settings, *, speech=None, system_one=None):
     return Services(
         catalog=catalog, ids=ids, titles=titles, similar=similar,
         recommender=Recommender(catalog, taste=taste, decision=decision, playable=playable),
+        profiles=ProfileRepository(database),
+        sessions=ProfileSessions(),
         ratings=RatingsRepository(database),
         history=WatchHistoryRepository(database),
         interpreter=(SystemOneInterpreter(catalog, system_one, titles=titles, playable=playable) if system_one
