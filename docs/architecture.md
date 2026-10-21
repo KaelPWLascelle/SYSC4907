@@ -268,8 +268,8 @@ All responses are JSON unless noted. Errors have the shape `{"error": "<message>
 | `GET /api/podcasts/{id}` | An episode's show, its page and its download status |
 | `POST /api/podcasts/{id}/download` | `{}`: download the episode from its feed's audio URL (202) |
 | `DELETE /api/podcasts/{id}/download` | Delete a downloaded episode or forget a failed download (409 while downloading) |
-| `GET /api/couch`, `GET /api/couch/qr.svg` | Couch session view and QR code (with `--couch`) |
-| `POST /api/couch/start`, `stop`, `reveal`, `player` | Couch session controls (with `--couch`) |
+| `GET /api/couch`, `GET /api/couch/qr.svg` | Couch session view and QR code (absent with `--no-couch`) |
+| `POST /api/couch/start`, `stop`, `reveal`, `player` | Couch session controls (absent with `--no-couch`) |
 
 A session is `{"mood", "minutes", "intensity", "novelty", "excluded_genres", "medium", "playable", "mix"}`;
 medium is `any`, `watch` or `listen`; `playable` keeps only titles with a local file, a download or a

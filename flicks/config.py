@@ -31,7 +31,8 @@ class Settings:
     archive: Path | None = None
     # Trailer video IDs for the Discover feed (flicks.datasets.trailers); None: previews and posters only.
     trailers: Path | None = None
-    couch: bool = False
+    # Couch mode is offered in the interface; nothing listens on the network until a session starts.
+    couch: bool = True
     couch_host: str | None = None
     couch_port: int = 8770
     # The distilled Ask student's weights (flicks.datasets.ask); None turns it off.

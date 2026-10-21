@@ -189,11 +189,8 @@ others in the household out of your profile; it does not encrypt the database
 
 ### Couch mode
 
-```sh
-.venv/bin/flicks --couch
-```
-
-Press **Start a couch session**. Phones on the same Wi-Fi scan the QR code, swipe through a shortlist
+Open **Couch** in the top bar and press **Start a couch session**. Nothing listens on your network
+until you do, and `--no-couch` hides couch mode altogether. Phones on the same Wi-Fi scan the QR code, swipe through a shortlist
 built from your scene, and the group pick appears on the TV. Any phone can then play, pause or stop
 the film. Guests reach a separate server that cannot see your ratings or history, and names and
 votes are forgotten when the session ends. See [how couch mode works](docs/couch.md).
@@ -206,7 +203,7 @@ votes are forgotten when the session ends. See [how couch mode works](docs/couch
 | `--db FILE` | `~/.flicks/feedback.sqlite3` | Profiles, ratings and watch history |
 | `--port N` | `8765` | Local port for the app |
 | `--posters DIR` | `~/.flicks/posters` | Poster cache from `python -m flicks.posters` |
-| `--couch` | off | Allow couch sessions on your home network |
+| `--no-couch` | couch on | Hide couch mode (nothing listens on the network until a session starts either way) |
 | `--couch-host ADDR` | detected | Home-network address phones connect to |
 | `--couch-port N` | `8770` | Port for the couch guest server |
 | `--voice-model DIR` | none | Local Whisper model for speech ([voice setup](docs/voice.md)) |

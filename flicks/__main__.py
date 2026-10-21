@@ -34,7 +34,9 @@ def parse_args(argv=None):
                         'http://127.0.0.1:11434 for Ollama. Needs several GB of free memory; Flicks does not need it')
     parser.add_argument('--llm-model', default='qwen3.5:2b', help='Model name in that server (default qwen3.5:2b)')
     parser.add_argument('--no-ask-student', action='store_true', help='Turn off the distilled Ask student (rules only)')
-    parser.add_argument('--couch', action='store_true', help='Allow couch sessions: phones on your Wi-Fi join by QR code to vote and use a remote')
+    parser.add_argument('--couch', action=argparse.BooleanOptionalAction, default=True,
+                        help='Offer couch sessions: phones on your Wi-Fi join by QR code to vote and use a remote. '
+                             'Nothing listens on the network until you start one (default: on; --no-couch hides it)')
     parser.add_argument('--couch-host', help='Home-network address guests connect to (default: detected)')
     parser.add_argument('--couch-port', type=int, default=8770, help='Port for the guest server while a couch session runs')
     parser.add_argument('--dev', action='store_true', help='Also accept API calls from the Vite dev server (npm run dev)')

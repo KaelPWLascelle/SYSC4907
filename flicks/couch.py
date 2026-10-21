@@ -4,9 +4,10 @@ the guest server lives in flicks/api/guest.py.
 Phones on the same Wi-Fi join by QR code, vote on a shortlist and act as a remote.
 
 Privacy model:
-- Off unless Flicks starts with --couch. The host server stays on 127.0.0.1 and keeps every
-  existing route (feedback, voice, commands). Guests reach a *separate* server that listens on the
-  local network only while a session runs and exposes only join, vote, remote and its own page.
+- Nothing listens on the network until the host starts a session (--no-couch removes the option).
+  The host server stays on 127.0.0.1 and keeps every existing route (feedback, voice, commands).
+  Guests reach a *separate* server that listens on the local network only while a session runs and
+  exposes only join, vote, remote and its own page.
 - Only private-network (or loopback) addresses are accepted, never a public interface.
 - Joining needs the code shown on the TV. Wrong guesses rotate the code. Each guest then gets a
   random token sent in a header, so every later request is authenticated and cannot be forged by
