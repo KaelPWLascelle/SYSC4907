@@ -221,12 +221,6 @@ kbd {
   width: 30px;
   height: 30px;
 }
-.logo-mark rect {
-  fill: var(--accent);
-}
-.logo-mark path {
-  fill: var(--accent-ink);
-}
 .logo-word {
   font: 800 23px/1 var(--display);
   letter-spacing: -0.045em;

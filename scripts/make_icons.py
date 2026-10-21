@@ -1,22 +1,27 @@
 """Render the app icons in web/public from the logo geometry (stdlib only; rerun after a logo change).
 
-Full-bleed squares so they also work as maskable icons: the play mark sits well inside the safe zone.
+Full-bleed squares so they also work as maskable icons: the mark sits well inside the safe zone.
+Geometry and colours match web/src/components/Logo.tsx and web/public/favicon.svg.
 """
 from pathlib import Path
 import struct
 import zlib
 
-GOLD, INK = (0xF5, 0xC4, 0x51), (0x1B, 0x14, 0x05)
-TRIANGLE = ((12.5 / 32, 9.5 / 32), (12.5 / 32, 22.5 / 32), (22.5 / 32, 16 / 32))  # from Logo.tsx
+START, END, WHITE = (0x2F, 0x80, 0xFF), (0x7A, 0x5C, 0xFF), (0xFF, 0xFF, 0xFF)
+BARS = ((8.4, 3.0), (11.6, 8.4), (14.8, 14.0), (18.0, 8.4), (21.2, 3.0))  # (top, width) in 32-unit logo coordinates
+X, HEIGHT, RADIUS = 11.0, 2.4, 1.2
 SUPERSAMPLE = 4
 
 
-def inside(x, y):
-    (ax, ay), (bx, by), (cx, cy) = TRIANGLE
-    d1 = (x - bx) * (ay - by) - (ax - bx) * (y - by)
-    d2 = (x - cx) * (by - cy) - (bx - cx) * (y - cy)
-    d3 = (x - ax) * (cy - ay) - (cx - ax) * (y - ay)
-    return not ((d1 < 0 or d2 < 0 or d3 < 0) and (d1 > 0 or d2 > 0 or d3 > 0))
+def in_mark(x, y):
+    """Inside one of the rounded bars (Logo.tsx)."""
+    for top, width in BARS:
+        if X <= x <= X + width and top <= y <= top + HEIGHT:
+            cx = min(max(x, X + RADIUS), X + width - RADIUS)
+            cy = min(max(y, top + RADIUS), top + HEIGHT - RADIUS)
+            if (x - cx) ** 2 + (y - cy) ** 2 <= RADIUS ** 2:
+                return True
+    return False
 
 
 def render(size):
@@ -24,10 +29,16 @@ def render(size):
     for py in range(size):
         row = bytearray([0])  # PNG filter type 0
         for px in range(size):
-            hits = sum(inside((px + (i + .5) / SUPERSAMPLE) / size, (py + (j + .5) / SUPERSAMPLE) / size)
-                       for i in range(SUPERSAMPLE) for j in range(SUPERSAMPLE))
-            t = hits / SUPERSAMPLE ** 2
-            row += bytes(round(g * (1 - t) + k * t) for g, k in zip(GOLD, INK, strict=True))
+            t = (px + py) / (2 * (size - 1))  # diagonal gradient, as in the SVG
+            base = [s + (e - s) * t for s, e in zip(START, END, strict=True)]
+            cover = 0.0
+            for i in range(SUPERSAMPLE):
+                for j in range(SUPERSAMPLE):
+                    x = (px + (i + .5) / SUPERSAMPLE) / size * 32
+                    y = (py + (j + .5) / SUPERSAMPLE) / size * 32
+                    cover += in_mark(x, y)
+            a = cover / SUPERSAMPLE ** 2
+            row += bytes(round(b * (1 - a) + w * a) for b, w in zip(base, WHITE, strict=True))
         rows.append(bytes(row))
     return png(size, b''.join(rows))
 
