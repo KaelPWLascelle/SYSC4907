@@ -967,3 +967,186 @@
   flex-basis: 100%;
   margin: 0;
 }
+
+/* Profiles: "Who's watching?", the top-bar button and the profile menu */
+.avatar {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--surface-3);
+  border: 1px solid var(--line-strong);
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 13px;
+}
+.profile-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 12px 0 4px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 13px;
+  max-width: 180px;
+}
+.profile-button:hover {
+  border-color: rgba(245, 196, 81, 0.5);
+}
+.profile-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gate {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 32px var(--gutter);
+  text-align: center;
+}
+.gate h1 {
+  margin: 0;
+  font-family: var(--display);
+  font-size: clamp(28px, 5vw, 44px);
+}
+.gate-logo {
+  font-size: 22px;
+}
+.gate-profiles {
+  list-style: none;
+  margin: 18px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 16px;
+}
+.gate-profile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 132px;
+  padding: 18px 10px 14px;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+}
+.gate-profile:hover,
+.gate-profile:focus-visible {
+  border-color: rgba(245, 196, 81, 0.6);
+  background: var(--surface-2);
+}
+.gate-profile .avatar {
+  width: 64px;
+  height: 64px;
+  font-size: 26px;
+}
+.gate-add .avatar {
+  color: var(--muted);
+}
+.gate-name {
+  font-weight: 600;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gate-form,
+.profile-form {
+  display: grid;
+  gap: 8px;
+  width: min(360px, 100%);
+  text-align: left;
+}
+.profile-form {
+  grid-template-columns: 1fr;
+  margin-bottom: 14px;
+}
+.gate-form input,
+.profile-form input {
+  height: 40px;
+  padding: 0 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line-strong);
+  background: var(--surface-2);
+}
+.gate-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 6px;
+}
+.profile-import {
+  display: grid;
+  gap: 8px;
+  margin: 14px 0;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+.profile-import legend {
+  padding: 0 6px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.profile-import .file-pick {
+  position: relative;
+  justify-self: start;
+}
+
+/* Narrated explanation from the local language model */
+.narration {
+  margin: 16px 0 0;
+  padding: 12px 14px;
+  border-left: 3px solid var(--accent);
+  background: var(--surface-2);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  line-height: 1.5;
+}
+.narration .fine {
+  display: block;
+  margin-top: 6px;
+}
+.narration-loading {
+  color: var(--muted);
+  font-style: italic;
+}
+@media (max-width: 640px) {
+  .profile-name {
+    display: none;
+  }
+  .profile-button {
+    padding: 0 4px;
+  }
+}
+/* The profile menu reuses the details dialog without artwork: one column. */
+.details.profile-menu {
+  width: min(560px, calc(100vw - 32px));
+}
+.details.profile-menu[open] {
+  grid-template-columns: minmax(0, 1fr);
+}
+.profile-menu .details-body {
+  padding: 30px 28px 26px;
+}
+.profile-menu .gate-form,
+.profile-menu .profile-form {
+  width: 100%;
+}
+.profile-form .button {
+  justify-self: start;
+}
+.menu-status {
+  min-height: 1.4em;
+  font-size: 13px;
+  color: var(--muted);
+}

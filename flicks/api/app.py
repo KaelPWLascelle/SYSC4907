@@ -3,11 +3,12 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
+from ..assistant.voice import AUDIO_TYPES, MAX_AUDIO_BYTES
 from ..config import Settings
+from ..profiles import MAX_IMPORT_BYTES
 from ..services import Services
-from ..voice import AUDIO_TYPES, MAX_AUDIO_BYTES
 from . import errors
-from .routes import assistant, couch, library, playback, podcasts
+from .routes import assistant, couch, library, playback, podcasts, profiles
 from .security import GuardPolicy, RawBody, RequestGuard
 
 HOSTS = frozenset({'127.0.0.1', 'localhost'})
@@ -24,10 +25,12 @@ def create_app(settings: Settings, services: Services) -> FastAPI:
     app.state.services = services
     app.add_middleware(RequestGuard, policy=GuardPolicy(
         hosts=HOSTS, origins=settings.origins,
-        raw_bodies={'/api/transcribe': RawBody(frozenset(AUDIO_TYPES), MAX_AUDIO_BYTES, 'Expected an audio recording')}))
+        raw_bodies={'/api/transcribe': RawBody(frozenset(AUDIO_TYPES), MAX_AUDIO_BYTES, 'Expected an audio recording'),
+                    # A profile export is larger than the 8 KiB JSON limit, so it gets its own cap.
+                    '/api/profiles/import': RawBody(frozenset({'application/json'}), MAX_IMPORT_BYTES, 'Expected a JSON export')}))
     errors.install(app)
 
-    for router in (library.router, assistant.router, playback.router):
+    for router in (library.router, assistant.router, playback.router, profiles.router):
         app.include_router(router)
     if services.couch is not None:  # absent unless started with --couch: the routes simply do not exist
         app.include_router(couch.router)

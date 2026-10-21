@@ -1,5 +1,6 @@
+import type { Mix } from '../api/types';
 import type { Recommendation, Session } from '../api/types';
-import { reasons } from './reasons';
+import { explanation, reasons } from './reasons';
 
 const session: Session = {
   mood: 'relaxing',
@@ -9,6 +10,7 @@ const session: Session = {
   excluded_genres: [],
   medium: 'any',
   playable: false,
+  mix: [0.55, 0.2, 0.15, 0.1] as Mix,
 };
 const row = (
   factors: Record<string, number>,
@@ -61,4 +63,16 @@ test('says when popularity carried a pick, and only then', () => {
 
 test('an open mood never produces a mood reason', () => {
   expect(reasons(row({ mood: 0.2 }), { ...session, mood: 'any' })).not.toContain('Any mood');
+});
+
+test('the explanation sentence says only what the factors used', () => {
+  expect(explanation(row({ taste: 0.5, mood: 0.2, intensity: 0.15 }, ['quiet'], 0.2), session)).toBe(
+    'It shares quiet with what you liked, and it suits a relaxing mood and keeps things easygoing. At 1h 35m, it fits the 2h you have.',
+  );
+  expect(explanation(row({ taste: 0.3, mood: 0, intensity: 0 }, [], 0.5, ['Alien']), session)).toBe(
+    'People who liked Alien also rated this film highly. At 1h 35m, it fits the 2h you have.',
+  );
+  expect(explanation(row({ taste: 0.3 }, [], 0.5, [], true), { ...session, mood: 'any' })).toMatch(
+    /^It’s a crowd favourite/,
+  );
 });

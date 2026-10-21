@@ -13,7 +13,6 @@ export interface Library {
   progress: ReadonlyMap<string, Progress>;
   /** Podcast episodes that are downloaded, downloading or failed; absent means not downloaded. */
   downloads: ReadonlyMap<string, DownloadStatus>;
-  ratingBusy: boolean;
   rate: (id: string, value: Rating | 0) => void;
   openDetails: (item: Content) => void;
   play: (item: TitleRef, fromStart?: boolean) => void;

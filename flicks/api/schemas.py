@@ -7,7 +7,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictFloat, StrictInt, StrictStr
 
-from ..core import Session
+from ..core import DEFAULT_MIX, Session
 
 Number = StrictFloat | StrictInt
 
@@ -24,6 +24,7 @@ class SessionIn(Body):
     excluded_genres: list[StrictStr] = Field(default_factory=list)
     medium: StrictStr = 'any'
     playable: StrictBool = False
+    mix: list[Number] = Field(default_factory=lambda: list(DEFAULT_MIX))
 
     def to_domain(self):
         return Session(**self.model_dump())  # raises ValueError for out-of-range values
@@ -60,3 +61,23 @@ class PlayerIn(Body):
 
 class EmptyIn(Body):
     pass
+
+
+class ProfileIn(Body):
+    name: StrictStr
+    pin: StrictStr | None = None
+
+
+class SelectIn(Body):
+    pin: StrictStr | None = None
+
+
+class ProfileUpdateIn(Body):
+    name: StrictStr | None = None
+    pin: StrictStr | None = 'unchanged'   # a new PIN, None to remove it, or leave it as it is
+    current_pin: StrictStr | None = None
+
+
+class ExplainIn(Body):
+    id: StrictStr
+    session: SessionIn = Field(default_factory=SessionIn)

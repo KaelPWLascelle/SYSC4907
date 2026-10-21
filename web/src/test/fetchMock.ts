@@ -4,7 +4,9 @@
  */
 import { vi } from 'vitest';
 
-export type Reply = [number, unknown] | Promise<[number, unknown]>;
+/** [status, body] or [status, body, response headers]. */
+type Response3 = [number, unknown] | [number, unknown, Record<string, string>];
+export type Reply = Response3 | Promise<Response3>;
 export type Handler = (body: unknown, init: RequestInit) => Reply;
 
 export interface Call {
@@ -30,17 +32,17 @@ export function mockFetch(routes: Record<string, Handler>) {
     });
     const handler = routes[`${method} ${url.pathname}`];
     if (!handler) return jsonResponse(404, { error: `No mock for ${method} ${url.pathname}` });
-    const [status, data] = await handler(body, init);
-    return jsonResponse(status, data);
+    const [status, data, headers] = await handler(body, init);
+    return jsonResponse(status, data, headers);
   });
   vi.stubGlobal('fetch', fetchMock);
   return { calls, fetchMock };
 }
 
-function jsonResponse(status: number, data: unknown) {
+function jsonResponse(status: number, data: unknown, headers: Record<string, string> = {}) {
   return new Response(status === 204 ? null : JSON.stringify(data), {
     status,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...headers },
   });
 }
 

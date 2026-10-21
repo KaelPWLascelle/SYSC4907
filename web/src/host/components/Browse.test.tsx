@@ -19,7 +19,6 @@ function library(feedback: Library['feedback'] = {}): Library {
     feedback,
     progress: new Map(),
     downloads: new Map(),
-    ratingBusy: false,
     rate: vi.fn(),
     openDetails: vi.fn(),
     play: vi.fn(),

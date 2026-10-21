@@ -87,7 +87,8 @@ test('a failed download says why and offers to try again', async () => {
 test('a public-domain film streams from the Internet Archive, with credit', async () => {
   setup(() => ({}));
   render(<App />);
-  const choice = await screen.findByRole('radiogroup', { name: 'Watch or listen' });
+  await userEvent.click(await screen.findByRole('button', { name: 'Watch or listen: watch or listen. Change' }));
+  const choice = screen.getByRole('radiogroup', { name: 'Watch or listen' });
   await userEvent.click(within(choice).getByRole('radio', { name: 'Watch' }));
   const hero = await screen.findByRole('region', { name: 'Alpha' });
   await userEvent.click(within(hero).getByRole('button', { name: 'Why this pick' }));
@@ -106,6 +107,7 @@ test('the scene can ask for something to watch or to listen to', async () => {
   const { calls } = setup(() => ({}));
   render(<App />);
   await screen.findByRole('region', { name: 'The Gracchi' });
+  await userEvent.click(screen.getByRole('button', { name: 'Watch or listen: watch or listen. Change' }));
   const choice = screen.getByRole('radiogroup', { name: 'Watch or listen' });
   await userEvent.click(within(choice).getByRole('radio', { name: 'Watch' }));
   expect(await screen.findByRole('heading', { level: 1, name: 'Alpha' })).toBeInTheDocument();
@@ -121,7 +123,7 @@ test('without a podcast catalogue there is no watch-or-listen choice and no down
   });
   render(<App />);
   await screen.findByRole('heading', { level: 1, name: 'Alpha' });
-  expect(screen.queryByRole('radiogroup', { name: 'Watch or listen' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: /^Watch or listen:/ })).not.toBeInTheDocument();
   expect(calls.some(c => c.path.startsWith('/api/podcasts'))).toBe(false);
 });
 

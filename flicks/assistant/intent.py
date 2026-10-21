@@ -6,9 +6,10 @@ options this file defines; its answers pass the same ``Session`` validation as m
 low-confidence answers are dropped rather than guessed. The request text never leaves the machine:
 ``DecisionClient.decide(private=True)`` refuses non-loopback backends.
 """
-from .commands import CommandInterpreter, normalize
-from .core import MOODS, Session
-from .systemone import DecisionClient, PrivacyError, SystemOneError, choice, noul
+from ..core import MOODS, Session
+from ..systemone import DecisionClient, PrivacyError, SystemOneError, choice, noul
+from ..text import normalize
+from .commands import CommandInterpreter
 
 MOOD_WORDS = {
     'relaxing': 'calm, cozy, soothing, gentle, chill, comforting, unwind, quiet, easy',

@@ -6,9 +6,9 @@ import tempfile
 import unittest
 import wave
 
-from flicks.commands import CommandInterpreter
+from flicks.assistant.commands import CommandInterpreter
+from flicks.assistant.voice import MAX_AUDIO_BYTES, LocalWhisper, VoiceUnavailable
 from flicks.core import Recommender, Session, load_catalog
-from flicks.voice import MAX_AUDIO_BYTES, LocalWhisper, VoiceUnavailable
 from helpers import CATALOG, app_client
 
 
@@ -23,7 +23,7 @@ class CommandTests(unittest.TestCase):
         self.assertEqual(result['patch'], {'mood': 'relaxing', 'minutes': 89, 'intensity': .2, 'excluded_genres': ['horror']})
 
     def test_time_language(self):
-        for text, expected in [('ninety minutes', 90), ('an hour', 60), ('an hour and a half', 90), ('half an hour', 30), ('one hundred and twenty minutes', 120), ('one hundred minutes', 100), ('two hours', 120), ('at most 90 minutes', 90), ('less than 90 minutes', 89)]:
+        for text, expected in [('ninety minutes', 90), ('an hour', 60), ('an hour and a half', 90), ('half an hour', 30), ('one hundred and twenty minutes', 120), ('one hundred minutes', 100), ('under a hundred minutes', 99), ('two hours', 120), ('at most 90 minutes', 90), ('less than 90 minutes', 89)]:
             with self.subTest(text=text): self.assertEqual(self.parser.parse(text)['patch']['minutes'], expected)
 
     def test_feedback_and_negation(self):
@@ -199,16 +199,16 @@ class AudioDecodeTests(unittest.TestCase):
         return output.getvalue()
 
     def test_invalid_audio(self):
-        from flicks.voice import decode_audio
+        from flicks.assistant.voice import decode_audio
         with self.assertRaises(ValueError): decode_audio(b'not audio')
 
     def test_silent_short_and_long_recordings(self):
-        from flicks.voice import decode_audio
+        from flicks.assistant.voice import decode_audio
         for data in (self.wav(1), self.wav(.01, 1000), self.wav(31, 1000)):
             with self.assertRaises(ValueError): decode_audio(data)
 
     def test_decodes_to_mono_16khz_float(self):
-        from flicks.voice import decode_audio
+        from flicks.assistant.voice import decode_audio
         audio = decode_audio(self.wav(1, 1000))
         self.assertEqual(audio.shape, (16000,))
         self.assertAlmostEqual(float(audio[0]), 1000/32768)

@@ -1,7 +1,17 @@
 import { Icon } from '../../components/Icon';
 import { Logo } from '../../components/Logo';
 
-export function TopBar({ couch, onAsk }: { couch: boolean; onAsk: () => void }) {
+interface TopBarProps {
+  couch: boolean;
+  onAsk: () => void;
+  /** The current profile's name, and how to open its menu. */
+  profile?: string;
+  onProfile?: () => void;
+  /** Open "Your taste". */
+  onTaste?: () => void;
+}
+
+export function TopBar({ couch, onAsk, profile, onProfile, onTaste }: TopBarProps) {
   return (
     <header className="topbar">
       <a className="logo" href="#top" aria-label="Flicks home">
@@ -11,6 +21,11 @@ export function TopBar({ couch, onAsk }: { couch: boolean; onAsk: () => void }) 
         <a href="#top">Home</a>
         <a href="#browse">Browse</a>
         {couch && <a href="#couch">Couch</a>}
+        {onTaste && (
+          <button type="button" className="nav-button" onClick={onTaste}>
+            Your taste
+          </button>
+        )}
       </nav>
       <div className="topbar-end">
         <button type="button" className="ask-button" onClick={onAsk}>
@@ -21,6 +36,14 @@ export function TopBar({ couch, onAsk }: { couch: boolean; onAsk: () => void }) 
           <i aria-hidden="true" />
           On this device
         </span>
+        {profile && onProfile && (
+          <button type="button" className="profile-button" onClick={onProfile} aria-label={`Profile: ${profile}`}>
+            <span className="avatar" aria-hidden="true">
+              {profile.slice(0, 1).toUpperCase()}
+            </span>
+            <span className="profile-name">{profile}</span>
+          </button>
+        )}
       </div>
     </header>
   );

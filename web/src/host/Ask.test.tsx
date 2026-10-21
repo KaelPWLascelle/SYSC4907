@@ -1,3 +1,4 @@
+import type { Mix } from '../api/types';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
@@ -25,6 +26,7 @@ function setup(command: Command) {
           excluded_genres: [],
           medium: 'any',
           playable: false,
+          mix: [0.55, 0.2, 0.15, 0.1] as Mix,
         },
         feedback: {},
       },

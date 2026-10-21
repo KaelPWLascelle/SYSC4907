@@ -10,8 +10,18 @@ export class ApiError extends Error {
   }
 }
 
+/** The profile this page was loaded for; sent with every request so the server never saves to another. */
+let actingFor: number | null = null;
+export function actAs(profileId: number | null) {
+  actingFor = profileId;
+}
+/** Dispatched on window when the server says this page's profile is no longer signed in. */
+export const PROFILE_CHANGED = 'flicks:profile-changed';
+
 export async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const response = await fetch(path, init);
+  const headers = actingFor === null ? init.headers : { ...init.headers, 'X-Flicks-Profile': String(actingFor) };
+  const response = await fetch(path, headers ? { ...init, headers } : init);
+  if (response.headers.get('X-Flicks-Profile-Changed')) window.dispatchEvent(new Event(PROFILE_CHANGED));
   if (response.status === 204) return undefined as T;
   let body: unknown;
   try {

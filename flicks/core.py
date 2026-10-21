@@ -12,6 +12,7 @@ STOP_WORDS = frozenset(['a', 'an', 'and', 'are', 'as', 'at', 'be', 'by', 'for', 
 MOODS = ('any', 'relaxing', 'uplifting', 'curious', 'tense', 'reflective')
 # What the scene asks for: anything, something to watch, or something to listen to (podcast episodes).
 MEDIUMS = ('any', 'watch', 'listen')
+DEFAULT_MIX = (0.55, 0.20, 0.15, 0.10)
 AUDIO_KINDS = frozenset({'episode'})
 
 @dataclass(frozen=True)
@@ -69,8 +70,17 @@ class Session:
     excluded_genres: tuple[str, ...] = ()
     medium: str = 'any'
     playable: bool = False  # only titles that can be played right now (a local file or a stream)
+    # How much each factor counts: (taste, mood, intensity, novelty), non-negative, summing to 1, so a score
+    # stays in [0, 1] and its factors still add up to it. The user can tune it ("Your taste").
+    mix: tuple[float, float, float, float] = DEFAULT_MIX
 
     def __post_init__(self):
+        if not isinstance(self.mix, (list, tuple)) or len(self.mix) != 4 or any(
+                type(w) not in (float, int) or not math.isfinite(w) or w < 0 for w in self.mix):
+            raise ValueError('The mix must be four non-negative numbers (taste, mood, intensity, discovery)')
+        if abs(sum(self.mix) - 1) > 1e-6:
+            raise ValueError('The mix must add up to 1')
+        object.__setattr__(self, 'mix', tuple(float(w) for w in self.mix))
         if not isinstance(self.excluded_genres, (list, tuple)) or len(self.excluded_genres) > 20 or any(not isinstance(g, str) or not g.strip() or len(g) > 50 for g in self.excluded_genres):
             raise ValueError('Excluded genres must be a list of at most 20 genre names')
         object.__setattr__(self, 'excluded_genres', tuple(sorted(set(self.excluded_genres))))
@@ -155,11 +165,12 @@ class TfidfTaste:
 class HeuristicDecision:
     def factors(self, item, taste, session):
         familiarity = taste['familiarity']
+        w_taste, w_mood, w_intensity, w_novelty = session.mix
         return {
-            'taste': 0.55*taste['taste'],
-            'mood': 0.20*(0.5 if session.mood == 'any' else float(session.mood in item.moods)),
-            'intensity': 0.15*(1-abs(item.intensity-session.intensity)),
-            'novelty': 0.10*(0.5 if familiarity is None else 1-abs((1-familiarity)-session.novelty)),
+            'taste': w_taste*taste['taste'],
+            'mood': w_mood*(0.5 if session.mood == 'any' else float(session.mood in item.moods)),
+            'intensity': w_intensity*(1-abs(item.intensity-session.intensity)),
+            'novelty': w_novelty*(0.5 if familiarity is None else 1-abs((1-familiarity)-session.novelty)),
         }
 
 
@@ -174,6 +185,7 @@ class Recommender:
         self.taste = taste or TfidfTaste(catalog)
         self.decision = decision or HeuristicDecision()
         self.genres = frozenset(g for item in catalog for g in item.genres)
+        self.by_id = {item.id: item for item in catalog}
 
     def recommend(self, feedback, session, mode='session', limit=12):
         if mode not in ('session', 'baseline'):
@@ -202,14 +214,26 @@ class Recommender:
         # Evidence is the costly part of a score, so it is built only for the titles returned.
         explain = getattr(self.taste, 'explain', None)
         explained = explain(feedback, [row[1] for row in top]) if explain else {}
-        result = []
-        for negative_score, key, item, factors in top:
-            taste = {**scores[key], **explained.get(key, {})}
-            result.append(dict(content=asdict(item), score=-negative_score, factors=factors,
-                               evidence=taste.get('evidence', []), negative_evidence=taste.get('negative_evidence', []),
-                               because=taste.get('because', []), popular=taste.get('popular', False),
-                               familiarity=taste['familiarity']))
-        return result
+        return [self._pick(item, -negative_score, factors, {**scores[key], **explained.get(key, {})})
+                for negative_score, key, item, factors in top]
+
+    def explain_item(self, feedback, session, content_id):
+        """One title's score, factors and evidence exactly as `recommend` reports them in session mode."""
+        item = self.by_id.get(content_id)
+        if item is None:
+            raise ValueError('Unknown content ID')
+        taste = self.taste.scores(feedback)[content_id]
+        factors = self.decision.factors(item, taste, session)
+        explain = getattr(self.taste, 'explain', None)
+        evidence = explain(feedback, [content_id]).get(content_id, {}) if explain else {}
+        return self._pick(item, sum(factors.values()), factors, {**taste, **evidence})
+
+    @staticmethod
+    def _pick(item, score, factors, taste):
+        return dict(content=asdict(item), score=score, factors=factors,
+                    evidence=taste.get('evidence', []), negative_evidence=taste.get('negative_evidence', []),
+                    because=taste.get('because', []), popular=taste.get('popular', False),
+                    familiarity=taste['familiarity'])
 
     @classmethod
     def _cap_series(cls, ranked):

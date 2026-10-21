@@ -5,13 +5,18 @@ import type {
   CommandResponse,
   CouchHostView,
   DownloadStatus,
+  ExplainResponse,
+  ImportResult,
   Mode,
   PlayerAction,
+  ProfilesResponse,
+  ProfileSummary,
   Progress,
   Rating,
   RecommendResponse,
   Session,
   TitleFilter,
+  TasteResponse,
   TitlesResponse,
   TranscribeResponse,
 } from './types';
@@ -33,6 +38,9 @@ export const flicksApi = {
     if (query.similar) params.set('similar', query.similar);
     return request<TitlesResponse>(`/api/titles?${params}`, init);
   },
+  taste: (signal?: AbortSignal) => request<TasteResponse>('/api/taste', { signal }),
+  explain: (id: string, session: Session, signal?: AbortSignal) =>
+    request<ExplainResponse>('/api/explain', { ...json('POST', { id, session }), signal }),
   rate: (id: string, value: Rating | 0) =>
     request<{ feedback: Record<string, Rating> }>('/api/feedback', json('POST', { id, value })),
 
@@ -61,6 +69,25 @@ export const flicksApi = {
       request<undefined>(`/api/podcasts/${encodeURIComponent(id)}/download`, { method: 'DELETE' }),
   },
 
+  profiles: {
+    list: () => request<ProfilesResponse>('/api/profiles'),
+    create: (name: string, pin: string | null) =>
+      request<{ profile: ProfileSummary }>('/api/profiles', json('POST', { name, pin })),
+    select: (id: number, pin: string | null) =>
+      request<{ profile: ProfileSummary }>(`/api/profiles/${id}/select`, json('POST', { pin })),
+    signOut: () => request<{ ok: boolean }>('/api/profiles/signout', json('POST', {})),
+    update: (change: { name?: string; pin?: string | null; current_pin?: string | null }) =>
+      request<{ profile: ProfileSummary }>('/api/profiles/current', json('PUT', change)),
+    remove: () => request<ProfilesResponse>('/api/profiles/current', { method: 'DELETE' }),
+    clearData: () => request<undefined>('/api/profiles/current/data', { method: 'DELETE' }),
+    import: (file: Blob, mode: 'new' | 'merge') =>
+      request<ImportResult>(`/api/profiles/import?mode=${mode}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: file,
+      }),
+  },
+
   couch: {
     view: () => request<CouchHostView>('/api/couch'),
     start: (session: Session) => request<CouchHostView>('/api/couch/start', json('POST', { session })),
@@ -71,5 +98,7 @@ export const flicksApi = {
   },
 };
 
+/** A download link: the browser saves the profile's ratings and history as a JSON file. */
+export const EXPORT_URL = '/api/profiles/current/export';
 export const mediaUrl = (id: string) => `/media/${encodeURIComponent(id)}`;
 export const posterUrl = (id: string) => `/posters/${encodeURIComponent(id)}`;

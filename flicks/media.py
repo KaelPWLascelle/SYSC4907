@@ -7,7 +7,8 @@ from requests: the server only streams files this scan matched to a catalogue ID
 from dataclasses import dataclass
 from pathlib import Path
 import re
-import unicodedata
+
+from .text import title_key
 
 VIDEO_TYPES = {'.mp4': 'video/mp4', '.m4v': 'video/mp4', '.webm': 'video/webm', '.mov': 'video/quicktime',
                '.mkv': 'video/x-matroska'}
@@ -32,20 +33,14 @@ class MediaFile:
         return self.path.suffix.lower() in DIRECT_PLAY or self.audio
 
 
-def normalize(title):
-    text = unicodedata.normalize('NFKD', title).encode('ascii', 'ignore').decode().lower()
-    text = text.replace('&', ' and ')
-    return ' '.join(re.sub(r"[^a-z0-9]+", ' ', text.replace("'", '')).split())
-
-
 class MediaLibrary:
     def __init__(self, folders, catalog):
         self.files, self.unmatched, self.duplicates = {}, [], []
         by_id = {item.id: item for item in catalog}
-        by_title_year = {(normalize(item.title), item.year): item.id for item in catalog}
+        by_title_year = {(title_key(item.title), item.year): item.id for item in catalog}
         titles = {}
         for item in catalog:
-            titles.setdefault(normalize(item.title), []).append(item.id)
+            titles.setdefault(title_key(item.title), []).append(item.id)
         for folder in folders:
             for path in sorted(self._videos(Path(folder))):
                 content_id = self._match(path.stem, by_id, by_title_year, titles)
@@ -69,8 +64,8 @@ class MediaLibrary:
             return stem
         named = NAMED.match(stem)
         if named:
-            return by_title_year.get((normalize(named['title']), int(named['year'])))
-        candidates = titles.get(normalize(stem), [])
+            return by_title_year.get((title_key(named['title']), int(named['year'])))
+        candidates = titles.get(title_key(stem), [])
         return candidates[0] if len(candidates) == 1 else None  # a bare title must be unambiguous
 
     def get(self, content_id):

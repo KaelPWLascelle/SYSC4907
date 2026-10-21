@@ -7,11 +7,13 @@ interface RailProps {
   title: string;
   status?: ReactNode;
   badge?: string;
+  /** New results are on their way: the current ones dim slightly. */
+  busy?: boolean;
   children: ReactNode;
 }
 
 /** A titled, horizontally scrolling row with previous/next buttons on pointer devices. */
-export function Rail({ id, title, status, badge, children }: RailProps) {
+export function Rail({ id, title, status, badge, busy = false, children }: RailProps) {
   const scroller = useRef<HTMLDivElement>(null);
   const scroll = (direction: 1 | -1) =>
     scroller.current?.scrollBy({ left: direction * scroller.current.clientWidth * 0.85, behavior: 'smooth' });
@@ -36,7 +38,7 @@ export function Rail({ id, title, status, badge, children }: RailProps) {
           </button>
         </div>
       </div>
-      <div className="rail" ref={scroller}>
+      <div className="rail" ref={scroller} aria-busy={busy}>
         {children}
       </div>
     </section>

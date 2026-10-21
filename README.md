@@ -5,7 +5,7 @@
 **A streaming app whose recommendations never leave your device.** Flicks learns your taste from the
 films you like and pass on, reads the evening you describe (mood, time, intensity), and explains
 every pick. It plays your own video files, remembers where you stopped, and lets everyone on the
-couch vote from their phones. No accounts, no cloud, no tracking.
+couch vote from their phones. No online accounts, no cloud, no tracking.
 
 Flicks is a SYSC 4907 capstone project at Carleton University, supervised by Dr. Huang
 ([project proposal](docs/proposal.md)).
@@ -26,6 +26,15 @@ Flicks is a SYSC 4907 capstone project at Carleton University, supervised by Dr.
   (and your own files) ranked for you, and **Ready to play** limits the picks to what can play now.
 - **Ask Flicks.** Type or say "something relaxing under 90 minutes, no horror" and preview the
   change before it applies. Speech is transcribed on the device by Whisper.
+- **See and tune your taste.** "Your taste" charts the genres you lean toward and away from, the themes
+  behind your likes, and which liked films shape your picks. Tune how much ratings, mood, intensity and
+  discovery count, with a live preview of your new top five.
+- **Profiles, kept on this device.** "Who's watching?" keeps each person's ratings, history and picks
+  apart, with an optional PIN. Export a profile as a small file and import it on another computer;
+  nothing goes through an account or a server.
+- **Ask in your own words, instantly.** A tiny model trained for Flicks (the Ask student, under 2 MB, no
+  GPU, no model server) reads "long week, I want to switch off, nothing scary" into the scene, and "why
+  this pick" explains every pick in a plain sentence.
 - **Couch mode.** Phones on your Wi-Fi scan a QR code, vote with hidden ballots, and act as a remote
   for the TV.
 - **Installable.** Runs in its own window from Chrome or Edge.
@@ -141,6 +150,25 @@ Press <kbd>/</kbd> and type a request, or record one if voice is set up:
 Searches and plays happen at once. Ratings and scene changes are shown first and change nothing
 until you press Apply. See [voice commands](docs/voice.md) to enable on-device speech.
 
+### How Ask reads you
+
+Requests go to the cheapest reader that understands them: exact rules first, then the **Ask student**, a
+small classifier distilled for Flicks that turns a described scene into mood, intensity, novelty, watch or
+listen, and a genre to avoid. It answers in well under a millisecond and only when confident; you still
+preview and apply. Rebuild and evaluate it with `python -m flicks.datasets.ask` (needs the `datasets` extra);
+see [ADR 0014](docs/adr/0014-ask-student.md).
+
+A local language model can be added as a further tier with `--llm-url` ([ADR 0013](docs/adr/0013-local-llm.md)),
+but it is experimental and off by default: it needs several GB of free memory, and on an 8 GB laptop it
+makes the whole computer unresponsive.
+
+### Profiles
+
+Open the profile button (top right) to switch profiles, add one, set a PIN, or export, import, clear or
+delete your data. With more than one profile, Flicks asks who is watching when it opens. A PIN keeps
+others in the household out of your profile; it does not encrypt the database
+([ADR 0012](docs/adr/0012-local-profiles.md)).
+
 ### Couch mode
 
 ```sh
@@ -157,7 +185,7 @@ votes are forgotten when the session ends. See [how couch mode works](docs/couch
 | Option | Default | Purpose |
 |---|---|---|
 | `--media DIR` | none | Folder of video files to play; repeat for more folders |
-| `--db FILE` | `~/.flicks/feedback.sqlite3` | Ratings and watch history |
+| `--db FILE` | `~/.flicks/feedback.sqlite3` | Profiles, ratings and watch history |
 | `--port N` | `8765` | Local port for the app |
 | `--posters DIR` | `~/.flicks/posters` | Poster cache from `python -m flicks.posters` |
 | `--couch` | off | Allow couch sessions on your home network |
@@ -166,6 +194,9 @@ votes are forgotten when the session ends. See [how couch mode works](docs/couch
 | `--voice-model DIR` | none | Local Whisper model for speech ([voice setup](docs/voice.md)) |
 | `--tags FILE` | none | System One catalogue tags ([System One](docs/system-one.md)) |
 | `--system-one-url URL` | none | Local System One server for free-text requests |
+| `--llm-url URL` | none | Experimental: a local language model server (needs several GB free) |
+| `--llm-model NAME` | `qwen3.5:2b` | Model name in that server |
+| `--no-ask-student` | off | Turn off the Ask student (rules only) |
 | `--catalog FILE` | bundled | Your own catalogue ([format](flicks/data/README.md)) |
 | `--podcasts FILE` | `~/.flicks/catalogs/podcasts.json` if present | Podcast catalogue from `python -m flicks.datasets.podcasts` |
 | `--podcast-downloads DIR` | `~/.flicks/podcasts` | Where downloaded episodes are kept |
@@ -219,6 +250,16 @@ Checks (CI runs them on every push, with the Python tests on Linux, Windows and 
 npm --prefix web run lint
 npm --prefix web test
 npm --prefix web run build
+npm --prefix web run test:e2e   # Playwright: the real app in Chromium, desktop and phone (first: npx --prefix web playwright install chromium)
+```
+
+Measurements (not run in CI; results and how to read them are in [docs/test-report.md](docs/test-report.md)):
+
+```sh
+.venv/bin/python -m flicks.benchmark                     # latency and memory, bundled and MovieLens catalogues
+.venv/bin/python -m flicks.datasets.ask --evaluate-only  # the Ask student on its held-out test set
+.venv/bin/python -m flicks.datasets.evaluation           # recommendation quality on held-out MovieLens ratings
+.venv/bin/python -m flicks.assistant.agent_eval --no-llm # the whole Ask pipeline on the agent's hard cases
 ```
 
 `flicks/static/` is build output and is not committed.
@@ -228,6 +269,7 @@ npm --prefix web run build
 | Document | Contents |
 |---|---|
 | [Architecture](docs/architecture.md) | Components, data flow, security model, ranking model, API |
+| [Test report](docs/test-report.md) | Latest test, latency and AI evaluation results, with what they mean |
 | [Decision records](docs/adr/README.md) | Why the project is built the way it is |
 | [Voice commands](docs/voice.md) | On-device speech setup and the supported commands |
 | [Couch mode](docs/couch.md) | Joining, voting, the remote, and what is guaranteed |

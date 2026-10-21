@@ -35,7 +35,7 @@ class MigrationTests(unittest.TestCase):
     def test_fresh_database_gets_the_whole_schema(self):
         database = Database(self.path)
         self.assertEqual(database.version(), SCHEMA_VERSION)
-        self.assertEqual(self.tables(), {'feedback', 'watch_history'})
+        self.assertEqual(self.tables(), {'feedback', 'watch_history', 'profiles', 'sqlite_sequence'})
 
     def test_a_database_from_before_migrations_keeps_its_ratings(self):
         # Exactly the schema the app created before migrations existed (user_version 0).

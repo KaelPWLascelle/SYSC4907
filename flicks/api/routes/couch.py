@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
 
 from ...services import Services
-from ..deps import services
+from ..deps import Viewer, services, viewer
 from ..errors import client_errors
 from ..schemas import CouchStartIn, EmptyIn, PlayerIn
 
@@ -31,9 +31,9 @@ def qr(svc: Services = Depends(services)):
 
 
 @router.post('/start')
-def start(body: CouchStartIn, svc: Services = Depends(services)):
+def start(body: CouchStartIn, svc: Services = Depends(services), me: Viewer = Depends(viewer)):
     with client_errors():
-        shortlist = svc.recommender.recommend(svc.ratings.all(), body.session.to_domain(), 'session', limit=8)
+        shortlist = svc.recommender.recommend(me.ratings.all(), body.session.to_domain(), 'session', limit=8)
         return svc.couch.start(shortlist)
 
 

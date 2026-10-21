@@ -32,6 +32,12 @@ class Settings:
     couch: bool = False
     couch_host: str | None = None
     couch_port: int = 8770
+    # The distilled Ask student's weights (flicks.datasets.ask); None turns it off.
+    ask_student: Path | None = PACKAGE/'data'/'ask_student.json'
+    # A language model on this machine (OpenAI-compatible, e.g. Ollama) for the Ask agent and narrated
+    # explanations; None: Flicks works without one (docs/adr/0013-local-llm.md).
+    llm_url: str | None = None
+    llm_model: str = 'qwen3.5:2b'
     # Extra browser origins allowed to call the API, e.g. the Vite dev server (`--dev`).
     extra_origins: tuple[str, ...] = field(default=())
 

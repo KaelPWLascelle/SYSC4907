@@ -41,11 +41,12 @@ export function Hero({ pick, session, mode, loading }: HeroProps) {
   return (
     <section className="hero" aria-labelledby="hero-title" aria-live="polite">
       {hasPoster && (
-        <div className="hero-backdrop" aria-hidden="true">
+        <div className="hero-backdrop" aria-hidden="true" key={`art-${item.id}`}>
           <Poster item={item} hasPoster className="backdrop-art" eager />
         </div>
       )}
-      <div className="hero-inner">
+      {/* Keyed by the pick, so a new top pick cross-fades in instead of swapping text in place. */}
+      <div className="hero-inner" key={item.id}>
         <div className="hero-copy">
           <p className="eyebrow">{mode === 'baseline' ? 'Top pick for your taste' : 'Top pick for tonight'}</p>
           <h1 id="hero-title">{item.title}</h1>
@@ -77,7 +78,6 @@ export function Hero({ pick, session, mode, loading }: HeroProps) {
             <RateButtons
               title={item.title}
               rating={library.feedback[item.id]}
-              disabled={library.ratingBusy}
               large
               onRate={value => library.rate(item.id, value)}
             />

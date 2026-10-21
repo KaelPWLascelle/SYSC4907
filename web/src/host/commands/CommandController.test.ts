@@ -1,3 +1,4 @@
+import type { Mix } from '../../api/types';
 // State-machine tests with a fake microphone and recorder. No real audio or network.
 import type { CommandResponse, VoiceStatus } from '../../api/types';
 import { CommandController, type CommandDeps } from './CommandController';
@@ -11,6 +12,7 @@ const SESSION = {
   excluded_genres: [],
   medium: 'any' as const,
   playable: false,
+  mix: [0.55, 0.2, 0.15, 0.1] as Mix,
 };
 const LIKE: CommandResponse = {
   command: { intent: 'feedback', summary: 'Like Arrival', id: 'm001', value: 1 },
@@ -203,4 +205,27 @@ test('dispose releases the microphone', async () => {
   await flush();
   expect(ui.stopped()).toBe(1);
   expect(ui.calls.transcribe).toBe(0);
+});
+
+test('an agent proposal shows its own sentence and what it looked up before the summary', async () => {
+  const proposal: CommandResponse = {
+    command: {
+      intent: 'session',
+      summary: 'Set mood: relaxing.',
+      patch: { mood: 'relaxing' },
+      parser: 'llm',
+      reply: 'Something calm.',
+      steps: ['Looked up “Arrival”: 1 found'],
+      note: 'Planned by local LLM. Review it before applying.',
+    },
+    session: SESSION,
+    feedback: {},
+  };
+  const { controller } = setup({ preview: async () => proposal });
+  controller.setText('long week, switch off');
+  await controller.preview();
+  expect(controller.getSnapshot().message).toBe(
+    'Something calm. Set mood: relaxing. (Looked up “Arrival”: 1 found) Planned by local LLM. Review it before applying.',
+  );
+  expect(controller.getSnapshot().canApply).toBe(true);
 });

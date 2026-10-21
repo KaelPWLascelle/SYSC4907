@@ -7,7 +7,7 @@ uses them in three places, all behind the same validated client (`flicks/systemo
 | Where | What is asked | Text sent | Allowed backends |
 |---|---|---|---|
 | Build-time catalogue tagging (`flicks/tagging.py`) | mood, intensity, pace, family-friendly per title | Public fields only: title, year, genres, description | Any: laya-serve, Kev, or hosted Jev |
-| Command fallback (`flicks/intent.py`) | requested mood, genres to avoid | What the user typed | **Loopback only**; enforced in code |
+| Command fallback (`flicks/assistant/intent.py`) | requested mood, genres to avoid | What the user typed | **Loopback only**; enforced in code |
 | Distilled student (`flicks/distill.py`, `web/src/lib/student.ts`) | the same tagging questions | Any | Runs in-process or in the browser |
 
 ```
@@ -25,6 +25,9 @@ user's typed request ──> rules first ──(only if nothing matched)──> 
   before any request if the backend is not on 127.0.0.1/::1/localhost. The command assistant
   refuses a remote backend at startup. Loopback requests bypass `http(s)_proxy` so a proxy cannot
   relay user text off the machine. Plain `http` to a remote host is refused outright.
+- **Rules win, then System One, then the language model.** When a local LLM is configured
+  ([ADR 0013](adr/0013-local-llm.md)), it is a third tier after this one, asked only when neither the
+  rules nor System One produced anything more specific than a keyword search.
 - **Rules win.** The model is consulted only when the deterministic rules matched nothing
   (`reason: "unrecognized"`). It never overrides a deliberate refusal such as “not relaxing”.
 - **Low confidence changes nothing.** Mood needs ≥ 0.60 and genre exclusion ≥ 0.80.
@@ -111,7 +114,7 @@ End-to-end (Flicks with Laya tags and Laya as the command fallback):
 - `flicks/systemone.py`: question builders, validation, wire parsing, `HttpBackend` (`/v1/systemone`,
   bearer auth, timeouts), `LexicalBackend`, `DecisionClient` with the privacy check, ECE.
 - `flicks/tagging.py`: `FILM_QUESTIONS`, `tag_catalog`, tag-file load/validate, `evaluate`, `TaggedDecision`.
-- `flicks/intent.py`: `SystemOneInterpreter`, rules-first fallback for free text.
+- `flicks/assistant/intent.py`: `SystemOneInterpreter`, rules-first fallback for free text.
 - `flicks/distill.py`: stable 70/10/20 split by ID hash, Laya fine-tune export, soft-label softmax student.
 - `web/src/lib/student.ts`: browser port of the student; `web/src/lib/student.test.ts` checks parity
   with Python to 1e-9 using `tests/fixtures/student-parity.json`, including non-ASCII film-state

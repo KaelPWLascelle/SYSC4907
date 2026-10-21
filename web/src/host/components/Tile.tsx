@@ -64,12 +64,7 @@ export function Tile({ item, rank, resume = false }: TileProps) {
         <h3 className="tile-title">{item.title}</h3>
         <p className="tile-sub">{subtitle(item)}</p>
       </div>
-      <RateButtons
-        title={item.title}
-        rating={rating}
-        disabled={library.ratingBusy}
-        onRate={value => library.rate(item.id, value)}
-      />
+      <RateButtons title={item.title} rating={rating} onRate={value => library.rate(item.id, value)} />
     </article>
   );
 }

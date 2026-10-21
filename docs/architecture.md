@@ -1,7 +1,9 @@
 # Architecture
 
 Flicks is a Python server and a React interface that run on the user's own machine. The server binds
-to loopback, keeps all personal data in one SQLite file, and computes every recommendation locally.
+to loopback, keeps all personal data in one SQLite file (one or more local profiles), and computes every
+recommendation locally. Free-form requests are read by the Ask student, a small distilled classifier that
+runs in process; an optional, experimental language model can be added on the same machine. Neither ranks.
 The reasons behind each major choice are in the [decision records](adr/README.md).
 
 ```
@@ -9,8 +11,11 @@ The reasons behind each major choice are in the [decision records](adr/README.md
 │                                                                      │
 │  Browser ──▶ host app (FastAPI, 127.0.0.1:8765)                      │
 │                 │  request guard: Host/Origin, JSON-only, size, CSP  │
-│                 ├─ routes/library    recommender (core.py)           │
-│                 ├─ routes/assistant  commands · intent · voice       │
+│                 ├─ routes/profiles   who is watching · export/import  │
+│                 ├─ routes/library    recommender (core.py) · narrator │
+│                 │                    ─────────────────────────────────┼──▶ local LLM server
+│                 │                                                     │    (127.0.0.1, optional)
+│                 ├─ routes/assistant  rules → System One → student → (LLM)
 │                 ├─ routes/playback   files · relay · watch history ──┼──▶ podcast publishers,
 │                 ├─ routes/podcasts   episode downloads ──────────────┼──▶ Internet Archive (only
 │                 └─ routes/couch      CouchManager ─┐                 │    on Play or Download)
@@ -29,6 +34,7 @@ The reasons behind each major choice are in the [decision records](adr/README.md
 | Module | Responsibility |
 |---|---|
 | `__main__.py` | Command line: builds `Settings`, the services and the app, then runs uvicorn on loopback |
+| `text.py` | The two text foldings every match uses: `normalize` (what people type) and `title_key` (titles and file names) |
 | `config.py` | `Settings` and default paths (`~/.flicks/`) |
 | `services.py` | Builds the long-lived objects (recommender, repositories, media library, couch manager) |
 | `api/app.py` | The host app: middleware, error handlers, routers, and the built interface |
@@ -37,12 +43,19 @@ The reasons behind each major choice are in the [decision records](adr/README.md
 | `api/schemas.py` | Request bodies: strict types, no unknown fields; ranges are checked by the domain |
 | `api/guest.py`, `api/server.py` | The couch guest app and its lifecycle in a background thread |
 | `core.py` | Domain types (`Content`, `Session`), the TF-IDF taste model and the session reranker |
-| `db.py`, `repositories.py` | SQLite connections, migrations, ratings and watch history |
+| `db.py`, `repositories.py` | SQLite connections, migrations, profiles, and per-profile ratings and watch history |
+| `profiles.py`, `api/routes/profiles.py` | Profile sign-in (cookie tokens, PIN lockout) and the portable export/import document ([ADR 0012](adr/0012-local-profiles.md)) |
+| `api/deps.py` | `viewer`: the request's profile, through which every route reads ratings and history |
+| `assistant/llm.py` | Client for a local OpenAI-compatible model server; refuses non-loopback addresses ([ADR 0013](adr/0013-local-llm.md)) |
+| `assistant/ask_student.py`, `datasets/ask.py` | The Ask student (a distilled classifier for described scenes), its phrase bank, training and evaluation ([ADR 0014](adr/0014-ask-student.md)) |
+| `assistant/agent.py`, `assistant/agent_eval.py` | The optional language-model agent (after the student) and its evaluation |
+| `assistant/narrator.py` | Grounded, cached plain-language explanations of a pick's factors (optional LLM) |
+| `taste.py` | "Your taste": genre lean, tag themes and the liked films shaping picks, from the ranking's own data ([ADR 0015](adr/0015-your-taste.md)) |
 | `media.py` | Maps local video files to catalogue titles |
 | `podcasts.py` | Podcast episodes at runtime: the validated episode index, downloads (one at a time, sniffed as audio) and downloaded files ([ADR 0010](adr/0010-podcasts.md)) |
 | `relay.py`, `archive.py` | Remote media played through Flicks (Range forwarding, forced media type, sniffing), and the validated Internet Archive index ([ADR 0011](adr/0011-streaming.md)) |
-| `commands.py`, `intent.py` | Rule-based command parsing (scene, ratings, play, search, similar titles), with an optional local System One fallback |
-| `voice.py` | Optional on-device Whisper transcription with bounded audio decoding |
+| `assistant/commands.py`, `assistant/intent.py` | Rule-based command parsing (scene, ratings, play, search, similar titles), with an optional local System One fallback |
+| `assistant/voice.py` | Optional on-device Whisper transcription with bounded audio decoding |
 | `couch.py`, `qr.py` | Couch-session rules (joining, hidden votes, results, player state) and the QR encoder |
 | `posters.py` | The one-time artwork fetch (Wikipedia page images in batches, podcast show art) and the read-only cache |
 | `search.py` | In-memory lookup and everyday-language search: reads decades, years, lengths, kinds, genres and moods, then ranks word matches over titles, shows, genres, tags and descriptions ([ADR 0007](adr/0007-catalogue-artifact.md)) |
@@ -79,8 +92,11 @@ numbered migrations tracked with `PRAGMA user_version`; see [ADR 0003](adr/0003-
 
 | Table | Columns | Notes |
 |---|---|---|
-| `feedback` | `content_id`, `value` (1 or -1), `updated_at` | A missing row means no rating |
-| `watch_history` | `content_id`, `position_seconds`, `duration_seconds`, `completed`, `started_at`, `updated_at` | Finished at 90% watched; resumable from 30 s |
+| `profiles` | `id`, `name` (unique, case-insensitive), `pin_hash` (scrypt, optional), `created_at` | Migration 3; profile 1 "Me" owns data from earlier versions |
+| `feedback` | `profile_id`, `content_id`, `value` (1 or -1), `updated_at` | A missing row means no rating |
+| `watch_history` | `profile_id`, `content_id`, `position_seconds`, `duration_seconds`, `completed`, `started_at`, `updated_at` | Finished at 90% watched; resumable from 30 s |
+
+Timestamps are ISO 8601 UTC with milliseconds. Deleting a profile deletes its rows (foreign keys).
 
 The catalogue is a validated, read-only JSON file, loaded once at startup: the bundled
 `flicks/data/movies.json` or an imported one ([ADR 0007](adr/0007-catalogue-artifact.md)). The browser
@@ -109,10 +125,18 @@ Everything here is enforced in code and covered by tests (`tests/test_flicks.py`
   [ADR 0010](adr/0010-podcasts.md) and [ADR 0011](adr/0011-streaming.md).
 - **Couch guests are isolated.** They use a separate server with its own routes, so ratings, history,
   voice and commands are unreachable from the network. See [couch mode](couch.md).
-- **User text stays local.** Typed or spoken requests may only go to a System One model on this
-  machine. See [System One](system-one.md).
+- **User text stays local.** Typed or spoken requests may only go to a System One model or a language
+  model on this machine; both clients refuse other addresses and bypass proxies. See
+  [System One](system-one.md) and [ADR 0013](adr/0013-local-llm.md).
+- **Profiles.** The sign-in cookie is a random token, HttpOnly and SameSite=Strict; PINs are salted scrypt
+  hashes with a lockout after five wrong tries. A profile with a PIN is never the default. Profile
+  imports are capped at 2 MiB and validated field by field.
+- **Model output is untrusted.** The Ask agent can only propose what the rules can (validated like the
+  manual controls, IDs only from its own lookups); the narrator's text is discarded if it names a title
+  it was not given. Neither can change stored data.
 
-The database is not encrypted, and any local OS user with access to the file can read it. Flicks is
+The database is not encrypted, and any local OS user with access to the file can read it; a profile PIN
+separates household members, it does not encrypt. Flicks is
 not designed to be exposed beyond the machine (for example through a tunnel).
 
 ## Recommendation model
@@ -176,12 +200,15 @@ Hard constraints come first and apply in both modes: rated titles, titles longer
 time, titles in an avoided genre, and titles of the wrong medium (watch or listen, when podcasts are
 loaded) and, with **Ready to play**, titles that cannot be played right now are removed. The rest are scored:
 
-| Factor | Definition | Weight |
+| Factor | Definition | Default weight |
 |---|---|---:|
 | Taste | The taste score above | 0.55 |
 | Mood | 1 if the title has the requested mood, otherwise 0; "anything" gives 0.5 | 0.20 |
 | Intensity | 1 − \|title intensity − requested intensity\| | 0.15 |
 | Discovery | 1 − \|(1 − cosine(x_d, p)) − requested novelty\| | 0.10 |
+
+The weights are the session's `mix`, which the user can tune in "Your taste"; it must be four non-negative
+numbers summing to 1, so a score stays in [0, 1] and its factors still add up to it.
 
 Without likes, discovery is a neutral 0.5. Results are sorted by score, then by content ID for
 stability, and the top 12 are returned, with at most two episodes of any one podcast (a show's
@@ -214,6 +241,17 @@ All responses are JSON unless noted. Errors have the shape `{"error": "<message>
 | `GET /api/titles` | Search: `q` (everyday language), `show` (`all`, `liked`, `passed`, `unrated`), `similar` (an ID: titles like it), `offset`, `limit` (≤ 100). Most popular first without a query; `understood` lists what the query was read as |
 | `POST /api/feedback` | `{"id": "m001", "value": 1}`: 1 like, -1 pass, 0 clear |
 | `POST /api/recommend` | `{"session": {...}, "mode": "session" \| "baseline"}`; omitted fields use defaults |
+| `POST /api/explain` | `{"id", "session"}`: the pick's factors in words from the local model, or `narration: null` |
+| `GET /api/taste` | The profile's genre lean, tag themes and the liked films shaping its picks |
+| `GET /api/profiles` | Profiles (name, PIN or not, rating count), the current one, and whether it was chosen |
+| `POST /api/profiles` | `{"name", "pin"?}`: create a profile and sign in to it |
+| `POST /api/profiles/{id}/select` | `{"pin"?}`: sign in (403 wrong PIN, 429 after five) |
+| `POST /api/profiles/signout` | `{}`: forget this browser's sign-in |
+| `PUT /api/profiles/current` | `{"name"?, "pin"?, "current_pin"?}`: rename; set, change or remove (`null`) the PIN |
+| `DELETE /api/profiles/current` | Delete the signed-in profile and its data (keeps at least one) |
+| `DELETE /api/profiles/current/data` | Clear its ratings and watch history |
+| `GET /api/profiles/current/export` | Download the profile as a `flicks-profile` JSON document |
+| `POST /api/profiles/import?mode=new\|merge` | Raw JSON export (≤ 2 MiB): into a new profile, or merged (newer wins) |
 | `POST /api/command/preview` | `{"text": "...", "session": {...}}`: what a request would change; no side effects |
 | `POST /api/command/apply` | Same body; re-parses the text and applies it |
 | `POST /api/transcribe` | Raw audio (≤ 5 MiB, ≤ 30 s) → transcript |
@@ -229,7 +267,7 @@ All responses are JSON unless noted. Errors have the shape `{"error": "<message>
 | `GET /api/couch`, `GET /api/couch/qr.svg` | Couch session view and QR code (with `--couch`) |
 | `POST /api/couch/start`, `stop`, `reveal`, `player` | Couch session controls (with `--couch`) |
 
-A session is `{"mood", "minutes", "intensity", "novelty", "excluded_genres", "medium", "playable"}`;
+A session is `{"mood", "minutes", "intensity", "novelty", "excluded_genres", "medium", "playable", "mix"}`;
 medium is `any`, `watch` or `listen`; `playable` keeps only titles with a local file, a download or a
 stream. Moods are `any`,
 `relaxing`, `uplifting`, `curious`, `tense` and `reflective`; minutes are 1–600; intensity and novelty
@@ -246,10 +284,11 @@ and `POST /api/couch/join`, `vote` and `remote`. Requests after joining carry th
 | Code | Meaning |
 |---|---|
 | 400 | Invalid request body or values |
-| 401 | Missing or wrong guest token (couch) |
+| 401 | Missing or wrong guest token (couch), or every profile has a PIN and none is signed in |
 | 403 | Wrong `Host` or a cross-site `Origin` |
 | 404 | Unknown route, title, poster or media file |
 | 409 | Voice is busy with another transcription, or an episode is still downloading |
+| 429 | Too many wrong PINs; try again in a minute |
 | 410 | The couch session has ended |
 | 413 | Request body too large |
 | 415 | Wrong content type |

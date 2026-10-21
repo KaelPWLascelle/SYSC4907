@@ -68,6 +68,59 @@ export interface AppState {
   podcasts: boolean;
   posters: string[];
   media: MediaEntry[];
+  /** The profile these ratings and history belong to (absent from older servers). */
+  profile?: CurrentProfile;
+  /** The optional local language model behind Ask Flicks' agent and narrated explanations. */
+  llm?: LlmStatus;
+}
+
+export interface CurrentProfile {
+  id: number;
+  name: string;
+  locked: boolean;
+  /** Signed in on purpose, rather than using the default profile. */
+  chosen: boolean;
+  /** How many profiles exist on this device. */
+  count: number;
+}
+
+export interface LlmStatus {
+  available: boolean;
+  name: string | null;
+  message: string;
+}
+
+// ---------- profiles ----------
+
+export interface ProfileSummary {
+  id: number;
+  name: string;
+  /** Has a PIN. */
+  locked: boolean;
+  created_at: string;
+  ratings: number;
+}
+
+export interface ProfilesResponse {
+  profiles: ProfileSummary[];
+  current: { id: number; name: string; locked: boolean } | null;
+  chosen: boolean;
+}
+
+export interface ImportResult {
+  profile: { id: number; name: string };
+  ratings: number;
+  history: number;
+  /** Rows that matched no title in this catalogue. */
+  skipped: number;
+}
+
+export interface ExplainResponse {
+  id: string;
+  /** Plain words from the local language model, or null: keep the reasons shown. */
+  narration: string | null;
+  model?: string;
+  note: string;
 }
 
 export interface Session {
@@ -79,7 +132,12 @@ export interface Session {
   medium: Medium;
   /** Only titles that can be played right now (a local file, a download or a stream). */
   playable: boolean;
+  /** How much each factor counts: [taste, mood, intensity, discovery], summing to 1. */
+  mix: Mix;
 }
+
+export type Mix = [number, number, number, number];
+export const DEFAULT_MIX: Mix = [0.55, 0.2, 0.15, 0.1];
 
 export interface Recommendation {
   content: Content;
@@ -114,6 +172,12 @@ export interface Command {
   similar?: string;
   /** play, or search for similar titles: the title named. */
   content?: Content;
+  /** Who read the request: the rules, System One, or the local language model ("llm"). */
+  parser?: string;
+  /** llm: one sentence from the model about what it chose. */
+  reply?: string | null;
+  /** llm: what it looked up on the way, e.g. 'Looked up “Arrival”: 1 found'. */
+  steps?: string[];
 }
 
 export interface CommandResponse {
@@ -211,4 +275,17 @@ export type CouchHostView = { active: false } | (CouchCommon & { code: string; u
 
 export interface CouchGuestView extends CouchCommon {
   you: { id: string; name: string; votes: Record<string, Rating> };
+}
+
+// ---------- your taste ----------
+
+export interface TasteResponse {
+  liked: number;
+  passed: number;
+  /** affinity in (-1, 1): positive leans toward, negative away; shrunk toward 0 when there are few ratings. */
+  genres: { genre: string; liked: number; passed: number; affinity: number }[];
+  /** Themes from the content model's profile; weight scaled so the strongest is 1. */
+  themes: { liked: { term: string; weight: number }[]; passed: { term: string; weight: number }[] };
+  /** Liked films whose fans' ratings (MovieLens) shape the most picks. */
+  influences: { title: string; picks: number }[];
 }

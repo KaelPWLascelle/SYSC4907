@@ -1,4 +1,4 @@
-import type { Session } from '../api/types';
+import { DEFAULT_MIX, type Session } from '../api/types';
 
 /** The scene a fresh page starts with. Scenes are per visit by design; ratings are what persist. */
 export const DEFAULT_SESSION: Session = {
@@ -9,4 +9,5 @@ export const DEFAULT_SESSION: Session = {
   excluded_genres: [],
   medium: 'any',
   playable: false,
+  mix: DEFAULT_MIX,
 };
