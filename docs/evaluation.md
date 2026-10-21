@@ -1,5 +1,7 @@
 # Evaluation
 
+The latest measured results for everything below are collected in [the test report](test-report.md).
+
 This page separates what has been verified (the software does what it says) from what has not been
 measured yet (whether the recommendations are good), and sets out how to measure it.
 
@@ -9,8 +11,9 @@ measured yet (whether the recommendations are good), and sets out how to measure
 
 | Suite | Count | Covers |
 |---|---:|---|
-| Backend (`pytest`) | 195 | Ranking and explanations, hard constraints, validation, migrations, the request guard, range-request streaming, watch history, posters, couch rules and the guest server over a real socket, command parsing (scene, ratings, play, search, similar titles), System One validation, everyday-language search, the MovieLens and podcast importers (offline fixtures), podcast downloads and the streaming relay (with a fake network), the Internet Archive importer and its rights rule, collaborative filtering (neighbour build, predictions, blend, leakage-free evaluation split) and the popularity prior |
-| Interface (Vitest) | 56 | The voice and command state machine (cancellation, stale results, permissions), couch phone flows, the player (video and audio), the couch panel, server-side browsing, streaming and podcast downloads, and the main screens |
+| Backend (`pytest`) | 253 | Ranking and explanations, hard constraints, validation, migrations, the request guard, range-request streaming, watch history, posters, couch rules and the guest server over a real socket, command parsing (scene, ratings, play, search, similar titles), System One validation, everyday-language search, the MovieLens and podcast importers (offline fixtures), podcast downloads and the streaming relay (with a fake network), the Internet Archive importer and its rights rule, collaborative filtering (neighbour build, predictions, blend, leakage-free evaluation split), the popularity prior, local profiles (PINs, export and import), the taste summary, and the Ask student and agent |
+| Interface (Vitest) | 77 | The voice and command state machine (cancellation, stale results, permissions), couch phone flows, the player (video and audio), the couch panel, server-side browsing, streaming and podcast downloads, profiles, ratings, the scene sentence, "Your taste", and the main screens |
+| Browser (Playwright) | 10 | The real server and built interface in Chromium, desktop and phone: picks, ratings, the scene sentence, "Why this pick", Ask, "Your taste", the request guard and PIN profiles; any console error fails a test |
 
 Regression tests for bugs found during manual testing (a stale poll overwriting a vote, a background
 tab not loading the couch session) were each checked to fail with the bug reintroduced. CI runs the
@@ -34,7 +37,8 @@ has not been tested yet; the recording state machine is tested with simulated de
 
 ## Ranking demonstration
 
-`python -m flicks.evaluate` runs a fixed profile (likes for *Arrival* and *Moon*, a dislike for
+The original ranking demonstration (now replaced by `python -m flicks.benchmark`, see
+[the test report](test-report.md)) ran a fixed profile (likes for *Arrival* and *Moon*, a dislike for
 *Alien*) with a relaxing mood, 120 minutes, intensity 0.2 and novelty 0.3. Measured on an Apple M2
 with Python 3.12 over 200 calls per mode:
 
@@ -216,3 +220,29 @@ both ratings remain. Choose Relaxing, intensity 20% and 2 hours, and open a titl
 sheet to inspect the factors. Switch the lens to taste only. Set 10 minutes and check the empty
 state. With `--media`, play a title, pause, close, and resume from "Continue watching". Check the
 browser console for errors.
+
+## Beyond accuracy (2026-10-20)
+
+The same run also measures each model's top 10 for **coverage** (share of the catalogue that appears in
+any test user's list), **personalisation** (1 − mean overlap between two users' lists), **genre diversity**
+within a list, and **novelty** (mean popularity percentile, 0 = most popular). The NDCG-best popularity
+prior (2.0) gives new users nearly identical lists of blockbusters (coverage 0.020, personalisation 0.878
+with 3 likes). Flicks now ships 1.0: on test users with 3 likes HR@10 0.108 ± 0.034 (against 0.136 ±
+0.037), coverage 0.038, personalisation 0.942. Full tables and the reasoning are in
+[ADR 0015](adr/0015-your-taste.md).
+
+## Ask student
+
+`python -m flicks.datasets.ask` trains the student and scores it on 30 hand-written test requests that share
+no phrase with its training bank: 16 of 30 exactly right; per setting, mood 0.67, intensity 0.97, novelty
+0.97, watch or listen 1.00, genre to avoid 0.93; about 0.2 ms per request. Details and negative results
+(static embeddings) are in [ADR 0014](adr/0014-ask-student.md).
+
+## Ask agent (local language model, optional)
+
+`python -m flicks.assistant.agent_eval --model <name>` sends 11 team-written requests that the rules cannot read
+to the agent and checks the proposal's intent and key fields. Results and the latency on an 8 GB
+Apple M2 are in [ADR 0013](adr/0013-local-llm.md): qwen3.5:4b passed 10 of 11 with a 4.2 s median,
+qwen3.5:2b 6 of 11 with 1.8 s. Like the System One results, a set this small shows whether a model is
+usable, not a precise accuracy. Narrated explanations are checked in code (no title it was not given,
+no links or percentages) rather than scored.
