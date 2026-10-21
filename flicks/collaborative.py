@@ -135,9 +135,10 @@ class PopularityPrior:
     unpopular. None means every title is covered.
     """
 
-    # Chosen on development users for the best mean NDCG@10 over profiles of 3 likes, 10 likes and full
-    # histories, on top of the tuned collaborative blend (python -m flicks.datasets.evaluation).
-    STRENGTH = 2.0
+    # Chosen on development users (python -m flicks.datasets.evaluation): 2.0 has the best mean NDCG@10, but
+    # 1.0 has the same hit rate with 3 and 10 likes while nearly doubling catalogue coverage and making
+    # lists more personal, so new users do not all see the same blockbusters (docs/adr/0015-your-taste.md).
+    STRENGTH = 1.0
 
     def __init__(self, inner, popularity, strength=STRENGTH, covered=None):
         self.inner = inner

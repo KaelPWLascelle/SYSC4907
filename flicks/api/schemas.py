@@ -7,7 +7,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictFloat, StrictInt, StrictStr
 
-from ..core import Session
+from ..core import DEFAULT_MIX, Session
 
 Number = StrictFloat | StrictInt
 
@@ -24,6 +24,7 @@ class SessionIn(Body):
     excluded_genres: list[StrictStr] = Field(default_factory=list)
     medium: StrictStr = 'any'
     playable: StrictBool = False
+    mix: list[Number] = Field(default_factory=lambda: list(DEFAULT_MIX))
 
     def to_domain(self):
         return Session(**self.model_dump())  # raises ValueError for out-of-range values

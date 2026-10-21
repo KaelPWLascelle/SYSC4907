@@ -106,3 +106,9 @@ def poster(content_id: str, svc: Services = Depends(services)):
         raise HTTPException(404, 'Not found')
     data, media_type = image
     return Response(data, media_type=media_type, headers={'Cache-Control': 'private, max-age=86400'})
+
+
+@router.get('/api/taste')
+def taste(svc: Services = Depends(services), me: Viewer = Depends(viewer)):
+    """What the profile's ratings say, for the "Your taste" view (flicks/taste.py)."""
+    return svc.taste.summarize(me.ratings.all())

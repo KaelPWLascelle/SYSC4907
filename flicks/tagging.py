@@ -148,9 +148,9 @@ class TaggedDecision:
             return factors
         if 'mood' in tag and session.mood != 'any':
             p = tag['mood']['probabilities']
-            factors['mood'] = 0.20 * p.get(session.mood, 0) / max(p.values())
+            factors['mood'] = session.mix[1] * p.get(session.mood, 0) / max(p.values())
         if 'intensity' in tag:
-            factors['intensity'] = 0.15 * (1 - abs(tag['intensity']['normalized'] - session.intensity))
+            factors['intensity'] = session.mix[2] * (1 - abs(tag['intensity']['normalized'] - session.intensity))
         return factors
 
 

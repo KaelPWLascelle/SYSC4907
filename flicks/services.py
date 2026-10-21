@@ -16,6 +16,7 @@ from .relay import Streams
 from .repositories import ProfileRepository, RatingsRepository, WatchHistoryRepository
 from .search import TitleIndex
 from .tagging import TaggedDecision, load_tags
+from .taste import TasteSummary
 from .voice import LocalWhisper
 
 
@@ -25,6 +26,7 @@ class Services:
     ids: frozenset
     titles: TitleIndex
     similar: object             # the taste model behind "more like X" (no popularity prior)
+    taste: TasteSummary         # "Your taste": genres, themes and influences from the ratings
     recommender: Recommender
     profiles: ProfileRepository
     sessions: ProfileSessions   # who is signed in to which profile (in memory)
@@ -84,9 +86,11 @@ def build_services(settings, *, speech=None, system_one=None):
     posters = PosterLibrary(settings.poster_dir, ids) if settings.poster_dir else None
     couch = CouchManager(settings.couch_host, settings.couch_port, posters=posters,
                          static_dir=settings.static_dir) if settings.couch else None
+    recommender = Recommender(catalog, taste=taste, decision=decision, playable=playable)
     return Services(
         catalog=catalog, ids=ids, titles=titles, similar=similar,
-        recommender=Recommender(catalog, taste=taste, decision=decision, playable=playable),
+        recommender=recommender,
+        taste=TasteSummary(catalog, recommender),
         profiles=ProfileRepository(database),
         sessions=ProfileSessions(),
         ratings=RatingsRepository(database),

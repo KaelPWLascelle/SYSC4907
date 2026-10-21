@@ -15,6 +15,10 @@ Protocol (docs/evaluation.md):
 - Each model is also evaluated as a new user would be, with only 3 or 10 of the user's likes. The
   blend is tuned for the mean over these profile sizes, because Flicks' own users start with few.
 - The popularity prior's strength is then tuned the same way, on top of the chosen blend.
+- Beyond accuracy, each model's top 10 per test user is also measured for catalogue coverage,
+  personalisation (how different two users' lists are), genre diversity within a list, and novelty
+  (how far from the most popular films it reaches), since a list can be accurate and still the same
+  handful of blockbusters for everyone.
 """
 import argparse
 from dataclasses import dataclass, replace
@@ -25,7 +29,7 @@ from pathlib import Path
 import random
 import statistics
 
-from ..collaborative import CollaborativeTaste, ItemNeighbours, blend, popularity_scores, with_prior
+from ..collaborative import CollaborativeTaste, ItemNeighbours, PopularityPrior, blend, popularity_scores, with_prior
 from ..config import HOME
 from ..core import TfidfTaste, load_catalog
 from . import neighbours as neighbour_builder
@@ -107,6 +111,32 @@ def evaluate(cases, score_fn, catalogue_ids, seed=SEED):
             'sampled_ndcg_at_10': sampled_metrics['ndcg_at_10'], 'users': len(cases)}
 
 
+def beyond_accuracy(cases, score_fn, catalog, popularity, pairs=4000, seed=SEED):
+    """Coverage, personalisation, genre diversity and novelty of each test user's top 10."""
+    genres = {item.id: set(item.genres) for item in catalog}
+    order = sorted(genres, key=lambda i: -popularity.get(i, 0))
+    percentile = {item: rank / max(1, len(order) - 1) for rank, item in enumerate(order)}  # 0 = most popular
+    lists = []
+    for case in cases:
+        scores = score_fn(case)
+        candidates = [i for i in genres if i not in case.rated or i == case.held_out]
+        lists.append(sorted(candidates, key=lambda i: (-scores.get(i, 0.0), i))[:CUTOFF])
+
+    def jaccard(a, b):
+        return len(a & b) / len(a | b) if a | b else 1.0
+
+    rng = random.Random(f'{seed}:pairs')
+    sampled = [rng.sample(range(len(lists)), 2) for _ in range(pairs)] if len(lists) > 1 else []
+    overlap = statistics.mean(jaccard(set(lists[a]), set(lists[b])) for a, b in sampled) if sampled else 1.0
+    diversity = statistics.mean(
+        statistics.mean(1 - jaccard(genres[x], genres[y]) for i, x in enumerate(top) for y in top[i + 1:])
+        for top in lists if len(top) > 1)
+    return {'coverage': round(len({i for top in lists for i in top}) / len(genres), 4),
+            'personalisation': round(1 - overlap, 4),
+            'genre_diversity': round(diversity, 4),
+            'popularity_percentile': round(statistics.mean(percentile[i] for top in lists for i in top), 4)}
+
+
 def truncate(case, size):
     """The case as a newer user would look: `size` of its likes (chosen with a fixed seed), no passes."""
     if size is None:
@@ -175,11 +205,15 @@ def run(catalog_path, ratings_path, log=print):
         f'hybrid (blend {best})': hybrid(best),
         f'hybrid + popularity prior ({best_prior})': hybrid_with_prior(best, best_prior),
     }
+    if best_prior != PopularityPrior.STRENGTH:  # what Flicks ships, when it differs from the NDCG-best value
+        models[f'hybrid + popularity prior ({PopularityPrior.STRENGTH}, shipped)'] = hybrid_with_prior(best, PopularityPrior.STRENGTH)
     results = {}
     for size in PROFILE_SIZES:
         cases = [truncate(c, size) for c in test]
         log(f'Evaluating on test users ({_label(size)})')
-        results[_label(size)] = {name: evaluate(cases, score_fn, ids) for name, score_fn in models.items()}
+        results[_label(size)] = {name: {**evaluate(cases, score_fn, ids),
+                                        **(beyond_accuracy(cases, score_fn, catalog, popularity) if name != 'random' else {})}
+                                 for name, score_fn in models.items()}
     return {'protocol': {'like': LIKE, 'dislike': DISLIKE, 'min_likes': MIN_LIKES, 'cutoff': CUTOFF,
                          'sampled_negatives': SAMPLED_NEGATIVES, 'seed': SEED, 'profile_sizes': [_label(s) for s in PROFILE_SIZES],
                          'development_users': len(development), 'test_users': len(test)},
@@ -201,6 +235,11 @@ def main(argv=None):
         for name, r in rows.items():
             hit = f"{r['hit_rate_at_10']:.3f} ± {r['hit_rate_ci95']:.3f}"
             print(f"{name:<36} {hit:>14} {r['ndcg_at_10']:>8.3f} {r['sampled_hit_rate_at_10']:>16.3f}")
+        print(f"{'Beyond accuracy (top 10)':<36} {'coverage':>9} {'personal':>9} {'diverse':>8} {'pop. pct':>9}")
+        for name, r in rows.items():
+            if 'coverage' in r:
+                print(f"{name:<36} {r['coverage']:>9.3f} {r['personalisation']:>9.3f} {r['genre_diversity']:>8.3f} "
+                      f"{r['popularity_percentile']:>9.3f}")
     if args.out:
         args.out.parent.mkdir(parents=True, exist_ok=True)
         args.out.write_text(json.dumps(report, indent=1) + '\n', encoding='utf-8')
