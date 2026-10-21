@@ -135,14 +135,16 @@ export class CommandController {
       return;
     }
     const current = this.version;
-    this.update({ phase: 'previewing', message: 'Interpreting your request locally…' });
+    this.update({ phase: 'previewing', message: 'Interpreting your request on this device…' });
     let immediate = false;
     try {
       const { command } = await this.deps.preview(text, this.session);
       if (current !== this.version) return;
       if (command.intent !== 'unknown') this.previewText = text;
       immediate = IMMEDIATE.has(command.intent);
-      this.update({ message: `${command.summary} ${command.note ?? ''}`.trim() });
+      // The agent's own sentence and what it looked up come first, so it is clear how it got there.
+      const steps = command.steps?.length ? `(${command.steps.join('; ')})` : '';
+      this.update({ message: [command.reply, command.summary, steps, command.note].filter(Boolean).join(' ') });
     } catch (error) {
       if (current === this.version) this.update({ message: errorMessage(error) });
     } finally {

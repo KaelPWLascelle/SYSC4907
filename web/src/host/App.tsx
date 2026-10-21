@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { actAs, ApiError, PROFILE_CHANGED } from '../api/client';
 import { flicksApi } from '../api/flicks';
-import type { AppState, CommandResponse, Content, Mode, Rating, TitleRef } from '../api/types';
+import type { AppState, CommandResponse, Content, Mix, Mode, Rating, TitleRef } from '../api/types';
 import { CommandController } from './commands/CommandController';
 import { AskBar } from './components/AskBar';
 import { Browse } from './components/Browse';
@@ -9,6 +10,9 @@ import { CouchPanel } from './components/CouchPanel';
 import { DetailsSheet } from './components/DetailsSheet';
 import { Hero } from './components/Hero';
 import { Player } from './components/Player';
+import { ProfileGate } from './components/ProfileGate';
+import { ProfileMenu } from './components/ProfileMenu';
+import { TasteSheet } from './components/TasteSheet';
 import { Rail } from './components/Rail';
 import { SceneBar } from './components/SceneBar';
 import { Tile } from './components/Tile';
@@ -20,14 +24,66 @@ import { useRecommendations } from './hooks/useRecommendations';
 import { type Library, LibraryContext } from './library';
 import { DEFAULT_SESSION } from './session';
 
+/** Ratings with `id` set to `value` (0 removes it), as a new object. */
+const withRating = (ratings: Record<string, Rating>, id: string, value: Rating | 0): Record<string, Rating> => {
+  const rest = Object.fromEntries(Object.entries(ratings).filter(([key]) => key !== id));
+  return value === 0 ? rest : { ...rest, [id]: value };
+};
+
 const message = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
 export function App() {
   const [data, setData] = useState<AppState | null>(null);
   const [error, setError] = useState('');
-  useEffect(() => {
-    flicksApi.state().then(setData, failure => setError(message(failure)));
+  const [gate, setGate] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  // Bumped when the profile's ratings or history change underneath the page (import, clear): Home remounts.
+  const [dataVersion, setDataVersion] = useState(0);
+  const load = useCallback((fresh = false) => {
+    // Asking who is signed in must not name a profile: after choosing or importing one, the old ID is stale.
+    actAs(null);
+    flicksApi.state().then(
+      state => {
+        const profile = state.profile;
+        setError('');
+        // Several people use this device and nobody has said who is watching yet.
+        const ask = Boolean(profile && profile.count > 1 && !profile.chosen);
+        setGate(ask);
+        actAs(ask ? null : (profile?.id ?? null));
+        setData(state);
+        if (fresh) setDataVersion(version => version + 1);
+      },
+      failure => {
+        if (failure instanceof ApiError && failure.status === 401) {
+          actAs(null);
+          setGate(true);
+        } else setError(message(failure));
+      },
+    );
   }, []);
+  useEffect(() => load(), [load]);
+  useEffect(() => {
+    // Flicks restarted or another tab switched profiles: ask who is watching instead of saving to someone else.
+    const changed = () => {
+      actAs(null);
+      setMenuOpen(false);
+      setGate(true);
+    };
+    window.addEventListener(PROFILE_CHANGED, changed);
+    return () => window.removeEventListener(PROFILE_CHANGED, changed);
+  }, []);
+
+  if (gate) {
+    return (
+      <ProfileGate
+        onReady={() => {
+          setGate(false);
+          setData(null);
+          load(true);
+        }}
+      />
+    );
+  }
   if (!data) {
     return (
       <main className="loading" aria-busy={!error}>
@@ -35,16 +91,67 @@ export function App() {
       </main>
     );
   }
-  return <Home initial={data} />;
+  const profile = data.profile;
+  return (
+    <>
+      <Home
+        key={`${profile?.id ?? 0}:${dataVersion}`}
+        initial={data}
+        onProfile={profile ? () => setMenuOpen(true) : undefined}
+      />
+      {profile && (
+        <ProfileMenu
+          key={profile.id}
+          open={menuOpen}
+          profile={profile}
+          onClose={() => setMenuOpen(false)}
+          onSwitch={() => {
+            actAs(null);
+            setMenuOpen(false);
+            setGate(true);
+          }}
+          onChanged={dataChanged => load(dataChanged)}
+        />
+      )}
+    </>
+  );
 }
 
-function Home({ initial }: { initial: AppState }) {
+/** The scoring mix is a per-browser convenience, remembered per profile; storage may be unavailable. */
+const mixKey = (profile: number | undefined) => `flicks.mix.${profile ?? 0}`;
+function savedMix(profile: number | undefined): Mix | null {
+  try {
+    const value = JSON.parse(localStorage.getItem(mixKey(profile)) ?? 'null') as unknown;
+    const valid =
+      Array.isArray(value) &&
+      value.length === 4 &&
+      value.every(v => typeof v === 'number' && Number.isFinite(v) && v >= 0) &&
+      Math.abs(value.reduce((a: number, b: number) => a + b, 0) - 1) < 1e-6;
+    return valid ? (value as Mix) : null;
+  } catch {
+    return null;
+  }
+}
+
+function Home({ initial, onProfile }: { initial: AppState; onProfile?: () => void }) {
   const [feedback, setFeedback] = useState(initial.feedback);
-  const [session, setSession] = useState(DEFAULT_SESSION);
+  const profileId = initial.profile?.id;
+  const [session, setSession] = useState(() => ({
+    ...DEFAULT_SESSION,
+    mix: savedMix(profileId) ?? DEFAULT_SESSION.mix,
+  }));
+  const [tasteOpen, setTasteOpen] = useState(false);
+  const applyMix = (mix: Mix) => {
+    setSession(current => ({ ...current, mix }));
+    try {
+      localStorage.setItem(mixKey(profileId), JSON.stringify(mix));
+    } catch {
+      // Storage is unavailable (private window): the mix lasts for this visit.
+    }
+  };
   const [mode, setMode] = useState<Mode>('session');
   const [details, setDetails] = useState<Content | null>(null);
   const [playing, setPlaying] = useState<{ item: TitleRef; startAt: number } | null>(null);
-  const [ratingBusy, setRatingBusy] = useState(false);
   const [notice, setNotice] = useState('');
   const askInput = useRef<HTMLTextAreaElement>(null);
   const [browse, setBrowse] = useState<{ query: string; similar: TitleRef | null }>({ query: '', similar: null });
@@ -103,20 +210,37 @@ function Home({ initial }: { initial: AppState }) {
   }, []);
 
   // ---------- ratings and playback ----------
-  const ratingBusyRef = useRef(false);
-  const rate = useCallback(async (id: string, value: Rating | 0) => {
-    if (ratingBusyRef.current) return;
-    ratingBusyRef.current = true;
-    setRatingBusy(true);
-    try {
-      setFeedback((await flicksApi.rate(id, value)).feedback);
-      setNotice('');
-    } catch (failure) {
-      setNotice(`Could not save your rating: ${message(failure)}`);
-    } finally {
-      ratingBusyRef.current = false;
-      setRatingBusy(false);
-    }
+  // Optimistic: the pressed button changes at once and nothing else on the page is disabled. Saves for one
+  // title run in order (so a quick like-then-clear lands as clear), and only the newest server reply is
+  // applied. A failed save puts back what that title had, unless a newer click has changed it since.
+  const feedbackRef = useRef(feedback);
+  useEffect(() => {
+    feedbackRef.current = feedback;
+  }, [feedback]);
+  const saves = useRef(new Map<string, Promise<unknown>>());
+  const latestSave = useRef(0);
+  const lastClick = useRef(new Map<string, number>());
+  const rate = useCallback((id: string, value: Rating | 0) => {
+    const previous = feedbackRef.current[id];
+    const ticket = ++latestSave.current;
+    lastClick.current.set(id, ticket);
+    setFeedback(current => withRating(current, id, value));
+    const save = (saves.current.get(id) ?? Promise.resolve())
+      .catch(() => undefined)
+      .then(() => flicksApi.rate(id, value))
+      .then(
+        response => {
+          if (ticket === latestSave.current) setFeedback(response.feedback); // the server's word, once settled
+          setNotice('');
+        },
+        (failure: unknown) => {
+          if (lastClick.current.get(id) === ticket) {
+            setFeedback(current => withRating(current, id, previous ?? 0));
+          }
+          setNotice(`Could not save your rating: ${message(failure)}`);
+        },
+      );
+    saves.current.set(id, save);
   }, []);
 
   const play = useCallback(
@@ -158,14 +282,13 @@ function Home({ initial }: { initial: AppState }) {
       feedback,
       progress,
       downloads,
-      ratingBusy,
       rate,
       openDetails: setDetails,
       play,
       download: id => void download(id),
       removeDownload: id => void removeDownload(id),
     }),
-    [posters, media, feedback, progress, downloads, ratingBusy, rate, play, download, removeDownload],
+    [posters, media, feedback, progress, downloads, rate, play, download, removeDownload],
   );
 
   // ---------- couch remote -> player ----------
@@ -217,7 +340,13 @@ function Home({ initial }: { initial: AppState }) {
       <a className="skip-link" href="#picks">
         Skip to your picks
       </a>
-      <TopBar couch={initial.couch} onAsk={() => askInput.current?.focus()} />
+      <TopBar
+        couch={initial.couch}
+        onAsk={() => askInput.current?.focus()}
+        profile={initial.profile?.name}
+        onProfile={onProfile}
+        onTaste={() => setTasteOpen(true)}
+      />
       <main id="top">
         <Hero pick={picks[0]} session={session} mode={mode} loading={loading && !picks.length} />
         <AskBar controller={controller} voice={initial.voice} inputRef={askInput} />
@@ -228,6 +357,7 @@ function Home({ initial }: { initial: AppState }) {
           podcasts={initial.podcasts}
           onSession={setSession}
           onMode={setMode}
+          onTaste={() => setTasteOpen(true)}
         />
         {(notice || podcasts.error) && (
           <p className="notice page-notice" role="alert">
@@ -243,6 +373,7 @@ function Home({ initial }: { initial: AppState }) {
         )}
         <Rail
           id="picks"
+          busy={loading && picks.length > 0}
           title="Top picks for this moment"
           status={status}
           badge={picks.length ? `${picks.length} picks` : undefined}
@@ -272,7 +403,28 @@ function Home({ initial }: { initial: AppState }) {
         />
       </main>
       <Footer titles={initial.catalog_size} posters={posters.size > 0} playable={media.size} />
-      <DetailsSheet item={details} picks={picks} session={session} onClose={() => setDetails(null)} />
+      <TasteSheet
+        open={tasteOpen}
+        session={session}
+        feedback={feedback}
+        picks={picks}
+        onClose={() => setTasteOpen(false)}
+        onMix={mix => {
+          applyMix(mix);
+          setTasteOpen(false);
+        }}
+        onBrowse={query => {
+          setBrowse({ query, similar: null });
+          requestAnimationFrame(() => document.getElementById('browse')?.scrollIntoView?.({ behavior: 'smooth' }));
+        }}
+      />
+      <DetailsSheet
+        item={details}
+        picks={picks}
+        session={session}
+        narrate={initial.llm?.available ?? false}
+        onClose={() => setDetails(null)}
+      />
       {playing && (
         <Player
           key={playing.item.id}

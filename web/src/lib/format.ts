@@ -30,3 +30,11 @@ export function hue(id: string): number {
   for (const c of id) h = Math.imul(h ^ c.charCodeAt(0), 0x01000193) >>> 0;
   return h % 360;
 }
+
+/** "2 hours", "1½ hours", "45 minutes": how a person says a time budget. */
+export function spokenTime(minutes: number) {
+  if (minutes < 60) return `${minutes} minutes`;
+  if (minutes % 60 === 0) return minutes === 60 ? '1 hour' : `${minutes / 60} hours`;
+  if (minutes % 60 === 30) return `${Math.floor(minutes / 60)}½ hours`;
+  return runtime(minutes);
+}

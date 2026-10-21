@@ -1,7 +1,12 @@
 import '@testing-library/jest-dom/vitest';
 
-import { cleanup } from '@testing-library/react';
+import { cleanup, configure } from '@testing-library/react';
 import { afterEach, vi } from 'vitest';
+
+// findBy*/waitFor wait up to 1 s by default; a busy laptop (or CI runner) can take longer to render the
+// first screen, which made a few tests fail at random. Nothing here waits on purpose, so a longer limit
+// only removes the flakiness.
+configure({ asyncUtilTimeout: 5000 });
 
 // jsdom has no <dialog> modal support or media playback; provide minimal, observable stand-ins.
 if (!HTMLDialogElement.prototype.showModal) {

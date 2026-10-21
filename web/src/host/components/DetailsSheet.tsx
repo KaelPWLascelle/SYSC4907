@@ -1,4 +1,6 @@
-import { type CSSProperties, useEffect, useRef } from 'react';
+import { type CSSProperties, useEffect, useRef, useState } from 'react';
+
+import { flicksApi } from '../../api/flicks';
 
 import { type Content, isEpisode, type Recommendation, type Session } from '../../api/types';
 import { Icon } from '../../components/Icon';
@@ -6,18 +8,42 @@ import { Poster } from '../../components/Poster';
 import { RateButtons } from '../../components/RateButtons';
 import { capitalize, subtitle, timestamp } from '../../lib/format';
 import { useLibrary } from '../library';
-import { FACTORS, reasons } from '../reasons';
+import { explanation, FACTOR_LABELS, reasons, weightOf } from '../reasons';
 import { DownloadButton } from './DownloadButton';
 
 interface DetailsSheetProps {
   item: Content | null;
   picks: Recommendation[];
   session: Session;
+  /** A local language model is available to put the factors into words. */
+  narrate?: boolean;
   onClose: () => void;
 }
 
+type Narration = { state: 'idle' } | { state: 'loading' } | { state: 'done'; text: string } | { state: 'none' };
+
+/** The pick's factors in plain words from the local model. Slow (seconds), so it never blocks the sheet. */
+function useNarration(id: string | undefined, enabled: boolean, session: Session): Narration {
+  const [narration, setNarration] = useState<{ key: string; value: Narration }>({ key: '', value: { state: 'idle' } });
+  const key = enabled && id ? `${id}:${JSON.stringify(session)}` : '';
+  useEffect(() => {
+    if (!key || !id) return;
+    const controller = new AbortController(); // until a reply for this key arrives, the state reads as loading
+    flicksApi.explain(id, session, controller.signal).then(
+      result =>
+        setNarration({ key, value: result.narration ? { state: 'done', text: result.narration } : { state: 'none' } }),
+      () => {
+        if (!controller.signal.aborted) setNarration({ key, value: { state: 'none' } });
+      },
+    );
+    return () => controller.abort();
+    // `key` already encodes id and session.
+  }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
+  return narration.key === key ? narration.value : { state: key ? 'loading' : 'idle' };
+}
+
 /** "Why this pick" for any title: rank, reasons, the weighted factors behind the score, and actions. */
-export function DetailsSheet({ item, picks, session, onClose }: DetailsSheetProps) {
+export function DetailsSheet({ item, picks, session, narrate = false, onClose }: DetailsSheetProps) {
   const dialog = useRef<HTMLDialogElement>(null);
   const library = useLibrary();
 
@@ -35,6 +61,7 @@ export function DetailsSheet({ item, picks, session, onClose }: DetailsSheetProp
   const rating = item ? library.feedback[item.id] : undefined;
   const episode = item !== null && isEpisode(item);
   const downloaded = item !== null && library.downloads.get(item.id)?.state === 'ready';
+  const narration = useNarration(pick?.content.id, narrate, session);
 
   return (
     <dialog
@@ -66,6 +93,14 @@ export function DetailsSheet({ item, picks, session, onClose }: DetailsSheetProp
               {subtitle(item)} · {item.genres.map(capitalize).join(' · ')}
             </p>
             <p className="details-description">{item.description}</p>
+            {pick && (
+              <p className="narration" aria-label="In plain words">
+                {narration.state === 'done' ? narration.text : explanation(pick, session)}
+                {narration.state === 'done' && (
+                  <span className="fine"> Reworded by a language model on this device from the factors below.</span>
+                )}
+              </p>
+            )}
             {pick && (
               <ul className="reasons" aria-label="Why this pick">
                 {reasons(pick, session).map(reason => (
@@ -99,13 +134,7 @@ export function DetailsSheet({ item, picks, session, onClose }: DetailsSheetProp
                 </>
               )}
               {episode && !downloaded && <DownloadButton item={item} />}
-              <RateButtons
-                title={item.title}
-                rating={rating}
-                disabled={library.ratingBusy}
-                large
-                onRate={value => library.rate(item.id, value)}
-              />
+              <RateButtons title={item.title} rating={rating} large onRate={value => library.rate(item.id, value)} />
             </div>
             {media?.source && (
               <p className="fine">
@@ -132,12 +161,15 @@ export function DetailsSheet({ item, picks, session, onClose }: DetailsSheetProp
                 <h3>Why it ranks here</h3>
                 <div className="factors">
                   {Object.entries(pick.factors).map(([key, value]) => {
-                    const { label, max } = FACTORS[key] ?? { label: capitalize(key), max: 1 };
+                    const label = FACTOR_LABELS[key] ?? capitalize(key);
+                    const max = weightOf(key, session);
                     return (
                       <div className="factor" key={key}>
                         <span className="factor-label">{label}</span>
                         <div className="factor-bar">
-                          <span style={{ '--fill': Math.max(0, Math.min(1, value / max)) } as CSSProperties} />
+                          <span
+                            style={{ '--fill': max > 0 ? Math.max(0, Math.min(1, value / max)) : 0 } as CSSProperties}
+                          />
                         </div>
                         <span className="factor-value">
                           {value.toFixed(2)} / {max.toFixed(2)}

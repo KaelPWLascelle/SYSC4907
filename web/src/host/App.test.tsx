@@ -30,6 +30,8 @@ test('shows the top pick with reasons, and every mood is selectable', async () =
   expect(await screen.findByRole('heading', { level: 1, name: 'Alpha' })).toBeInTheDocument();
   const reasons = screen.getByRole('list', { name: 'Why this pick' });
   expect(within(reasons).getByText('Your taste: quiet')).toBeInTheDocument();
+  // The scene reads as a sentence; tapping its mood word opens every mood.
+  await userEvent.click(screen.getByRole('button', { name: 'Mood: any mood. Change' }));
   const moods = within(screen.getByRole('radiogroup', { name: 'Mood' })).getAllByRole('radio');
   expect(moods).toHaveLength(MOODS.length);
 });
@@ -38,7 +40,9 @@ test('a mood chip re-ranks the picks with the new scene', async () => {
   const { calls } = setup();
   render(<App />);
   await screen.findByRole('heading', { level: 1, name: 'Alpha' });
+  await userEvent.click(screen.getByRole('button', { name: 'Mood: any mood. Change' }));
   await userEvent.click(screen.getByRole('radio', { name: 'Tense' }));
+  expect(screen.getByRole('button', { name: 'Mood: tense. Change' })).toBeInTheDocument(); // the sentence updates
   expect(await screen.findByRole('heading', { level: 1, name: 'Gamma' })).toBeInTheDocument();
   const last = calls.filter(c => c.path === '/api/recommend').at(-1);
   expect(last?.body).toMatchObject({ session: { mood: 'tense' }, mode: 'session' });

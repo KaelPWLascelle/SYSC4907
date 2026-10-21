@@ -26,7 +26,9 @@ export function useCouchHost(enabled: boolean) {
       setError(`Couch mode: ${failure instanceof Error ? failure.message : String(failure)}`);
     }
   }, []);
-  useVisiblePolling(refresh, enabled);
+  // Fast while a session runs (phones vote, the remote acts); a slow check otherwise, since only this
+  // host starts sessions.
+  useVisiblePolling(refresh, enabled, view.active ? 1500 : 15000);
 
   const run = useCallback(async (action: () => Promise<CouchHostView>) => {
     if (busyRef.current) return;

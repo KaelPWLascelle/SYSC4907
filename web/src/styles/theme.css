@@ -1,0 +1,830 @@
+/*
+ * Flicks · Apple-style visual system, applied over base.css and host.css.
+ * Every selector starts with `html` on purpose: one extra type selector of specificity, so these
+ * overrides beat the page sheets' rules of equal weight, whichever order the bundler emits the CSS
+ * files in (this sheet is shared with the couch page, so it can load before host.css), while the page
+ * sheets' more specific rules (`.chips-small .chip`) still win where they should. New components go in
+ * their own sheet (taste.css), not here.
+ * Principles from Apple's Human Interface Guidelines: content first, one restrained accent, layered
+ * materials (translucent, blurred) instead of borders, large clear type, generous spacing, and motion
+ * that feels physical but never gets in the way (reduced-motion respected).
+ */
+html body {
+  font: 17px/1.47 var(--sans);
+  letter-spacing: -0.012em;
+  background: var(--bg);
+}
+html h2 {
+  font-size: clamp(22px, 2.2vw, 28px);
+  font-weight: 700;
+  letter-spacing: -0.022em;
+}
+html h3 {
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+html :focus-visible {
+  outline: 3px solid rgba(10, 132, 255, 0.7);
+  outline-offset: 2px;
+  border-radius: 10px;
+}
+html ::selection {
+  background: rgba(10, 132, 255, 0.45);
+}
+html .eyebrow {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  color: var(--muted);
+}
+html .fine {
+  font-size: 12px;
+  color: var(--faint);
+}
+html .hint {
+  font-size: 13px;
+}
+html .badge {
+  border: 0;
+  background: var(--fill);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 4px 10px;
+}
+
+/* ---------- Buttons ---------- */
+html .button {
+  min-height: 44px;
+  padding: 0 22px;
+  border: 0;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  transition:
+    background 0.2s,
+    transform 0.35s var(--spring),
+    opacity 0.2s;
+}
+html .button:active:not(:disabled) {
+  transform: scale(0.97);
+}
+html .button-primary {
+  background: #f5f5f7;
+  color: #000;
+}
+html .button-primary:hover:not(:disabled) {
+  background: #fff;
+}
+html .button-quiet {
+  background: rgba(255, 255, 255, 0.12);
+  border: 0;
+  color: var(--text);
+}
+html .button-quiet:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.2);
+}
+html .button-danger {
+  background: rgba(255, 69, 58, 0.16);
+  border: 0;
+  color: #ff6961;
+}
+html .button-danger:hover:not(:disabled) {
+  background: rgba(255, 69, 58, 0.26);
+}
+html .link {
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 14px;
+}
+html .link:hover {
+  color: var(--accent-strong);
+  text-decoration: underline;
+}
+html .round {
+  width: 36px;
+  height: 36px;
+  border: 0;
+  background: rgba(118, 118, 128, 0.3);
+  transition:
+    background 0.2s,
+    transform 0.35s var(--spring);
+}
+html .round:hover:not(:disabled) {
+  background: rgba(118, 118, 128, 0.48);
+}
+html .round:active:not(:disabled) {
+  transform: scale(0.92);
+}
+
+/* ---------- Rating buttons ---------- */
+html .rate-button {
+  border: 0;
+  background: rgba(0, 0, 0, 0.5);
+  color: var(--text);
+  transition:
+    background-color 0.3s var(--spring),
+    color 0.3s var(--spring),
+    transform 0.35s var(--spring);
+}
+html .rate-button svg {
+  transition: transform 0.35s var(--spring);
+}
+/* Turning a rating on: the thumb pops once. Turning it off just fades back. */
+html .rate-button[aria-pressed='true'] svg {
+  animation: thumb-pop 0.42s var(--spring);
+}
+html .rate-down[aria-pressed='true'] svg {
+  animation-name: thumb-pop-down;
+}
+html .rate-button:hover:not(:disabled) {
+  background: rgba(60, 60, 64, 0.8);
+}
+html .rate-button:active:not(:disabled) {
+  transform: scale(0.92);
+}
+html .rate-large .rate-button {
+  height: 44px;
+  padding: 0 18px;
+  font-size: 15px;
+  background: rgba(255, 255, 255, 0.12);
+}
+html .rate-large .rate-button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.2);
+}
+/* The pressed state wins over hover, so a liked title's thumb stays green under the pointer. */
+html .rate-up[aria-pressed='true'],
+html .rate-up[aria-pressed='true']:hover:not(:disabled) {
+  background: var(--like);
+  color: #002910;
+}
+html .rate-down[aria-pressed='true'],
+html .rate-down[aria-pressed='true']:hover:not(:disabled) {
+  background: var(--pass);
+  color: #fff;
+}
+
+/* ---------- Top bar: a thin glass material ---------- */
+html .topbar {
+  height: 56px;
+  gap: 32px;
+  background: rgba(22, 22, 23, 0.86);
+  backdrop-filter: saturate(180%) blur(24px);
+  -webkit-backdrop-filter: saturate(180%) blur(24px);
+  border-bottom: 0.5px solid var(--line-strong);
+}
+html .logo-word {
+  font: 700 21px/1 var(--display);
+  letter-spacing: -0.03em;
+}
+html .nav {
+  gap: 26px;
+  font-size: 14px;
+}
+html .nav a {
+  color: var(--muted);
+  transition: color 0.2s;
+}
+html .ask-button,
+html .profile-button {
+  height: 34px;
+  border: 0;
+  background: var(--fill);
+  color: var(--text);
+  font-size: 13px;
+  transition: background 0.2s;
+}
+html .ask-button:hover,
+html .profile-button:hover {
+  background: var(--fill-strong);
+  border-color: transparent;
+}
+html .ask-button svg {
+  color: var(--text);
+}
+html .ask-button kbd {
+  font: 500 11px var(--sans);
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--muted);
+}
+html .privacy-chip {
+  font-size: 12px;
+}
+html .privacy-chip i {
+  background: var(--like);
+  box-shadow: 0 0 0 3px rgba(48, 209, 88, 0.18);
+}
+html .avatar {
+  border: 0;
+  color: #fff;
+  font-weight: 600;
+  background: linear-gradient(145deg, #5e5ce6, #bf5af2);
+}
+
+/* ---------- Hero: content first, full-bleed artwork ---------- */
+html .hero {
+  min-height: min(82vh, 760px);
+  padding: 96px var(--gutter) 64px;
+  background: #000;
+}
+html .backdrop-art img {
+  filter: blur(36px) saturate(160%);
+  opacity: 0.7;
+}
+html .hero::after {
+  background:
+    linear-gradient(90deg, #000 4%, rgba(0, 0, 0, 0.78) 40%, rgba(0, 0, 0, 0.1) 78%),
+    linear-gradient(0deg, #000 0%, rgba(0, 0, 0, 0.35) 38%, transparent 60%);
+}
+html .hero h1 {
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  margin: 10px 0 14px;
+}
+html .hero-meta {
+  font-size: 15px;
+  color: var(--muted);
+  opacity: 1;
+}
+html .hero-description {
+  font-size: 17px;
+  line-height: 1.5;
+  color: rgba(235, 235, 245, 0.8);
+}
+html .reasons li,
+html .details .reasons li {
+  font-size: 13px;
+  font-weight: 500;
+  padding: 6px 12px;
+  border: 0;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text);
+}
+html .hero-actions {
+  gap: 10px;
+  margin-top: 30px;
+}
+html .poster-hero {
+  transform: none;
+  border-radius: var(--radius);
+  box-shadow:
+    var(--shadow),
+    0 0 0 0.5px rgba(255, 255, 255, 0.12);
+}
+
+/* ---------- Ask: a floating material field ---------- */
+html .ask {
+  margin-top: -26px;
+  border: 0;
+}
+html .ask-bar {
+  border: 0.5px solid var(--line-strong);
+  border-radius: 22px;
+  background: var(--material);
+  backdrop-filter: blur(30px) saturate(180%);
+  -webkit-backdrop-filter: blur(30px) saturate(180%);
+  box-shadow: 0 20px 40px -20px rgba(0, 0, 0, 0.8);
+}
+html .ask-bar textarea {
+  font-size: 17px;
+}
+html .ask-bar textarea::placeholder {
+  color: var(--faint);
+}
+html .ask-message {
+  font-size: 14px;
+  color: var(--muted);
+}
+html .mic {
+  border: 0;
+  background: var(--fill);
+}
+
+/* ---------- Scene: a grouped settings card ---------- */
+html .scene {
+  margin-top: 40px;
+  padding: 22px 24px;
+  gap: 18px 36px;
+  border-radius: 22px;
+  background: var(--surface);
+}
+html .scene-label {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--muted);
+}
+html .scene-label output {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+html .chip {
+  height: 32px;
+  padding: 0 14px;
+  border: 0;
+  background: var(--fill);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 500;
+  transition:
+    background 0.2s,
+    color 0.2s,
+    transform 0.3s var(--spring);
+}
+html .chip:hover {
+  background: var(--fill-strong);
+  border-color: transparent;
+}
+html .chip:active {
+  transform: scale(0.96);
+}
+html .chip[aria-checked='true'],
+html .chip[aria-pressed='true'] {
+  background: #f5f5f7;
+  color: #000;
+  border-color: transparent;
+  font-weight: 600;
+}
+html .scene-avoid .chip[aria-pressed='true'] {
+  background: rgba(255, 69, 58, 0.2);
+  color: #ff8a80;
+}
+/* iOS segmented control */
+html .segmented {
+  padding: 2px;
+  border: 0;
+  border-radius: 9px;
+  background: var(--fill);
+}
+html .segmented .chip {
+  height: 28px;
+  border-radius: 7px;
+  background: transparent;
+  font-size: 13px;
+}
+html .segmented .chip[aria-checked='true'],
+html .segmented .chip[aria-pressed='true'] {
+  background: #636366;
+  color: #fff;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.25);
+}
+html .time {
+  border: 0;
+  background: var(--fill);
+  height: 32px;
+}
+html .time input {
+  font-variant-numeric: tabular-nums;
+}
+html .scene-slider input,
+html input[type='range'] {
+  accent-color: var(--accent);
+}
+html .ends {
+  font-size: 11px;
+}
+
+/* ---------- Rows and tiles ---------- */
+html .row-head h2 {
+  font-size: 22px;
+}
+html .row-head p {
+  font-size: 14px;
+}
+html .rail {
+  scroll-snap-type: x proximity;
+  gap: 20px;
+  padding: 10px 4px 22px;
+  scrollbar-width: none;
+}
+html .rail::-webkit-scrollbar {
+  display: none;
+}
+html .poster {
+  border-radius: var(--radius-sm);
+}
+html .tile-open {
+  transition: transform 0.45s var(--spring);
+}
+html .tile-open .poster {
+  box-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.1);
+  transition: none;
+}
+html .tile-open::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: var(--radius-sm);
+  box-shadow: 0 24px 40px -14px rgba(0, 0, 0, 0.85);
+  opacity: 0;
+  transition: opacity 0.45s var(--spring);
+  pointer-events: none;
+}
+html .tile-open:hover,
+html .tile-open:focus-visible {
+  transform: scale(1.045);
+}
+html .tile-open:hover .poster,
+html .tile-open:focus-visible .poster {
+  transform: none;
+  box-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.18);
+}
+html .tile-open:hover::after,
+html .tile-open:focus-visible::after {
+  opacity: 1;
+}
+html .tile-ranked .rank {
+  font-weight: 800;
+  -webkit-text-stroke: 3px rgba(255, 255, 255, 0.2);
+}
+html .tile-title {
+  font-size: 15px;
+  font-weight: 600;
+}
+html .tile-sub {
+  font-size: 13px;
+  color: var(--muted);
+}
+/* A rating shows on its thumb button, not as a ring around the artwork. */
+html .tile.is-liked .tile-open .poster {
+  box-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.1);
+}
+html .tile-badge {
+  border: 0;
+  background: rgba(0, 0, 0, 0.55);
+}
+html .understood li {
+  border: 0;
+  background: var(--fill);
+}
+html .search input {
+  border: 0;
+  background: var(--fill);
+  border-radius: 12px;
+  font-size: 17px;
+}
+
+/* ---------- Sheets: thick material, large radius ---------- */
+html .details {
+  /* Size to the content in every engine: without this, Safari stretches a modal dialog to fill the
+   viewport (its UA style has no fit-content height), leaving a tall empty sheet. */
+  height: -webkit-fit-content;
+  height: fit-content;
+  align-content: start;
+  border: 0.5px solid var(--line-strong);
+  border-radius: 26px;
+  background: var(--material-thick);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.9);
+}
+html .details[open] {
+  animation: sheet-in 0.45s var(--spring);
+}
+html .details::backdrop {
+  background: rgba(0, 0, 0, 0.62);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+html .details-art {
+  background: transparent;
+}
+html .details-body h2 {
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+html .details-description {
+  color: rgba(235, 235, 245, 0.78);
+  font-size: 16px;
+}
+html .factor-bar {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--fill);
+}
+html .factor-bar span {
+  background: linear-gradient(90deg, #5ac8fa, var(--accent));
+  border-radius: 3px;
+}
+html .narration {
+  border-left: 0;
+  border-radius: 16px;
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  font-size: 16px;
+}
+html .notice {
+  border: 0;
+  border-radius: 12px;
+  background: rgba(255, 159, 10, 0.14);
+  color: #ffd60a;
+}
+
+/* ---------- Profiles ---------- */
+html .gate {
+  gap: 16px;
+  background: radial-gradient(80% 60% at 50% 0%, #1c1c1e 0%, #000 70%);
+}
+html .gate h1 {
+  font-weight: 700;
+  letter-spacing: -0.035em;
+}
+html .gate-profile {
+  width: 148px;
+  padding: 10px;
+  border: 0;
+  background: transparent;
+  transition: transform 0.45s var(--spring);
+}
+html .gate-profile:hover,
+html .gate-profile:focus-visible {
+  background: transparent;
+  transform: scale(1.06);
+}
+html .gate-profile .avatar {
+  width: 104px;
+  height: 104px;
+  border-radius: 28px;
+  font-size: 40px;
+  box-shadow: 0 18px 30px -14px rgba(0, 0, 0, 0.9);
+}
+html .gate-profiles li:nth-child(5n + 2) .avatar {
+  background: linear-gradient(145deg, #ff9f0a, #ff375f);
+}
+html .gate-profiles li:nth-child(5n + 3) .avatar {
+  background: linear-gradient(145deg, #30d158, #0a84ff);
+}
+html .gate-profiles li:nth-child(5n + 4) .avatar {
+  background: linear-gradient(145deg, #64d2ff, #5e5ce6);
+}
+html .gate-profiles li:nth-child(5n + 5) .avatar {
+  background: linear-gradient(145deg, #ffd60a, #ff9f0a);
+}
+html .gate-add .avatar,
+html .gate-profiles li:last-child .gate-add .avatar {
+  background: var(--fill);
+  color: var(--muted);
+}
+html .gate-name {
+  font-size: 15px;
+}
+html .gate-form input,
+html .profile-form input {
+  height: 44px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--fill);
+  font-size: 17px;
+}
+html .profile-import {
+  border: 0;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* ---------- Footer ---------- */
+html .footer {
+  font-size: 12px;
+  color: var(--faint);
+  border-top: 0.5px solid var(--line);
+}
+
+@keyframes sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(24px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+/* ---------- Motion: cross-fade the hero, dim rails while they reload ---------- */
+html .hero-inner,
+html .hero-backdrop {
+  animation: fade-up 0.5s var(--spring);
+}
+html .hero-backdrop {
+  animation-name: fade-in;
+}
+html .rail {
+  transition: opacity 0.25s;
+}
+/* Only a slow refresh dims the row (after 0.4 s); a quick re-rank after a rating never blinks it. */
+html .rail[aria-busy='true'] {
+  opacity: 0.6;
+  transition: opacity 0.3s 0.4s;
+}
+html .grid .tile {
+  content-visibility: auto;
+  contain-intrinsic-size: 220px 400px;
+}
+@keyframes thumb-pop {
+  0% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(1.3) rotate(-8deg);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+@keyframes thumb-pop-down {
+  0% {
+    transform: rotate(180deg) scale(1);
+  }
+  45% {
+    transform: rotate(180deg) scale(1.3) rotate(-8deg);
+  }
+  100% {
+    transform: rotate(180deg) scale(1);
+  }
+}
+html .tile .poster {
+  transition: opacity 0.35s var(--spring);
+}
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 720px) {
+  html .topbar {
+    gap: 12px;
+    height: 56px;
+  }
+  html .nav {
+    gap: 14px;
+  }
+  html .scene {
+    padding: 18px 16px;
+    border-radius: 18px;
+  }
+}
+@media (max-width: 480px) {
+  /* Icon only: the label stays in the DOM, so it is still the button's accessible name. */
+  html .ask-button {
+    font-size: 0;
+    gap: 0;
+    padding: 0 10px;
+  }
+  html .ask-button svg {
+    font-size: 17px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  html *,
+  html *::before,
+  html *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ---------- The scene, as a sentence (natural-language form + "More options") ---------- */
+html .scene {
+  display: block;
+  padding: 26px 28px 22px;
+}
+html .scene-sentence {
+  margin: 0;
+  font-family: var(--display);
+  font-size: clamp(22px, 2.6vw, 30px);
+  font-weight: 600;
+  line-height: 1.55;
+  letter-spacing: -0.02em;
+  color: var(--muted);
+  text-wrap: balance;
+}
+html .scene-token {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 0 2px;
+  padding: 0 12px 2px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--fill);
+  color: var(--text);
+  font: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+  transition:
+    background-color 0.25s var(--spring),
+    transform 0.35s var(--spring);
+}
+html .scene-token:hover {
+  background: var(--fill-strong);
+}
+html .scene-token:active {
+  transform: scale(0.97);
+}
+html .scene-token.is-open {
+  background: #f5f5f7;
+  color: #000;
+}
+html .scene-caret {
+  width: 0.38em;
+  height: 0.38em;
+  margin-top: -0.12em;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg);
+  opacity: 0.6;
+  transition: transform 0.3s var(--spring);
+}
+html .scene-token.is-open .scene-caret {
+  transform: translateY(0.12em) rotate(225deg);
+}
+html .scene-picker {
+  margin-top: 16px;
+  padding: 14px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.05);
+  animation: fade-up 0.35s var(--spring);
+}
+html .scene-time {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+html .scene-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 18px;
+}
+html .scene-more-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+html .scene-more-toggle[aria-expanded='true'] {
+  background: var(--fill-strong);
+}
+html .scene-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+html .scene-more {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
+  gap: 20px 28px;
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 0.5px solid var(--line);
+  animation: fade-up 0.35s var(--spring);
+}
+html .scene-more .scene-slider {
+  width: auto;
+}
+html .scene-more .scene-group {
+  gap: 10px;
+}
+html .scene-more .scene-avoid {
+  grid-column: 1 / -1;
+}
+html .scene-more .scene-avoid .chips {
+  max-width: none;
+}
+html .scene-more .link,
+html .scene-more .segmented {
+  align-self: flex-start;
+  font-size: 13px;
+}
+html .nowrap {
+  white-space: nowrap;
+}
