@@ -5,6 +5,7 @@ import '../styles/player.css';
 import '../styles/couch.css';
 import '../styles/theme.css';
 import '../styles/taste.css';
+import '../styles/discover.css';
 
 import { mount } from '../lib/mount';
 import { App } from './App';

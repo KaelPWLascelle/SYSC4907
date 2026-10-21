@@ -35,6 +35,10 @@ Flicks is a SYSC 4907 capstone project at Carleton University, supervised by Dr.
 - **Ask in your own words, instantly.** A tiny model trained for Flicks (the Ask student, under 2 MB, no
   GPU, no model server) reads "long week, I want to switch off, nothing scary" into the scene, and "why
   this pick" explains every pick in a plain sentence.
+- **Discover.** A full-screen feed, one film at a time: like or pass and the next films change. Films you
+  can play preview themselves, offline; trailers from YouTube play only if you allow them.
+- **Up next and "Pick for me".** When a film ends, rate it in one tap and the next pick starts after a
+  short countdown. Can't decide? "Pick for me" draws one of your top picks and tells you the odds.
 - **Couch mode.** Phones on your Wi-Fi scan a QR code, vote with hidden ballots, and act as a remote
   for the TV.
 - **Installable.** Runs in its own window from Chrome or Edge.
@@ -125,6 +129,20 @@ ago, or listed in Wikipedia's list of US public-domain films. About 60 films the
 button and stream from the Archive through Flicks. Public-domain status differs by country, and parts
 of a film (such as a later score) can still be protected. See [ADR 0011](docs/adr/0011-streaming.md).
 
+### Add trailers for Discover (optional)
+
+```sh
+.venv/bin/python -m flicks.datasets.trailers --verify   # after the MovieLens import
+```
+
+This matches the catalogue to the MovieLens YouTube Trailers dataset (GroupLens) and stores video IDs
+only; nothing is downloaded from YouTube. `--verify` asks YouTube which videos can still be embedded,
+sending video IDs only (about 13 minutes; 6,101 of 9,349 films kept). Discover plays a trailer only
+after you turn on **Online trailers**, in YouTube's privacy-enhanced mode, and only for the card on
+screen. A trailer YouTube won't play in your country shows the film's poster instead, and is skipped from
+then on. Without trailers, Discover previews the films you can play here and shows posters for the rest.
+See [ADR 0016](docs/adr/0016-discover.md).
+
 ### Add posters (optional)
 
 ```sh
@@ -201,6 +219,7 @@ votes are forgotten when the session ends. See [how couch mode works](docs/couch
 | `--podcasts FILE` | `~/.flicks/catalogs/podcasts.json` if present | Podcast catalogue from `python -m flicks.datasets.podcasts` |
 | `--podcast-downloads DIR` | `~/.flicks/podcasts` | Where downloaded episodes are kept |
 | `--archive FILE` | `<catalog>.archive.json` if present | Internet Archive matches from `python -m flicks.datasets.archive` |
+| `--trailers FILE` | `<catalog>.trailers.json` if present | Trailer video IDs for Discover from `python -m flicks.datasets.trailers` |
 | `--dev` | off | Accept requests from the Vite dev server |
 
 ## How it works

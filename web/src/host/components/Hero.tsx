@@ -11,9 +11,11 @@ interface HeroProps {
   session: Session;
   mode: Mode;
   loading: boolean;
+  /** "Pick for me": draw one of the top picks at random. */
+  onPick?: () => void;
 }
 
-export function Hero({ pick, session, mode, loading }: HeroProps) {
+export function Hero({ pick, session, mode, loading, onPick }: HeroProps) {
   const library = useLibrary();
   if (!pick) {
     return (
@@ -75,6 +77,12 @@ export function Hero({ pick, session, mode, loading }: HeroProps) {
               <Icon name="info" />
               Why this pick
             </button>
+            {onPick && (
+              <button type="button" className="button button-quiet" onClick={onPick}>
+                <Icon name="shuffle" />
+                Pick for me
+              </button>
+            )}
             <RateButtons
               title={item.title}
               rating={library.feedback[item.id]}

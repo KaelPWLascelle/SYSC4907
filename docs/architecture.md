@@ -50,6 +50,7 @@ The reasons behind each major choice are in the [decision records](adr/README.md
 | `assistant/ask_student.py`, `datasets/ask.py` | The Ask student (a distilled classifier for described scenes), its phrase bank, training and evaluation ([ADR 0014](adr/0014-ask-student.md)) |
 | `assistant/agent.py`, `assistant/agent_eval.py` | The optional language-model agent (after the student) and its evaluation |
 | `assistant/narrator.py` | Grounded, cached plain-language explanations of a pick's factors (optional LLM) |
+| `discover.py`, `trailers.py`, `datasets/trailers.py` | The Discover feed (three interleaved streams), "Pick for me", and the trailer index and its import ([ADR 0016](adr/0016-discover.md)) |
 | `taste.py` | "Your taste": genre lean, tag themes and the liked films shaping picks, from the ranking's own data ([ADR 0015](adr/0015-your-taste.md)) |
 | `media.py` | Maps local video files to catalogue titles |
 | `podcasts.py` | Podcast episodes at runtime: the validated episode index, downloads (one at a time, sniffed as audio) and downloaded files ([ADR 0010](adr/0010-podcasts.md)) |
@@ -114,7 +115,8 @@ Everything here is enforced in code and covered by tests (`tests/test_flicks.py`
 - **Bounded input.** JSON bodies are capped at 8 KiB and audio at 5 MiB, including chunked uploads
   without a `Content-Length`. Request bodies are validated with strict types and no unknown fields.
 - **Strict Content Security Policy.** Only the app's own scripts, styles, images and media load;
-  no inline scripts.
+  no inline scripts. The one frame allowed is YouTube's privacy-enhanced embed, for Discover trailers
+  the viewer has turned on (host app only; [ADR 0016](adr/0016-discover.md)).
 - **No paths from requests.** Media and poster routes serve only files matched to a catalogue ID at
   startup, or episodes downloaded under their ID.
 - **No URLs from requests.** The running app fetches remote media only when the user presses Play
@@ -243,6 +245,8 @@ All responses are JSON unless noted. Errors have the shape `{"error": "<message>
 | `POST /api/recommend` | `{"session": {...}, "mode": "session" \| "baseline"}`; omitted fields use defaults |
 | `POST /api/explain` | `{"id", "session"}`: the pick's factors in words from the local model, or `narration: null` |
 | `GET /api/taste` | The profile's genre lean, tag themes and the liked films shaping its picks |
+| `POST /api/discover` | `{"session", "seen" (≤ 300 IDs), "online", "limit" (≤ 20)}`: a page of the Discover feed, each item with its `stream`, `why` and `media` (`kind`: `file`, `stream` or none; `trailer`: a YouTube ID or none) |
+| `POST /api/pick` | `{"session", "pool": "picks" \| "anything"}`: one title drawn at random, with its `chance` and the `pool` size |
 | `GET /api/profiles` | Profiles (name, PIN or not, rating count), the current one, and whether it was chosen |
 | `POST /api/profiles` | `{"name", "pin"?}`: create a profile and sign in to it |
 | `POST /api/profiles/{id}/select` | `{"pin"?}`: sign in (403 wrong PIN, 429 after five) |

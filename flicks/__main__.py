@@ -26,6 +26,7 @@ def parse_args(argv=None):
     parser.add_argument('--podcast-downloads', type=Path, default=DEFAULT_PODCAST_DOWNLOADS,
                         help=f'Where downloaded episodes are kept (default {DEFAULT_PODCAST_DOWNLOADS})')
     parser.add_argument('--archive', type=Path, help='Internet Archive matches to stream (default: <catalog>.archive.json when present)')
+    parser.add_argument('--trailers', type=Path, help='Trailer index for Discover (default: <catalog>.trailers.json when present)')
     parser.add_argument('--neighbours', type=Path, help='Collaborative-filtering neighbours (default: <catalog>.neighbours.json when present)')
     parser.add_argument('--tags', type=Path, help='System One tag file from python -m flicks.tagging (soft mood/intensity)')
     parser.add_argument('--system-one-url', help='Local System One server for free-text commands, e.g. http://127.0.0.1:8000 (laya-serve), or "lexical" for the offline stand-in')
@@ -51,6 +52,7 @@ def main(argv=None):
     settings = Settings(db=args.db, catalog=args.catalog, port=args.port, poster_dir=args.posters,
                         media_dirs=tuple(args.media), tags=args.tags, neighbours=args.neighbours or _sidecar(args.catalog),
                         archive=args.archive or _sidecar(args.catalog, '.archive.json'),
+                        trailers=args.trailers or _sidecar(args.catalog, '.trailers.json'),
                         podcasts=args.podcasts or (DEFAULT_PODCASTS if DEFAULT_PODCASTS.is_file() else None),
                         podcast_downloads=args.podcast_downloads,
                         couch=args.couch, couch_host=args.couch_host,

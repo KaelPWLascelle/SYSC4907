@@ -29,6 +29,8 @@ class Settings:
     podcast_downloads: Path = DEFAULT_PODCAST_DOWNLOADS
     # Public-domain films to stream from the Internet Archive (flicks.datasets.archive); None: none.
     archive: Path | None = None
+    # Trailer video IDs for the Discover feed (flicks.datasets.trailers); None: previews and posters only.
+    trailers: Path | None = None
     couch: bool = False
     couch_host: str | None = None
     couch_port: int = 8770

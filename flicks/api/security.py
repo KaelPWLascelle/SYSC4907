@@ -10,6 +10,11 @@ from starlette.datastructures import Headers
 
 CSP = ("default-src 'self'; img-src 'self' blob:; media-src 'self'; style-src 'self'; script-src 'self'; "
        "connect-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
+
+
+def csp(frames=()):
+    """The policy, allowing frames only from `frames` (the host app's opt-in trailers; nothing else)."""
+    return CSP + (f"; frame-src {' '.join(frames)}" if frames else '')
 BODY_METHODS = frozenset({'POST', 'PUT', 'PATCH'})
 
 
@@ -28,6 +33,7 @@ class GuardPolicy:
     json_limit: int = 8192
     raw_bodies: dict = field(default_factory=dict)   # path -> RawBody
     long_cache_prefixes: tuple = ('/assets/',)       # fingerprinted build output
+    frames: tuple = ()                               # origins pages may embed (CSP frame-src)
 
 
 def hostname(host_header):
@@ -81,7 +87,7 @@ class RequestGuard:
                 headers = [(k, v) for k, v in message.get('headers', []) if k.lower() != b'cache-control' or not long_cache]
                 names = {k.lower() for k, _ in headers}
                 headers += [(b'x-content-type-options', b'nosniff'), (b'referrer-policy', b'no-referrer'),
-                            (b'content-security-policy', CSP.encode())]
+                            (b'content-security-policy', csp(self.policy.frames).encode())]
                 if long_cache:
                     headers.append((b'cache-control', b'public, max-age=31536000, immutable'))
                 elif b'cache-control' not in names:

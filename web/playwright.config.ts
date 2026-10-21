@@ -30,9 +30,15 @@ export default defineConfig({
       testIgnore: /mobile/,
     },
     { name: 'phone', use: { ...devices['Pixel 7'] }, testMatch: /mobile/ },
+    // Safari's engine lays out some CSS differently (it stretched Discover's trailer past its cell).
+    {
+      name: 'safari',
+      use: { ...devices['Desktop Safari'], viewport: { width: 1000, height: 584 } },
+      testMatch: /layout/,
+    },
   ],
   webServer: {
-    command: `npm run build && cd .. && HOME=${home} ${python} -m flicks --port ${port}`,
+    command: `npm run build && cd .. && HOME=${home} ${python} -m flicks --port ${port} --trailers web/e2e/fixtures/trailers.json`,
     url: `http://127.0.0.1:${port}/api/state`,
     timeout: 120_000,
     reuseExistingServer: false,

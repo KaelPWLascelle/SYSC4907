@@ -9,9 +9,9 @@ architecture. Machine: Apple M2, 8 GB, macOS 26, Python 3.12, Node 24. Raw outpu
 
 | Area | Result |
 |---|---|
-| Backend unit and integration tests | 253 passed, 3 skipped (optional voice packages), 343 subtests, 6.4 s |
-| Interface unit tests (Vitest) | 77 passed in 19 files, 5.5 s |
-| Browser end-to-end (Playwright) | 10 passed (8 desktop, 2 phone), 15.5 s including the build |
+| Backend unit and integration tests | 272 passed, 3 skipped (optional voice packages), 345 subtests, 6.9 s |
+| Interface unit tests (Vitest) | 89 passed in 20 files |
+| Browser end-to-end (Playwright) | 19 passed (13 Chrome desktop, 3 phone, 3 Safari/WebKit), 25 s including the build |
 | Lint, types, format | ruff, ESLint, `tsc` (app and test configs), Prettier: all clean; `npm audit`: 0 vulnerabilities |
 | Recommendation latency | 0.1–0.4 ms on 36 titles; 13–62 ms median on 9,349 titles |
 | HTTP latency | 1.3–1.8 ms on 36 titles; 2–57 ms median on 9,349 titles |
@@ -19,6 +19,7 @@ architecture. Machine: Apple M2, 8 GB, macOS 26, Python 3.12, Node 24. Raw outpu
 | Recommendation quality (MovieLens, 3 likes) | HR@10 0.108, coverage 0.038, personalisation 0.942; popularity alone 0.127 / 0.010 / 0.676 |
 | Ask student | 16 / 30 exact on the held-out test set, 0.14 ms per request |
 | Ask pipeline without a language model | 7 / 11 agent cases at 0.4 ms (the 4B model: 10 / 11 at 4.2 s) |
+| Discover and "Pick for me" | 77 ms per feed page and 54 ms per pick on 9,349 titles; 65% of films have an embeddable trailer |
 
 ## Correctness
 
@@ -47,8 +48,11 @@ test fails on any console error or Content Security Policy violation.
 | Ask | a described evening ("long week, … nothing scary") becomes mood relaxing, avoid horror, with no model server |
 | Your taste | the chart reflects seeded ratings; a tuned mix reaches the ranking request |
 | Request guard | a cross-site POST is refused (403) |
+| Discover | a like in the feed is a rating; nothing is requested from YouTube until trailers are allowed, then only privacy-enhanced embeds |
+| Pick for me | draws from the top 12 or from anything, and states the chance |
 | Profiles | a PIN profile asks who is watching, refuses a wrong PIN, accepts the right one |
-| Phone (Pixel 7) | home, pickers, Your taste and Why this pick never scroll sideways |
+| Phone (Pixel 7) | home, pickers, Your taste, Why this pick and Discover never scroll sideways |
+| Discover layout (Chrome and Safari's WebKit) | trailer and poster stay inside their space at three window shapes; added after Safari stretched the trailer past the card |
 
 ### Styling refactor check
 
@@ -176,6 +180,21 @@ Student agreement with its teacher (`python -m flicks.distill --tags … --stude
 offline, optional signal rather than a runtime dependency. The distilled student copies Laya far more
 faithfully than it copies the word list, because Laya's judgements are consistent where the word list is
 not; that is the argument for the teacher-student design once a larger tagged catalogue exists.
+
+### Discover, Up next and "Pick for me" (added 21 October)
+
+Built on branch `feat/discover` ([ADR 0016](adr/0016-discover.md)) and measured with the same benchmark:
+
+| Stage (median / p95 ms) | 36 titles | 9,349 titles |
+| --- | ---: | ---: |
+| Discover page of 8 (40 ratings, 100 shown) | 0.42 / 0.49 | 77.4 / 117.6 |
+| Pick for me (2 ratings) | 0.15 / 0.17 | 54.3 / 92.0 |
+| `POST /api/discover` | 1.8 / 1.9 | 69.8 / 108.6 |
+| `POST /api/pick` | 1.3 / 1.5 | 56.1 / 93.2 |
+
+Trailer data (`python -m flicks.datasets.trailers --verify`): 8,443 of 9,349 MovieLens films matched the
+MovieLens YouTube Trailers dataset, and 6,101 (65%) were still embeddable when checked with YouTube's
+oEmbed endpoint (13 minutes, video IDs only); the bundled catalogue keeps 21 of 33 films.
 
 ## Clean-up in this pass
 

@@ -17,6 +17,8 @@ interface DetailsSheetProps {
   session: Session;
   /** A local language model is available to put the factors into words. */
   narrate?: boolean;
+  /** Shown when the title was drawn by "Pick for me": its chance, and how to draw again. */
+  drawn?: { chance: number; pool: number; anything: boolean; onAgain: (anything: boolean) => void };
   onClose: () => void;
 }
 
@@ -42,8 +44,14 @@ function useNarration(id: string | undefined, enabled: boolean, session: Session
   return narration.key === key ? narration.value : { state: key ? 'loading' : 'idle' };
 }
 
+/** "1 in 7" for a chance of about 14%; "2%" below 1 in 50. */
+function chanceText(chance: number) {
+  const odds = Math.round(1 / chance);
+  return odds <= 50 ? `1 in ${odds}` : `${Math.max(0.1, Math.round(chance * 1000) / 10)}%`;
+}
+
 /** "Why this pick" for any title: rank, reasons, the weighted factors behind the score, and actions. */
-export function DetailsSheet({ item, picks, session, narrate = false, onClose }: DetailsSheetProps) {
+export function DetailsSheet({ item, picks, session, narrate = false, drawn, onClose }: DetailsSheetProps) {
   const dialog = useRef<HTMLDialogElement>(null);
   const library = useLibrary();
 
@@ -80,6 +88,23 @@ export function DetailsSheet({ item, picks, session, narrate = false, onClose }:
             <Poster item={item} hasPoster={library.posters.has(item.id)} className="poster poster-details" eager />
           </div>
           <div className="details-body">
+            {drawn && (
+              <div className="drawn" role="status">
+                <p>
+                  Picked at random from{' '}
+                  {drawn.anything ? `all ${drawn.pool} titles that fit this scene` : `your top ${drawn.pool} picks`}: a{' '}
+                  {chanceText(drawn.chance)} chance{drawn.anything ? '' : ', higher for better matches'}.
+                </p>
+                <div className="drawn-actions">
+                  <button type="button" className="chip" onClick={() => drawn.onAgain(drawn.anything)}>
+                    Pick again
+                  </button>
+                  <button type="button" className="chip" onClick={() => drawn.onAgain(!drawn.anything)}>
+                    {drawn.anything ? 'From my top picks' : 'From anything'}
+                  </button>
+                </div>
+              </div>
+            )}
             <p className="eyebrow">
               {pick
                 ? `#${rank + 1} of ${picks.length} for this moment`

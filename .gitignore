@@ -20,3 +20,4 @@ flicks/static/
 .DS_Store
 .idea/
 .vscode/
+flicks/data/*.trailers.json
