@@ -5,10 +5,11 @@ from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response
 
+from ...assistant.llm import LLMError
 from ...services import Services
 from ..deps import Viewer, services, viewer
 from ..errors import client_errors
-from ..schemas import FeedbackIn, RecommendIn
+from ..schemas import ExplainIn, FeedbackIn, RecommendIn
 
 router = APIRouter()
 
@@ -22,6 +23,7 @@ def state(svc: Services = Depends(services), me: Viewer = Depends(viewer)):
         'feedback': me.ratings.all(),
         'profile': {'id': me.profile.id, 'name': me.profile.name, 'locked': me.profile.locked, 'chosen': me.chosen,
                     'count': len(svc.profiles.all())},
+        'llm': svc.llm_status(),
         'voice': svc.speech.status(),
         'assistant': svc.interpreter.name,
         'tagged': svc.tagged,
@@ -106,6 +108,27 @@ def poster(content_id: str, svc: Services = Depends(services)):
         raise HTTPException(404, 'Not found')
     data, media_type = image
     return Response(data, media_type=media_type, headers={'Cache-Control': 'private, max-age=86400'})
+
+
+@router.post('/api/explain')
+def explain(body: ExplainIn, svc: Services = Depends(services), me: Viewer = Depends(viewer)):
+    """A pick's factors in words from the local language model, or `narration: null` (keep the template reasons).
+
+    A plain (sync) route, so FastAPI runs the slow model call in its thread pool.
+    """
+    if body.id not in svc.ids:
+        raise HTTPException(404, 'Unknown content ID')
+    with client_errors():
+        session = body.session.to_domain()
+        pick = svc.recommender.explain_item(me.ratings.all(), session, body.id)
+    if svc.narrator is None:
+        return {'id': body.id, 'narration': None, 'note': 'No local language model is configured'}
+    try:
+        narrated = svc.narrator.narrate(me.profile.id, pick, session)
+    except LLMError as error:
+        return {'id': body.id, 'narration': None, 'note': str(error)}
+    return {'id': body.id, 'narration': narrated['text'], 'model': narrated['model'],
+            'note': 'Written by a language model on this device from the factors above.'}
 
 
 @router.get('/api/taste')

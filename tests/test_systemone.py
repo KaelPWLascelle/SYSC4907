@@ -9,9 +9,9 @@ import threading
 from typing import ClassVar
 import unittest
 
+from flicks.assistant.intent import SystemOneInterpreter
 from flicks.core import Recommender, Session, load_catalog
 from flicks.distill import Student, agreement, export_laya, split_of
-from flicks.intent import SystemOneInterpreter
 from flicks.systemone import (
     DecisionClient,
     HttpBackend,

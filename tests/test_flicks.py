@@ -4,7 +4,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from flicks.commands import CommandInterpreter
+from flicks.assistant.commands import CommandInterpreter
 from flicks.core import Content, HeuristicDecision, Recommender, Session, load_catalog
 from flicks.db import Database
 from flicks.repositories import RatingsRepository

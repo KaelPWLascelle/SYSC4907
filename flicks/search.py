@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 import math
 import re
 
-from .media import normalize
+from .text import title_key
 
 STOP_WORDS = frozenset({
     'a', 'an', 'and', 'any', 'anything', 'about', 'are', 'at', 'be', 'best', 'by', 'can', 'do', 'find', 'for', 'from',
@@ -67,7 +67,7 @@ def stem(word):
 
 
 def tokens(text):
-    return [stem(word) for word in normalize(text).split()]
+    return [stem(word) for word in title_key(text).split()]
 
 
 def _phrase(words, phrase):
@@ -125,7 +125,7 @@ class TitleIndex:
         self.position = {item.id: index for index, item in enumerate(self.items)}
         self.genres = sorted({genre for item in self.items for genre in item.genres})
         self.likes = [math.log1p((popularity or {}).get(item.id, 0)) for item in self.items]
-        self.titles = [normalize(item.title) for item in self.items]
+        self.titles = [title_key(item.title) for item in self.items]
         self.compact = [title.replace(' ', '') for title in self.titles]
         self.title_words = [frozenset(tokens(item.title)) for item in self.items]
         self.meta_words = [frozenset(tokens(' '.join([item.series or '', *item.genres, *item.tags]).replace('-', ' ')))
@@ -145,7 +145,7 @@ class TitleIndex:
     # ---------- understanding ----------
 
     def understand(self, text):
-        clean = normalize(text)
+        clean = title_key(text)
         words = [stem(w) for w in clean.split()]
         filter_word = clean in GENRE_WORDS or clean in MOOD_WORDS or clean in KIND_WORDS or clean in DECADE_WORDS
         if len(clean) >= 3 and not filter_word and any(clean in title for title in self.titles):
@@ -258,6 +258,6 @@ class TitleIndex:
             counts = Counter(i for found in sets for i in found)
             best = max(counts.values(), default=0)
             hits = {i for i, n in counts.items() if n == best and n >= math.ceil(len(sets) / 2)}
-        phrase = normalize(understood.text) if not understood.filtered else ''
+        phrase = title_key(understood.text) if not understood.filtered else ''
         ranked = sorted((i for i in hits if allowed(i)), key=lambda i: (-self._score(i, understood, phrase), i))
         return [self.items[i] for i in ranked[offset:offset + limit]], len(ranked), understood

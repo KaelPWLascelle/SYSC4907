@@ -29,8 +29,8 @@ from urllib import error, parse
 from ..archive import FORMAT, ArchiveIndex, archive_path
 from ..config import HOME
 from ..core import load_catalog
-from ..media import normalize
 from ..net import get, get_json
+from ..text import title_key
 
 DEFAULT_CATALOG = HOME/'catalogs'/'movielens-small.json'
 SCRAPE = 'https://archive.org/services/search/v1/scrape'
@@ -53,7 +53,7 @@ def parse_title(title):
     found = YEAR.search(title)
     base = title[:found.start()] if found else title
     base = re.sub(r'\[[^\]]*\]|\([^)]*\)', ' ', base)
-    return normalize(base), int(found.group(1)) if found else None
+    return title_key(base), int(found.group(1)) if found else None
 
 
 def _first(value):
@@ -79,7 +79,7 @@ def parse_public_domain_list(wikitext):
         year = re.search(r'\|\|\s*(\d{4})\s*\|\|', row)
         if title and year:
             name = title.group(2) or re.sub(r'\s*\([^)]*\)$', '', title.group(1))
-            films.add((normalize(name), int(year.group(1))))
+            films.add((title_key(name), int(year.group(1))))
     return films
 
 
@@ -87,7 +87,7 @@ def rights_basis(item, listed, this_year):
     """'age', 'listed' or None for a catalogue film (see the module docstring)."""
     if item.year <= this_year - PUBLIC_DOMAIN_AGE:
         return 'age'
-    title = normalize(item.title)
+    title = title_key(item.title)
     if any((title, year) in listed for year in (item.year - 1, item.year, item.year + 1)):
         return 'listed'
     return None
@@ -155,7 +155,7 @@ def match(catalog, items, listed, this_year):
             by_title.setdefault(name, []).append(item)
     found, skipped = {}, Counter()
     for film in catalog:
-        candidates = [i for i in by_title.get(normalize(film.title), [])
+        candidates = [i for i in by_title.get(title_key(film.title), [])
                       if item_year(i) is not None and abs(item_year(i) - film.year) <= 1]
         if not candidates:
             continue

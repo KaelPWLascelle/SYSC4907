@@ -76,3 +76,8 @@ class ProfileUpdateIn(Body):
     name: StrictStr | None = None
     pin: StrictStr | None = 'unchanged'   # a new PIN, None to remove it, or leave it as it is
     current_pin: StrictStr | None = None
+
+
+class ExplainIn(Body):
+    id: StrictStr
+    session: SessionIn = Field(default_factory=SessionIn)

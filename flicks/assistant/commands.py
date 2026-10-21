@@ -5,16 +5,10 @@ search, or titles like one), and `unknown`. Every one is shown to the user befor
 """
 from dataclasses import asdict
 import re
-import unicodedata
 
-from .core import MOODS, Session
-from .search import GENRE_WORDS, TitleIndex
-
-
-def normalize(text):
-    text = unicodedata.normalize('NFKD', text).encode('ascii', 'ignore').decode().lower()
-    return re.sub(r'[^a-z0-9]+', ' ', text.replace("'", '')).strip()
-
+from ..core import MOODS, Session
+from ..search import GENRE_WORDS, TitleIndex
+from ..text import normalize
 
 ONES = dict(zip(['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen'], range(20), strict=True))
 TENS = dict(zip(['twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'], range(20, 100, 10), strict=True))
@@ -27,7 +21,7 @@ def number_words(text):
     def convert(match):
         total = 0
         for word in match[0].split():
-            if word == 'hundred': total *= 100
+            if word == 'hundred': total = (total or 1)*100  # "a hundred" is 100, not 0
             else: total += ONES.get(word, TENS.get(word, 0))
         return str(total)
     return re.sub(pattern, convert, text)
@@ -38,6 +32,17 @@ PLAY = re.compile(r'(?:play|watch|start|put on|listen to|resume) (.+)')
 SEARCH_VERBS = re.compile(r'(?:find|search(?: for)?|show me|look for|looking for|any) ')
 NEGATED = re.compile(r'\b(?:no|without|avoid|exclude|not) \w+(?: \w+)?')
 SIMILAR = re.compile(r'(?:show me |find |give me )?(?:more like|something like|similar to|titles like|films like|movies like|shows like) (.+)')
+
+
+def describe_patch(patch):
+    """'Set mood: relaxing; time limit 90 minutes.' for a Session patch."""
+    labels = []
+    for key, value in patch.items():
+        if key == 'excluded_genres': labels.append('avoid ' + ', '.join(value) if value else 'allow all genres')
+        elif key == 'minutes': labels.append(f'time limit {value} minutes')
+        elif key in ('intensity', 'novelty'): labels.append(f'{key} {round(value*100)}%')
+        else: labels.append(f'{key}: {value}')
+    return 'Set ' + '; '.join(labels) + '.'
 
 
 class CommandInterpreter:
@@ -84,7 +89,7 @@ class CommandInterpreter:
             title = shared[0].title
             return self.unknown(f'Several titles are called “{title}” ({years}). Add the year, for example '
                                 f'“{verb} {title} {shared[0].year}”.')
-        return self.unknown(f'I could not find “{text}”. Try its exact title.')
+        return self.unknown(f'I could not find “{text}”. Try its exact title.', 'not_found')
 
     def genre_named(self, text):
         """The catalogue genre `text` names ("horror", "scary movies", "musicals"), or None."""
@@ -96,6 +101,7 @@ class CommandInterpreter:
     def unknown(message, reason='refused'):
         # reason 'refused': the rules recognised something and deliberately declined (negation,
         # conflicts, ambiguity). 'unrecognized': nothing matched, so a model fallback may try.
+        # 'not_found': a request named a title the rules could not find; only the LLM agent retries those.
         return {'intent': 'unknown', 'summary': message, 'parser': 'rules', 'reason': reason}
 
     def parse(self, text):
@@ -157,7 +163,7 @@ class CommandInterpreter:
         if durations:
             match = durations[0]
             minutes = int(match[1])*(60 if match[2].startswith(('h',)) else 1)
-            if re.search(r'\b(?:under|less than)\s*$', numeric[:match.start()]): minutes -= 1
+            if re.search(r'\b(?:under|less than)(?: an?)?\s*$', numeric[:match.start()]): minutes -= 1
             patch['minutes'] = minutes
         for field, pairs in {
             'intensity': [(r'\b(?:low intensity|easygoing|gentle)\b', .2), (r'\b(?:medium intensity|moderate intensity)\b', .5), (r'\b(?:high intensity|intense|full throttle)\b', .9)],
@@ -182,13 +188,7 @@ class CommandInterpreter:
             return {**found, 'fallback': False}
         # Use the same domain validation as manual controls; no model can bypass it.
         Session(**patch)
-        labels = []
-        for key, value in patch.items():
-            if key == 'excluded_genres': labels.append('avoid ' + ', '.join(value) if value else 'allow all genres')
-            elif key == 'minutes': labels.append(f'time limit {value} minutes')
-            elif key in ('intensity', 'novelty'): labels.append(f'{key} {round(value*100)}%')
-            else: labels.append(f'{key}: {value}')
-        return {'intent': 'session', 'patch': patch, 'summary': 'Set ' + '; '.join(labels) + '.',
+        return {'intent': 'session', 'patch': patch, 'summary': describe_patch(patch),
                 'parser': 'rules', 'note': 'Only the listed settings will change. Other wording is not interpreted.'}
 
     def wants_search(self, text):

@@ -3,7 +3,8 @@ import tempfile
 import unittest
 
 from flicks.core import load_catalog
-from flicks.media import MediaLibrary, normalize
+from flicks.media import MediaLibrary
+from flicks.text import title_key
 from helpers import CATALOG, app_client
 
 VIDEO = bytes(range(256)) * 40  # 10 KiB of distinguishable bytes; the server never decodes media
@@ -55,10 +56,10 @@ class MediaLibraryTests(unittest.TestCase):
         self.assertEqual([p.name for p in library.duplicates], ['m034.webm'])
 
     def test_normalize(self):
-        self.assertEqual(normalize('Amélie'), 'amelie')
-        self.assertEqual(normalize('Kiki’s Delivery Service'), normalize("Kiki's Delivery Service"))
-        self.assertEqual(normalize('Mad Max: Fury Road'), 'mad max fury road')
-        self.assertEqual(normalize('Fast & Furious'), 'fast and furious')
+        self.assertEqual(title_key('Amélie'), 'amelie')
+        self.assertEqual(title_key('Kiki’s Delivery Service'), title_key("Kiki's Delivery Service"))
+        self.assertEqual(title_key('Mad Max: Fury Road'), 'mad max fury road')
+        self.assertEqual(title_key('Fast & Furious'), 'fast and furious')
 
 
 class PlaybackApiTests(unittest.TestCase):

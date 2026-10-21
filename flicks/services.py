@@ -1,13 +1,19 @@
 """Builds the application's long-lived objects from Settings, so the HTTP layer only wires requests to them."""
 from dataclasses import dataclass
+from pathlib import Path
 
 from .api.guest import CouchManager
 from .archive import ArchiveIndex
+from .assistant.agent import AgentInterpreter
+from .assistant.ask_student import Student, StudentInterpreter
+from .assistant.commands import CommandInterpreter
+from .assistant.intent import SystemOneInterpreter
+from .assistant.llm import Chat, LocalChat
+from .assistant.narrator import Narrator
+from .assistant.voice import LocalWhisper
 from .collaborative import HybridTaste, ItemNeighbours, PopularityPrior
-from .commands import CommandInterpreter
 from .core import Recommender, TfidfTaste, load_catalog
 from .db import Database
-from .intent import SystemOneInterpreter
 from .media import MediaLibrary
 from .podcasts import PodcastIndex, PodcastLibrary, episodes_path
 from .posters import PosterLibrary
@@ -17,7 +23,6 @@ from .repositories import ProfileRepository, RatingsRepository, WatchHistoryRepo
 from .search import TitleIndex
 from .tagging import TaggedDecision, load_tags
 from .taste import TasteSummary
-from .voice import LocalWhisper
 
 
 @dataclass
@@ -32,7 +37,7 @@ class Services:
     sessions: ProfileSessions   # who is signed in to which profile (in memory)
     ratings: RatingsRepository          # profile 1's; routes use the request's profile (api/deps.viewer)
     history: WatchHistoryRepository
-    interpreter: object       # CommandInterpreter or SystemOneInterpreter
+    interpreter: object       # rules (or rules + System One), wrapped by the Ask student and optionally the LLM agent
     speech: object            # LocalWhisper or a test double with status() and transcribe()
     posters: PosterLibrary | None
     media: MediaLibrary
@@ -42,10 +47,20 @@ class Services:
     tagged: bool
     collaborative: bool
     popularity_prior: bool
+    chat: Chat | None = None            # the optional local language model (llm.LocalChat)
+    narrator: Narrator | None = None
+
+    def llm_status(self):
+        if self.chat is None:
+            return {'available': False, 'name': None, 'message': 'No local language model is configured'}
+        status = getattr(self.chat, 'status', None)
+        return status() if status else {'available': True, 'name': self.chat.name, 'message': 'Ready'}
 
 
-def build_services(settings, *, speech=None, system_one=None):
-    """system_one: a DecisionClient whose backend must be local (SystemOneInterpreter enforces it)."""
+def build_services(settings, *, speech=None, system_one=None, chat=None):
+    """system_one: a DecisionClient whose backend must be local (SystemOneInterpreter enforces it).
+    chat: a language model client (llm.Chat); by default one is made from settings.llm_url, which must be local.
+    """
     catalog = load_catalog(settings.catalog)
     films = {item.id for item in catalog}
     podcasts = None
@@ -86,6 +101,15 @@ def build_services(settings, *, speech=None, system_one=None):
     posters = PosterLibrary(settings.poster_dir, ids) if settings.poster_dir else None
     couch = CouchManager(settings.couch_host, settings.couch_port, posters=posters,
                          static_dir=settings.static_dir) if settings.couch else None
+    interpreter = (SystemOneInterpreter(catalog, system_one, titles=titles, playable=playable) if system_one
+                   else CommandInterpreter(catalog, titles, playable))
+    if settings.ask_student and Path(settings.ask_student).is_file():
+        # The distilled Ask student (docs/adr/0014-ask-student.md): tiny, in-process, on by default.
+        interpreter = StudentInterpreter(interpreter, Student.load(settings.ask_student), catalog, titles, playable)
+    if chat is None and settings.llm_url:
+        chat = LocalChat(settings.llm_url, settings.llm_model)
+    if chat is not None:
+        interpreter = AgentInterpreter(interpreter, chat, catalog, titles, playable)
     recommender = Recommender(catalog, taste=taste, decision=decision, playable=playable)
     return Services(
         catalog=catalog, ids=ids, titles=titles, similar=similar,
@@ -95,8 +119,7 @@ def build_services(settings, *, speech=None, system_one=None):
         sessions=ProfileSessions(),
         ratings=RatingsRepository(database),
         history=WatchHistoryRepository(database),
-        interpreter=(SystemOneInterpreter(catalog, system_one, titles=titles, playable=playable) if system_one
-                     else CommandInterpreter(catalog, titles, playable)),
+        interpreter=interpreter,
         speech=speech if speech is not None else LocalWhisper(),
         posters=posters,
         media=media,
@@ -106,4 +129,6 @@ def build_services(settings, *, speech=None, system_one=None):
         tagged=decision is not None,
         collaborative=collaborative,
         popularity_prior=prior,
+        chat=chat,
+        narrator=Narrator(chat, catalog) if chat is not None else None,
     )
