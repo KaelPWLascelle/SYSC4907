@@ -188,11 +188,20 @@ class Recommender:
         self.by_id = {item.id: item for item in catalog}
 
     def recommend(self, feedback, session, mode='session', limit=12):
+        scores = self.taste.scores(feedback)
+        return self.picks(feedback, self.rank(feedback, session, mode, scores)[:limit], scores)
+
+    def rank(self, feedback, session, mode='session', scores=None):
+        """Every title the scene allows, best first, as (negative score, ID, item, factors) rows.
+
+        `scores` (the taste model's, for this feedback) can be passed in when several scenes are ranked
+        for one profile: it is the costly part, and does not depend on the scene.
+        """
         if mode not in ('session', 'baseline'):
             raise ValueError('Unknown ranking mode')
         if set(session.excluded_genres) - self.genres:
             raise ValueError('Unknown excluded genre for this catalogue')
-        scores = self.taste.scores(feedback)
+        scores = self.taste.scores(feedback) if scores is None else scores
         excluded = set(session.excluded_genres)
         ranked = []
         for item in self.catalog:
@@ -210,12 +219,15 @@ class Recommender:
         ranked = self._cap_series(ranked)
         if session.medium == 'any':
             ranked = self._alternate_media(ranked)
-        top = ranked[:limit]
+        return ranked
+
+    def picks(self, feedback, rows, scores):
+        """`rank` rows as the picks clients get, with their evidence."""
         # Evidence is the costly part of a score, so it is built only for the titles returned.
         explain = getattr(self.taste, 'explain', None)
-        explained = explain(feedback, [row[1] for row in top]) if explain else {}
+        explained = explain(feedback, [row[1] for row in rows]) if explain else {}
         return [self._pick(item, -negative_score, factors, {**scores[key], **explained.get(key, {})})
-                for negative_score, key, item, factors in top]
+                for negative_score, key, item, factors in rows]
 
     def explain_item(self, feedback, session, content_id):
         """One title's score, factors and evidence exactly as `recommend` reports them in session mode."""
