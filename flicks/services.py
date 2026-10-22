@@ -7,9 +7,11 @@ from .archive import ArchiveIndex
 from .assistant.agent import AgentInterpreter
 from .assistant.ask_student import Student, StudentInterpreter
 from .assistant.commands import CommandInterpreter
+from .assistant.embedded import EmbeddedChat
 from .assistant.intent import SystemOneInterpreter
 from .assistant.llm import Chat, LocalChat
 from .assistant.narrator import Narrator
+from .assistant.title_chat import TitleChat
 from .assistant.voice import LocalWhisper
 from .collaborative import HybridTaste, ItemNeighbours, PopularityPrior
 from .core import Recommender, TfidfTaste, load_catalog
@@ -49,8 +51,9 @@ class Services:
     collaborative: bool
     popularity_prior: bool
     series: int                 # how many TV series the catalogue has (0: films only)
-    chat: Chat | None = None            # the optional local language model (llm.LocalChat)
+    chat: Chat | None = None            # the optional local language model (llm.LocalChat or embedded.EmbeddedChat)
     narrator: Narrator | None = None
+    title_chat: TitleChat | None = None
 
     def llm_status(self):
         if self.chat is None:
@@ -105,7 +108,9 @@ def build_services(settings, *, speech=None, system_one=None, chat=None):
     if settings.ask_student and Path(settings.ask_student).is_file():
         # The distilled Ask student (docs/adr/0014-ask-student.md): tiny, in-process, on by default.
         interpreter = StudentInterpreter(interpreter, Student.load(settings.ask_student), catalog, titles, playable)
-    if chat is None and settings.llm_url:
+    if chat is None and settings.llm_file:
+        chat = EmbeddedChat(settings.llm_file, gpu_layers=-1 if settings.llm_gpu else 0)
+    elif chat is None and settings.llm_url:
         chat = LocalChat(settings.llm_url, settings.llm_model)
     if chat is not None:
         interpreter = AgentInterpreter(interpreter, chat, catalog, titles, playable)
@@ -136,4 +141,5 @@ def build_services(settings, *, speech=None, system_one=None, chat=None):
         series=len(catalog) - len(films),
         chat=chat,
         narrator=Narrator(chat, catalog) if chat is not None else None,
+        title_chat=TitleChat(chat, catalog) if chat is not None else None,
     )

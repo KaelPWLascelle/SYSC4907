@@ -1,7 +1,9 @@
 /** The host app's API (loopback). Couch guests use src/guest/api.ts instead. */
-import { json, request } from './client';
+import { json, request, streamLines } from './client';
 import type {
   AppState,
+  AskTitleEvent,
+  AskTurn,
   CommandResponse,
   CouchHostView,
   DiscoverResponse,
@@ -43,6 +45,12 @@ export const flicksApi = {
   taste: (signal?: AbortSignal) => request<TasteResponse>('/api/taste', { signal }),
   explain: (id: string, session: Session, signal?: AbortSignal) =>
     request<ExplainResponse>('/api/explain', { ...json('POST', { id, session }), signal }),
+  /** A question about one title, answered word by word by the local language model (assistant/title_chat.py). */
+  askTitle: (
+    query: { id: string; question: string; session: Session; history: AskTurn[] },
+    onEvent: (event: AskTitleEvent) => void,
+    signal?: AbortSignal,
+  ) => streamLines<AskTitleEvent>('/api/ask-title', { ...json('POST', query), signal }, onEvent),
   discover: (query: { session: Session; seen: string[]; online: boolean; limit?: number }, signal?: AbortSignal) =>
     request<DiscoverResponse>('/api/discover', { ...json('POST', query), signal }),
   pick: (session: Session, pool: PickPool) => request<PickResponse>('/api/pick', json('POST', { session, pool })),

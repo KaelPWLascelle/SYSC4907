@@ -93,3 +93,15 @@ class PickIn(Body):
 class ExplainIn(Body):
     id: StrictStr
     session: SessionIn = Field(default_factory=SessionIn)
+
+
+class TurnIn(Body):
+    question: StrictStr = Field(max_length=300)
+    answer: StrictStr = Field(max_length=1000)
+
+
+class AskTitleIn(Body):
+    id: StrictStr
+    question: StrictStr = Field(min_length=1, max_length=300)
+    session: SessionIn = Field(default_factory=SessionIn)
+    history: list[TurnIn] = Field(default_factory=list, max_length=6)

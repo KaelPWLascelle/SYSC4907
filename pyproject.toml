@@ -16,6 +16,8 @@ dependencies = [
 
 [project.optional-dependencies]
 voice = ["faster-whisper==1.2.1"]
+# A small language model inside Flicks (--llm-file), for questions about a title.
+llm = ["llama-cpp-python==0.3.36"]
 # Build-time only: precomputing collaborative-filtering neighbours, evaluating recommenders, shrinking series covers.
 datasets = ["numpy>=1.26", "pillow>=11"]  # Pillow shrinks full-size series covers
 dev = [

@@ -123,6 +123,16 @@ export interface ImportResult {
   skipped: number;
 }
 
+/** One finished question and answer about a title, sent back for follow-up questions. */
+export interface AskTurn {
+  question: string;
+  answer: string;
+}
+
+/** A piece of the answer as it is generated, then the checked result. */
+export type AskTitleEvent =
+  { delta: string } | { done: true; ok: true; answer: string } | { done: true; ok: false; note: string };
+
 export interface ExplainResponse {
   id: string;
   /** Plain words from the local language model, or null: keep the reasons shown. */

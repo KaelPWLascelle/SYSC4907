@@ -1,0 +1,72 @@
+/* "Ask about this title" (TitleChat.tsx): questions answered by the local language model. */
+.title-chat {
+  margin-top: 8px;
+  padding: 16px;
+  border-radius: var(--radius);
+  background: var(--fill);
+  display: grid;
+  gap: 12px;
+}
+.title-chat h3 {
+  margin: 0;
+  font-size: 16px;
+}
+.title-chat-turns {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 14px;
+}
+.title-chat-question {
+  justify-self: end;
+  margin: 0 0 6px auto;
+  width: fit-content;
+  max-width: 85%;
+  padding: 8px 12px;
+  border-radius: 14px 14px 4px 14px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 15px;
+}
+.title-chat-answer {
+  margin: 0;
+  max-width: 92%;
+  padding: 10px 12px;
+  border-radius: 14px 14px 14px 4px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.5;
+}
+.title-chat-note {
+  color: var(--muted);
+  font-style: italic;
+}
+.title-chat-turns .fine {
+  margin: 4px 0 0;
+}
+.title-chat-form {
+  display: flex;
+  gap: 8px;
+}
+.title-chat-form input {
+  flex: 1;
+  min-width: 0;
+  height: 38px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 15px;
+  outline: none;
+}
+.title-chat-form input:focus {
+  border-color: var(--accent);
+}
+.title-chat .chip:disabled,
+.title-chat-form button:disabled {
+  opacity: 0.5;
+}

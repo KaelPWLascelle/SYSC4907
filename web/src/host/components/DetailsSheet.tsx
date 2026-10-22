@@ -9,12 +9,13 @@ import { RateButtons } from '../../components/RateButtons';
 import { capitalize, episodes, subtitle, timestamp } from '../../lib/format';
 import { useLibrary } from '../library';
 import { explanation, FACTOR_LABELS, reasons, weightOf } from '../reasons';
+import { TitleChat } from './TitleChat';
 
 interface DetailsSheetProps {
   item: Content | null;
   picks: Recommendation[];
   session: Session;
-  /** A local language model is available to put the factors into words. */
+  /** A local language model is available to put the factors into words and answer questions. */
   narrate?: boolean;
   /** Shown when the title was drawn by "Pick for me": its chance, and how to draw again. */
   drawn?: { chance: number; pool: number; anything: boolean; onAgain: (anything: boolean) => void };
@@ -174,6 +175,7 @@ export function DetailsSheet({ item, picks, session, narrate = false, drawn, onC
                 This file’s format (MKV or MOV) may not play in every browser. MP4 (H.264/AAC) or WebM always works.
               </p>
             )}
+            {narrate && <TitleChat key={item.id} item={item} session={session} picked={Boolean(pick)} />}
             {pick ? (
               <>
                 <h3>Why it ranks here</h3>
