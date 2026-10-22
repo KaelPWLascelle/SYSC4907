@@ -7,6 +7,7 @@ import '../styles/theme.css';
 import '../styles/taste.css';
 import '../styles/discover.css';
 import '../styles/titlechat.css';
+import '../styles/concierge.css';
 
 import { mount } from '../lib/mount';
 import { App } from './App';

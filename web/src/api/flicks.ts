@@ -4,6 +4,8 @@ import type {
   AppState,
   AskTitleEvent,
   AskTurn,
+  ConciergeEvent,
+  ConciergeMessage,
   CommandResponse,
   CouchHostView,
   DiscoverResponse,
@@ -51,6 +53,12 @@ export const flicksApi = {
     onEvent: (event: AskTitleEvent) => void,
     signal?: AbortSignal,
   ) => streamLines<AskTitleEvent>('/api/ask-title', { ...json('POST', query), signal }, onEvent),
+  /** The corner chat: the next question, or three picks (assistant/concierge.py). */
+  concierge: (
+    query: { messages: ConciergeMessage[]; session: Session; shown: string[] },
+    onEvent: (event: ConciergeEvent) => void,
+    signal?: AbortSignal,
+  ) => streamLines<ConciergeEvent>('/api/concierge', { ...json('POST', query), signal }, onEvent),
   discover: (query: { session: Session; seen: string[]; online: boolean; limit?: number }, signal?: AbortSignal) =>
     request<DiscoverResponse>('/api/discover', { ...json('POST', query), signal }),
   pick: (session: Session, pool: PickPool) => request<PickResponse>('/api/pick', json('POST', { session, pool })),

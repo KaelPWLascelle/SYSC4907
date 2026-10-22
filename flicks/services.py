@@ -7,6 +7,7 @@ from .archive import ArchiveIndex
 from .assistant.agent import AgentInterpreter
 from .assistant.ask_student import Student, StudentInterpreter
 from .assistant.commands import CommandInterpreter
+from .assistant.concierge import Concierge
 from .assistant.embedded import EmbeddedChat
 from .assistant.intent import SystemOneInterpreter
 from .assistant.llm import Chat, LocalChat
@@ -54,6 +55,7 @@ class Services:
     chat: Chat | None = None            # the optional local language model (llm.LocalChat or embedded.EmbeddedChat)
     narrator: Narrator | None = None
     title_chat: TitleChat | None = None
+    concierge: Concierge | None = None  # the corner chat; works without a language model, in Flicks' own words
 
     def llm_status(self):
         if self.chat is None:
@@ -142,4 +144,5 @@ def build_services(settings, *, speech=None, system_one=None, chat=None):
         chat=chat,
         narrator=Narrator(chat, catalog) if chat is not None else None,
         title_chat=TitleChat(chat, catalog) if chat is not None else None,
+        concierge=Concierge(recommender, titles, interpreter, similar, chat, Narrator(chat, catalog)),
     )

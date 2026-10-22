@@ -7,6 +7,7 @@ import { CommandController } from './commands/CommandController';
 import { AskBar } from './components/AskBar';
 import { Browse } from './components/Browse';
 import { CouchPanel } from './components/CouchPanel';
+import { Concierge } from './components/Concierge';
 import { DetailsSheet } from './components/DetailsSheet';
 import { Discover } from './components/Discover';
 import { Hero } from './components/Hero';
@@ -441,6 +442,16 @@ function Home({ initial, onProfile }: { initial: AppState; onProfile?: () => voi
           setDrawn(null);
         }}
       />
+      {!discoverOpen && !playing && (
+        <Concierge
+          session={session}
+          onOpen={setDetails}
+          onApply={scene => {
+            setSession(scene);
+            requestAnimationFrame(() => document.getElementById('picks')?.scrollIntoView?.({ behavior: 'smooth' }));
+          }}
+        />
+      )}
       {discoverOpen && (
         <Discover
           session={session}

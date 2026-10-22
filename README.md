@@ -188,6 +188,11 @@ details ([ADR 0019](docs/adr/0019-title-chat.md)). Install the `llm` extra, down
 [Qwen2.5 1.5B Instruct](https://huggingface.co/bartowski/Qwen2.5-1.5B-Instruct-GGUF) (`Q4_K_M`, about 1 GB),
 and start Flicks with `--llm-file PATH`. Answers stream in about a second on an M2 and can be wrong.
 
+**The corner chat.** The round button in the bottom corner of Home asks what you're in the mood for and how
+much time you have, then offers three picks you can open, swap for others, or make the scene on Home. It
+works without a model, in Flicks' own words; with `--llm-file`, the model words the questions and the pitch,
+while Flicks still decides what to ask and what to pick.
+
 ### Profiles
 
 Open the profile button (top right) to switch profiles, add one, set a PIN, or export, import, clear or

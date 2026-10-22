@@ -105,3 +105,14 @@ class AskTitleIn(Body):
     question: StrictStr = Field(min_length=1, max_length=300)
     session: SessionIn = Field(default_factory=SessionIn)
     history: list[TurnIn] = Field(default_factory=list, max_length=6)
+
+
+class MessageIn(Body):
+    role: Literal['user', 'assistant']
+    text: StrictStr = Field(max_length=600)
+
+
+class ConciergeIn(Body):
+    messages: list[MessageIn] = Field(min_length=1, max_length=12)
+    session: SessionIn = Field(default_factory=SessionIn)
+    shown: list[StrictStr] = Field(default_factory=list, max_length=30)

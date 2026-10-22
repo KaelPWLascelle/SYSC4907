@@ -11,7 +11,7 @@ from ...assistant.llm import LLMError
 from ...services import Services
 from ..deps import Viewer, services, viewer
 from ..errors import client_errors
-from ..schemas import AskTitleIn, DiscoverIn, ExplainIn, FeedbackIn, PickIn, RecommendIn
+from ..schemas import AskTitleIn, ConciergeIn, DiscoverIn, ExplainIn, FeedbackIn, PickIn, RecommendIn
 
 router = APIRouter()
 
@@ -154,6 +154,23 @@ def ask_title(body: AskTitleIn, svc: Services = Depends(services), me: Viewer = 
                 yield json.dumps(event) + '\n'
         except LLMError as error:
             yield json.dumps({'done': True, 'ok': False, 'note': str(error)}) + '\n'
+
+    return StreamingResponse(lines(), media_type='application/x-ndjson', headers={'Cache-Control': 'no-store'})
+
+
+@router.post('/api/concierge')
+def concierge(body: ConciergeIn, svc: Services = Depends(services), me: Viewer = Depends(viewer)):
+    """The corner chat (assistant/concierge.py): the next question, or three picks, streamed as
+    newline-delimited JSON: {"understood"}, maybe {"picks", "session"}, {"delta"} pieces, then {"done"}."""
+    with client_errors():
+        events = svc.concierge.converse(me.ratings.all(), body.session.to_domain(),
+                                        [m.model_dump() for m in body.messages], set(body.shown))
+        first = next(events)  # reads the conversation now, so bad input is a 400 rather than a broken stream
+
+    def lines():
+        yield json.dumps(first) + '\n'
+        for event in events:
+            yield json.dumps(event) + '\n'
 
     return StreamingResponse(lines(), media_type='application/x-ndjson', headers={'Cache-Control': 'no-store'})
 

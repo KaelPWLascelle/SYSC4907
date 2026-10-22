@@ -23,4 +23,4 @@ is immutable once accepted; a later record supersedes it rather than editing it.
 | [0016](0016-discover.md) | Discover, Up next and "Pick for me": finding a film without searching | Accepted |
 | [0017](0017-films-only.md) | Films only: podcasts removed; couch mode on by default | Accepted · supersedes 0010; amended by 0018 |
 | [0018](0018-tv-series.md) | TV series: a show is one title, ranked beside films | Accepted · amends 0009, 0017 |
-| [0019](0019-title-chat.md) | Ask about a title: a small language model inside Flicks | Experimental · amends 0013, 0014 |
+| [0019](0019-title-chat.md) | A small language model inside Flicks: ask about a title, and a corner chat | Experimental · amends 0013, 0014 |

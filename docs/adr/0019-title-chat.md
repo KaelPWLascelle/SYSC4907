@@ -1,4 +1,4 @@
-# 0019. Ask about a title: a small language model inside Flicks (experimental)
+# 0019. A small language model inside Flicks: ask about a title, and a corner chat (experimental)
 
 **Status:** Experimental · amends [0013](0013-local-llm.md) (adds an in-process runtime) and [0014](0014-ask-student.md)
 
@@ -23,6 +23,16 @@ chat?
   nor the description names), or contains a link, is withdrawn and the viewer sees why.
 - **Never ranks or acts.** Answers are text only; the panel says they come from a small model on this
   computer and can be wrong. It appears in the details sheet only when a model is configured.
+- **A corner chat that ends in three picks** (`flicks/assistant/concierge.py`, `Concierge.tsx`): a round
+  button in the bottom corner of Home opens a short conversation. It asks at most two questions (the mood,
+  then the time) and reads every answer with the readers Ask already has: search's understanding of
+  genres, moods, decades, lengths and films-or-series, the rules (which may change an earlier answer) and
+  the Ask student (which only fills gaps), plus "like <title>". The recommender ranks with what it learned;
+  the viewer gets three picks with posters and reasons, can open any of them, ask for others (shown titles
+  are skipped), or make the settings the scene on Home. **Code decides what to ask and what to pick; the
+  model only words the question and the pitch** from facts the code chose, and a reply that names a title
+  it was not given falls back to Flicks' own sentence. So the chat works without any model, and a weak
+  model can only make the wording worse, never the picks.
 
 ## Evaluation
 Three titles (Arrival, Toy Story, Breaking Bad) × 8 questions: director, cast, plot, why it was picked,
@@ -56,6 +66,9 @@ proposal's 95% groundedness target yet.
 - Grow the question set to about 50 across many titles, and score groundedness automatically where the
   answer is in the facts.
 - Try Qwen3 1.7B and Gemma 3 1B, and the same model for narrated explanations.
+- Other places the same pattern fits (code decides, the model words it): a spoken summary of "Your
+  taste", a one-line reason on each Discover card, and an icebreaker in couch mode ("Two of you liked
+  heist films…").
 
 ## Consequences
 - `pip install 'flicks[llm]'` builds or downloads llama.cpp (prebuilt Metal wheels were corrupt on
