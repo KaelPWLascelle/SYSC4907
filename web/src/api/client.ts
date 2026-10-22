@@ -39,3 +39,29 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
 export function json(method: 'POST' | 'PUT', data: unknown, headers: Record<string, string> = {}): RequestInit {
   return { method, headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify(data) };
 }
+
+/** POST and read a newline-delimited JSON stream, calling `onEvent` for each line as it arrives. */
+export async function streamLines<T>(path: string, init: RequestInit, onEvent: (event: T) => void): Promise<void> {
+  const headers = actingFor === null ? init.headers : { ...init.headers, 'X-Flicks-Profile': String(actingFor) };
+  const response = await fetch(path, { ...init, headers });
+  if (!response.ok || !response.body) {
+    let message: unknown;
+    try {
+      message = ((await response.json()) as { error?: unknown }).error;
+    } catch {
+      message = undefined;
+    }
+    throw new ApiError(typeof message === 'string' ? message : `Request failed (${response.status})`, response.status);
+  }
+  const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
+  let pending = '';
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    pending += value;
+    const lines = pending.split('\n');
+    pending = lines.pop() ?? '';
+    for (const line of lines) if (line.trim()) onEvent(JSON.parse(line) as T);
+  }
+  if (pending.trim()) onEvent(JSON.parse(pending) as T);
+}

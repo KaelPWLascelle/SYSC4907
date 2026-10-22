@@ -1,15 +1,17 @@
 """Catalogue state and search, ratings, recommendations and posters."""
 from dataclasses import asdict
+import json
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi.responses import Response
+from fastapi.responses import Response, StreamingResponse
 
+from ...assistant import title_chat
 from ...assistant.llm import LLMError
 from ...services import Services
 from ..deps import Viewer, services, viewer
 from ..errors import client_errors
-from ..schemas import DiscoverIn, ExplainIn, FeedbackIn, PickIn, RecommendIn
+from ..schemas import AskTitleIn, ConciergeIn, DiscoverIn, ExplainIn, FeedbackIn, PickIn, RecommendIn
 
 router = APIRouter()
 
@@ -130,6 +132,47 @@ def explain(body: ExplainIn, svc: Services = Depends(services), me: Viewer = Dep
         return {'id': body.id, 'narration': None, 'note': str(error)}
     return {'id': body.id, 'narration': narrated['text'], 'model': narrated['model'],
             'note': 'Written by a language model on this device from the factors above.'}
+
+
+@router.post('/api/ask-title')
+def ask_title(body: AskTitleIn, svc: Services = Depends(services), me: Viewer = Depends(viewer)):
+    """Answer a question about one title from its catalogue facts (assistant/title_chat.py), streamed as
+    newline-delimited JSON: {"delta"} pieces, then {"done", "ok", "answer"|"note"}."""
+    if body.id not in svc.ids:
+        raise HTTPException(404, 'Unknown content ID')
+    if svc.title_chat is None:
+        raise HTTPException(409, 'No local language model is configured')
+    with client_errors():
+        session = body.session.to_domain()
+        pick = svc.recommender.explain_item(me.ratings.all(), session, body.id)
+        given = title_chat.facts(pick['content'], pick, session)
+        events = svc.title_chat.stream(given, body.question, [turn.model_dump() for turn in body.history])
+
+    def lines():
+        try:
+            for event in events:
+                yield json.dumps(event) + '\n'
+        except LLMError as error:
+            yield json.dumps({'done': True, 'ok': False, 'note': str(error)}) + '\n'
+
+    return StreamingResponse(lines(), media_type='application/x-ndjson', headers={'Cache-Control': 'no-store'})
+
+
+@router.post('/api/concierge')
+def concierge(body: ConciergeIn, svc: Services = Depends(services), me: Viewer = Depends(viewer)):
+    """The corner chat (assistant/concierge.py): the next question, or three picks, streamed as
+    newline-delimited JSON: {"understood"}, maybe {"picks", "session"}, {"delta"} pieces, then {"done"}."""
+    with client_errors():
+        events = svc.concierge.converse(me.ratings.all(), body.session.to_domain(),
+                                        [m.model_dump() for m in body.messages], set(body.shown))
+        first = next(events)  # reads the conversation now, so bad input is a 400 rather than a broken stream
+
+    def lines():
+        yield json.dumps(first) + '\n'
+        for event in events:
+            yield json.dumps(event) + '\n'
+
+    return StreamingResponse(lines(), media_type='application/x-ndjson', headers={'Cache-Control': 'no-store'})
 
 
 @router.get('/api/taste')

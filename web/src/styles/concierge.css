@@ -1,0 +1,300 @@
+/* The corner chat (Concierge.tsx): a round button in the bottom corner, and a glass panel above it.
+   Reuses the title chat's field, send button and typing dots (titlechat.css). */
+.concierge-fab {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 40;
+  width: 58px;
+  height: 58px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: linear-gradient(145deg, #5e5ce6, var(--accent) 55%, #64d2ff);
+  color: #fff;
+  box-shadow:
+    0 12px 30px -8px rgba(10, 132, 255, 0.55),
+    0 4px 12px rgba(0, 0, 0, 0.45);
+  transition:
+    transform 0.25s var(--spring),
+    box-shadow 0.25s;
+}
+.concierge-fab svg {
+  width: 26px;
+  height: 26px;
+  fill: currentColor;
+  transition: transform 0.35s var(--spring);
+}
+.concierge-fab:hover {
+  transform: translateY(-2px) scale(1.04);
+  box-shadow:
+    0 16px 36px -8px rgba(10, 132, 255, 0.65),
+    0 6px 16px rgba(0, 0, 0, 0.5);
+}
+.concierge-fab-open {
+  background: var(--surface-3);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
+}
+.concierge-fab-open svg {
+  transform: rotate(90deg);
+}
+
+.concierge {
+  position: fixed;
+  right: 24px;
+  bottom: 96px;
+  z-index: 40;
+  width: min(400px, calc(100vw - 32px));
+  height: min(640px, calc(100vh - 128px));
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  border: 0.5px solid var(--line-strong);
+  border-radius: 26px;
+  background: var(--material-thick);
+  backdrop-filter: blur(30px) saturate(1.6);
+  -webkit-backdrop-filter: blur(30px) saturate(1.6);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  transform-origin: bottom right;
+  animation: concierge-in 0.35s var(--spring);
+}
+@keyframes concierge-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.94);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .concierge,
+  .concierge-fab,
+  .concierge-fab svg {
+    animation: none;
+    transition: none;
+  }
+}
+
+.concierge-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 16px 14px 18px;
+  border-bottom: 0.5px solid var(--line);
+}
+.concierge-avatar {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: linear-gradient(145deg, #5e5ce6, var(--accent) 55%, #64d2ff);
+}
+.concierge-avatar svg {
+  width: 19px;
+  height: 19px;
+  fill: #fff;
+}
+.concierge-head > div {
+  flex: 1;
+  min-width: 0;
+}
+html .concierge-head h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+.concierge-head p {
+  margin: 1px 0 0;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.concierge-restart {
+  flex: none;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--accent-strong);
+  font: inherit;
+  font-size: 13px;
+}
+.concierge-restart:hover {
+  background: var(--fill);
+}
+
+.concierge-body {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 18px 18px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.concierge-assistant {
+  max-width: 92%;
+}
+.concierge-assistant > p {
+  margin: 0;
+  font-size: 15.5px;
+  line-height: 1.5;
+  color: var(--text);
+}
+.concierge-user {
+  align-self: flex-end;
+  max-width: 85%;
+  display: grid;
+  justify-items: end;
+  gap: 6px;
+}
+.concierge-user > p {
+  margin: 0;
+  padding: 8px 14px;
+  border-radius: 18px 18px 6px 18px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 15px;
+  line-height: 1.4;
+}
+.concierge-understood {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.concierge-understood li {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--fill);
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 500;
+}
+
+/* Three picks as compact rows: poster, title, one reason */
+.concierge-picks {
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+.concierge-pick {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px 8px 8px;
+  border: 0;
+  border-radius: 16px;
+  background: var(--fill);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  transition:
+    background 0.15s,
+    transform 0.2s var(--spring);
+}
+.concierge-pick:hover {
+  background: var(--fill-strong);
+  transform: translateX(2px);
+}
+.concierge-poster {
+  width: 46px;
+  aspect-ratio: 2 / 3;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.concierge-poster img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.concierge-pick-text {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+.concierge-pick-text strong {
+  font-size: 14.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.concierge-pick-text span {
+  color: var(--muted);
+  font-size: 12.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.concierge-pick-text .concierge-reason {
+  color: var(--accent-strong);
+}
+.concierge-ready {
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(48, 209, 88, 0.16);
+  color: var(--like);
+  font-size: 11px;
+  font-weight: 600;
+}
+.concierge-apply {
+  margin-top: 10px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent-strong);
+  font: inherit;
+  font-size: 13.5px;
+}
+.concierge-apply:hover {
+  text-decoration: underline;
+}
+
+.concierge-replies {
+  display: flex;
+  gap: 8px;
+  padding: 4px 16px 10px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.concierge-replies::-webkit-scrollbar {
+  display: none;
+}
+html .concierge-replies .chip {
+  flex: none;
+  height: 32px;
+  padding: 0 14px;
+  border: 0.5px solid var(--line-strong);
+  background: transparent;
+  color: var(--text);
+  font-size: 13.5px;
+}
+html .concierge-replies .chip:hover {
+  background: var(--fill);
+}
+.concierge-form {
+  margin: 0 12px 12px;
+}
+
+@media (max-width: 560px) {
+  .concierge-fab {
+    right: 16px;
+    bottom: 16px;
+  }
+  .concierge {
+    right: 8px;
+    left: 8px;
+    bottom: 84px;
+    width: auto;
+    height: min(620px, calc(100vh - 110px));
+  }
+}

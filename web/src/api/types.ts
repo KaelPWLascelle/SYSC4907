@@ -123,6 +123,29 @@ export interface ImportResult {
   skipped: number;
 }
 
+/** One line of the corner chat (assistant/concierge.py). */
+export interface ConciergeMessage {
+  role: 'user' | 'assistant';
+  text: string;
+}
+
+/** What Flicks understood, then maybe three picks, then the reply word by word and the finished reply. */
+export type ConciergeEvent =
+  | { understood: string[]; patch: Partial<Session> }
+  | { picks: Recommendation[]; session: Session }
+  | { delta: string }
+  | { done: true; step: 'mood' | 'time' | 'picks'; text: string; model: boolean };
+
+/** One finished question and answer about a title, sent back for follow-up questions. */
+export interface AskTurn {
+  question: string;
+  answer: string;
+}
+
+/** A piece of the answer as it is generated, then the checked result. */
+export type AskTitleEvent =
+  { delta: string } | { done: true; ok: true; answer: string } | { done: true; ok: false; note: string };
+
 export interface ExplainResponse {
   id: string;
   /** Plain words from the local language model, or null: keep the reasons shown. */

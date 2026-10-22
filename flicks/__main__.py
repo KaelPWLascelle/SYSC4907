@@ -31,6 +31,10 @@ def parse_args(argv=None):
     parser.add_argument('--system-one-url', help='Local System One server for free-text commands, e.g. http://127.0.0.1:8000 (laya-serve), or "lexical" for the offline stand-in')
     parser.add_argument('--llm-url', help='Optional, experimental: a local language model server (OpenAI-compatible), e.g. '
                         'http://127.0.0.1:11434 for Ollama. Needs several GB of free memory; Flicks does not need it')
+    parser.add_argument('--llm-file', type=Path, metavar='GGUF',
+                        help="Optional, experimental: a small GGUF model run inside Flicks (pip install 'flicks[llm]'), "
+                             'for questions about a title; e.g. ~/.flicks/models/Qwen2.5-1.5B-Instruct-Q4_K_M.gguf')
+    parser.add_argument('--llm-cpu', action='store_true', help='Run the --llm-file model on the CPU only')
     parser.add_argument('--llm-model', default='qwen3.5:2b', help='Model name in that server (default qwen3.5:2b)')
     parser.add_argument('--no-ask-student', action='store_true', help='Turn off the distilled Ask student (rules only)')
     parser.add_argument('--couch', action=argparse.BooleanOptionalAction, default=True,
@@ -57,6 +61,7 @@ def main(argv=None):
                         series=None if args.no_series else args.series or (DEFAULT_SERIES if DEFAULT_SERIES.is_file() else None),
                         couch=args.couch, couch_host=args.couch_host,
                         couch_port=args.couch_port, llm_url=args.llm_url, llm_model=args.llm_model,
+                        llm_file=args.llm_file, llm_gpu=not args.llm_cpu,
                         ask_student=None if args.no_ask_student else Settings.ask_student,
                         extra_origins=VITE_DEV_ORIGINS if args.dev else ())
     if args.system_one_url == 'lexical':  # offline demo of the fallback path; not a model

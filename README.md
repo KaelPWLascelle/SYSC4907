@@ -182,6 +182,17 @@ A local language model can be added as a further tier with `--llm-url` ([ADR 001
 but it is experimental and off by default: it needs several GB of free memory, and on an 8 GB laptop it
 makes the whole computer unresponsive.
 
+**Ask about a title (experimental).** A small model can also run inside Flicks, with no model server, to
+answer questions about the title you opened ("Who's in it?", "Why this pick?") from the catalogue's own
+details ([ADR 0019](docs/adr/0019-title-chat.md)). Install the `llm` extra, download a GGUF model such as
+[Qwen2.5 1.5B Instruct](https://huggingface.co/bartowski/Qwen2.5-1.5B-Instruct-GGUF) (`Q4_K_M`, about 1 GB),
+and start Flicks with `--llm-file PATH`. Answers stream in about a second on an M2 and can be wrong.
+
+**The corner chat.** The round button in the bottom corner of Home asks what you're in the mood for and how
+much time you have, then offers three picks you can open, swap for others, or make the scene on Home. It
+works without a model, in Flicks' own words; with `--llm-file`, the model words the questions and the pitch,
+while Flicks still decides what to ask and what to pick.
+
 ### Profiles
 
 Open the profile button (top right) to switch profiles, add one, set a PIN, or export, import, clear or
@@ -213,6 +224,8 @@ votes are forgotten when the session ends. See [how couch mode works](docs/couch
 | `--system-one-url URL` | none | Local System One server for free-text requests |
 | `--llm-url URL` | none | Experimental: a local language model server (needs several GB free) |
 | `--llm-model NAME` | `qwen3.5:2b` | Model name in that server |
+| `--llm-file GGUF` | none | Experimental: a small model run inside Flicks for questions about a title (`llm` extra) |
+| `--llm-cpu` | GPU if available | Run the `--llm-file` model on the CPU only |
 | `--no-ask-student` | off | Turn off the Ask student (rules only) |
 | `--catalog FILE` | bundled | Your own catalogue ([format](flicks/data/README.md)) |
 | `--series FILE` | `~/.flicks/catalogs/series.json` if present | TV series from `python -m flicks.datasets.tvmaze`; `--no-series` for films only |

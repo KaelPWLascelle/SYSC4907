@@ -39,6 +39,10 @@ class Settings:
     # explanations; None: Flicks works without one (docs/adr/0013-local-llm.md).
     llm_url: str | None = None
     llm_model: str = 'qwen3.5:2b'
+    # A GGUF model run inside the Flicks process (llama.cpp, the `llm` extra) instead of a model server:
+    # questions about a title, narrated explanations and the Ask agent (docs/adr/0019-title-chat.md).
+    llm_file: Path | None = None
+    llm_gpu: bool = True        # False: CPU only, as on a laptop without a usable GPU
     # Extra browser origins allowed to call the API, e.g. the Vite dev server (`--dev`).
     extra_origins: tuple[str, ...] = field(default=())
 
