@@ -57,7 +57,14 @@ class TitleChatTests(unittest.TestCase):
             with self.subTest(reply=reply):
                 done = list(TitleChat(FakeChat(reply), CATALOGUE).stream(self.given, 'Anything similar?'))[-1]
                 self.assertFalse(done['ok'])
-                self.assertIn('withdrawn', done['note'])
+                self.assertIn('hidden', done['note'])
+
+    def test_a_one_word_title_counts_only_when_quoted(self):
+        # "Alien" is also a word and a name; unquoted, it is not read as the film.
+        talker = TitleChat(FakeChat(), CATALOGUE)
+        self.assertEqual(talker.check('An Alien crew member is never seen.', self.given), 'An Alien crew member is never seen.')
+        with self.assertRaises(LLMError):
+            talker.check('Fans also like "Alien".', self.given)
 
     def test_follow_ups_keep_the_last_turns_only(self):
         chat = FakeChat('Sam Rockwell stars.')

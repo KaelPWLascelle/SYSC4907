@@ -94,14 +94,18 @@ class TitleChat:
         if not text:
             raise LLMError('The model gave no answer')
         if re.search(r'https?://|www\.', text):
-            raise LLMError('The answer contained a link, so it was withdrawn')
+            raise LLMError('This answer was hidden because it included a link.')
         why = given.get('why Flicks picked it', {})
         allowed = {normalize(t) for t in [given['title'], *why.get('because you liked', [])]}
         allowed |= self.checker.named_titles(question)  # "Is it better than Alien?" may name Alien back
         description = f" {normalize(given['description'])} "
+        quoted = {normalize(span) for span in re.findall('["“]([^"”]{2,80})["”]', text)}
         for title in self.checker.named_titles(text):
+            # One-word titles are also names ("Marty" McFly, "Moon" in a sentence): only quoted ones count.
+            if ' ' not in title and title not in quoted:
+                continue
             # A title the description itself names (a sequel, the novel it adapts) is grounded too.
             if title not in allowed and f' {title} ' not in description:
-                raise LLMError(f'The answer named a title Flicks did not give it ({self.checker.titles[title]}), '
-                               'so it was withdrawn')
+                raise LLMError(f'This answer was hidden because it mentioned {self.checker.titles[title]}, '
+                               'which Flicks didn’t give the model. Try asking another way.')
         return text

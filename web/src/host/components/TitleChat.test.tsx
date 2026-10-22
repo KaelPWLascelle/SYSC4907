@@ -26,7 +26,7 @@ test('an answer streams in, with its timing, and follow-ups send the earlier tur
   render(<TitleChat item={ALPHA} session={DEFAULT_SESSION} picked />);
   await userEvent.click(screen.getByRole('button', { name: 'Who is in it?' }));
   expect(await screen.findByText('Alpha stars Sam Rockwell.')).toBeInTheDocument();
-  expect(screen.getByText(/answered in .* s · on this device/)).toBeInTheDocument();
+  expect(screen.getByText(/s · on this device/)).toBeInTheDocument();
 
   await userEvent.type(screen.getByRole('textbox', { name: 'Ask a question about Alpha' }), 'Who directed it?{Enter}');
   expect(ask).toHaveBeenLastCalledWith(

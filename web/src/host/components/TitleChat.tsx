@@ -2,6 +2,7 @@ import { type FormEvent, useEffect, useRef, useState } from 'react';
 
 import { flicksApi } from '../../api/flicks';
 import type { AskTurn, Content, Session } from '../../api/types';
+import { Icon } from '../../components/Icon';
 
 interface TitleChatProps {
   item: Content;
@@ -81,57 +82,80 @@ export function TitleChat({ item, session, picked }: TitleChatProps) {
     ask(draft);
   };
 
+  const asked = new Set(turns.map(turn => turn.question));
   const suggestions = [
     'What is it about?',
     'Who is in it?',
     item.series ? 'How many seasons are there?' : 'Is it scary?',
     ...(picked ? ['Why this pick?'] : []),
-  ];
+  ].filter(suggestion => !asked.has(suggestion));
+  const kind = item.series ? 'series' : 'film';
 
   return (
     <section className="title-chat" aria-labelledby="title-chat-heading">
-      <h3 id="title-chat-heading">Ask about {item.title}</h3>
+      <h3 id="title-chat-heading" className="title-chat-heading">
+        <Icon name="sparkle" />
+        Ask about this {kind}
+      </h3>
       {turns.length > 0 && (
         <ol className="title-chat-turns">
-          {turns.map((turn, index) => (
-            <li key={index}>
-              <p className="title-chat-question">{turn.question}</p>
-              <p
-                className={`title-chat-answer${turn.state === 'withdrawn' || turn.state === 'failed' ? ' title-chat-note' : ''}`}
-                aria-live={index === turns.length - 1 ? 'polite' : undefined}
-              >
-                {turn.answer || (turn.state === 'streaming' ? 'Thinking…' : '')}
-              </p>
-              {turn.state === 'done' && (
-                <p className="fine">
-                  First words in {turn.first} s · answered in {turn.total} s · on this device
-                </p>
-              )}
-            </li>
-          ))}
+          {turns.map((turn, index) => {
+            const last = index === turns.length - 1;
+            const failed = turn.state === 'withdrawn' || turn.state === 'failed';
+            return (
+              <li key={index}>
+                <p className="title-chat-question">{turn.question}</p>
+                <div
+                  className="title-chat-answer"
+                  aria-live={last ? 'polite' : undefined}
+                  aria-busy={turn.state === 'streaming'}
+                >
+                  {turn.answer ? (
+                    <p className={failed ? 'title-chat-note' : undefined}>
+                      {failed && <Icon name="info" />}
+                      {turn.answer}
+                    </p>
+                  ) : (
+                    <span className="title-chat-typing" role="status" aria-label="Thinking">
+                      <span />
+                      <span />
+                      <span />
+                    </span>
+                  )}
+                  {last && turn.state === 'done' && (
+                    <p className="title-chat-meta" title={`First words after ${turn.first} s`}>
+                      {turn.total} s · on this device
+                    </p>
+                  )}
+                </div>
+              </li>
+            );
+          })}
         </ol>
       )}
-      <div className="chips chips-small" role="group" aria-label="Suggested questions">
-        {suggestions.map(suggestion => (
-          <button key={suggestion} type="button" className="chip" disabled={busy} onClick={() => ask(suggestion)}>
-            {suggestion}
-          </button>
-        ))}
-      </div>
+      {suggestions.length > 0 && (
+        <div className="title-chat-suggestions" role="group" aria-label="Suggested questions">
+          {suggestions.map(suggestion => (
+            <button key={suggestion} type="button" className="chip" disabled={busy} onClick={() => ask(suggestion)}>
+              {suggestion}
+            </button>
+          ))}
+        </div>
+      )}
       <form className="title-chat-form" onSubmit={submit}>
         <input
           value={draft}
           onChange={event => setDraft(event.target.value)}
           maxLength={300}
-          placeholder="Ask anything about this title"
+          placeholder={`Ask anything about ${item.title}`}
           aria-label={`Ask a question about ${item.title}`}
         />
-        <button type="submit" className="button button-quiet" disabled={busy || !draft.trim()}>
-          Ask
+        <button type="submit" className="title-chat-send" aria-label="Ask" disabled={busy || !draft.trim()}>
+          <Icon name="arrowUp" />
         </button>
       </form>
-      <p className="fine">
-        Answered by a small language model on this computer, from the details Flicks has. It can be wrong.
+      <p className="title-chat-disclaimer">
+        A small model on this computer answers from Flicks’ details. It can be wrong.
       </p>
     </section>
   );

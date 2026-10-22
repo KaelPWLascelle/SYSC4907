@@ -1,72 +1,202 @@
-/* "Ask about this title" (TitleChat.tsx): questions answered by the local language model. */
+/* "Ask about this film" (TitleChat.tsx): questions answered by the local language model.
+   Part of the details sheet, not a card inside it: a hairline above, the questions as quiet pills on
+   the right, the answers as plain text, and one field with its send button inside. */
 .title-chat {
-  margin-top: 8px;
-  padding: 16px;
-  border-radius: var(--radius);
-  background: var(--fill);
+  margin-top: 12px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
   display: grid;
-  gap: 12px;
+  gap: 14px;
 }
-.title-chat h3 {
+.details-body .title-chat-heading {
   margin: 0;
-  font-size: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
+.title-chat-heading svg {
+  width: 18px;
+  height: 18px;
+  fill: var(--accent);
+}
+
+/* The conversation */
 .title-chat-turns {
   margin: 0;
   padding: 0;
   list-style: none;
   display: grid;
-  gap: 14px;
+  gap: 18px;
+}
+.title-chat-turns li {
+  display: grid;
+  gap: 8px;
 }
 .title-chat-question {
   justify-self: end;
-  margin: 0 0 6px auto;
-  width: fit-content;
-  max-width: 85%;
-  padding: 8px 12px;
-  border-radius: 14px 14px 4px 14px;
-  background: var(--accent);
-  color: var(--accent-ink);
+  max-width: 80%;
+  margin: 0;
+  padding: 7px 14px;
+  border-radius: 18px;
+  background: var(--fill-strong);
+  color: var(--text);
   font-size: 15px;
+  line-height: 1.4;
 }
 .title-chat-answer {
+  max-width: 62ch;
+}
+.title-chat-answer > p:first-child {
   margin: 0;
-  max-width: 92%;
-  padding: 10px 12px;
-  border-radius: 14px 14px 14px 4px;
-  background: var(--surface-2);
   color: var(--text);
-  font-size: 15px;
-  line-height: 1.5;
+  font-size: 16px;
+  line-height: 1.55;
 }
-.title-chat-note {
-  color: var(--muted);
-  font-style: italic;
-}
-.title-chat-turns .fine {
-  margin: 4px 0 0;
-}
-.title-chat-form {
+.title-chat-answer > .title-chat-note {
   display: flex;
   gap: 8px;
+  align-items: flex-start;
+  color: var(--muted);
+  font-size: 15px;
+}
+.title-chat-note svg {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  fill: currentColor;
+}
+.title-chat-meta {
+  margin: 6px 0 0;
+  color: var(--faint);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Three dots while the first words are on their way */
+.title-chat-typing {
+  display: inline-flex;
+  gap: 5px;
+  padding: 10px 0;
+}
+.title-chat-typing span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--muted);
+  animation: title-chat-pulse 1.2s ease-in-out infinite;
+}
+.title-chat-typing span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.title-chat-typing span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+@keyframes title-chat-pulse {
+  0%,
+  80%,
+  100% {
+    opacity: 0.25;
+    transform: translateY(0);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .title-chat-typing span {
+    animation: none;
+    opacity: 0.6;
+  }
+}
+
+/* Suggestions: one quiet row that scrolls sideways rather than wrapping into a block */
+.title-chat-suggestions {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.title-chat-suggestions::-webkit-scrollbar {
+  display: none;
+}
+html .title-chat-suggestions .chip {
+  flex: none;
+  height: 32px;
+  padding: 0 14px;
+  border: 0;
+  background: var(--fill);
+  color: var(--text);
+  font-size: 14px;
+}
+html .title-chat-suggestions .chip:hover:not(:disabled) {
+  background: var(--fill-strong);
+}
+.title-chat-suggestions .chip:disabled {
+  opacity: 0.45;
+}
+
+/* The field, with its send button inside */
+.title-chat-form {
+  position: relative;
 }
 .title-chat-form input {
-  flex: 1;
-  min-width: 0;
-  height: 38px;
-  padding: 0 14px;
-  border-radius: 999px;
-  border: 1px solid var(--line-strong);
-  background: var(--surface);
+  width: 100%;
+  height: 44px;
+  padding: 0 52px 0 18px;
+  border-radius: 22px;
+  border: 1px solid transparent;
+  background: var(--fill);
   color: var(--text);
   font: inherit;
-  font-size: 15px;
+  font-size: 16px;
   outline: none;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
+}
+.title-chat-form input::placeholder {
+  color: var(--faint);
 }
 .title-chat-form input:focus {
   border-color: var(--accent);
+  background: var(--surface-2);
 }
-.title-chat .chip:disabled,
-.title-chat-form button:disabled {
-  opacity: 0.5;
+.title-chat-send {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-ink);
+  transition:
+    opacity 0.15s,
+    transform 0.15s var(--spring);
+}
+.title-chat-send svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+.title-chat-send:hover:not(:disabled) {
+  transform: scale(1.06);
+}
+.title-chat-send:disabled {
+  opacity: 0;
+  pointer-events: none;
+}
+.title-chat-disclaimer {
+  margin: -4px 0 0;
+  color: var(--faint);
+  font-size: 12px;
 }
