@@ -4,26 +4,27 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "flicks"
-version = "0.4.0"
+version = "0.5.0"
 description = "Local-first movie recommendations and playback (SYSC 4907)"
 readme = "README.md"
 requires-python = ">=3.10"
-# Lower bounds are the versions CI tests; see docs/adr/0002-fastapi-backend.md.
+# Lower bounds are the versions CI tests; see docs/adr/0002-fastapi-backend.md. NumPy is used only by
+# `flicks setup`, to precompute collaborative filtering; the running app never imports it (docs/adr/0020-packaging.md).
 dependencies = [
     "fastapi>=0.142",
     "uvicorn>=0.54",
+    "numpy>=1.26",
 ]
 
 [project.optional-dependencies]
 voice = ["faster-whisper==1.2.1"]
-# A small language model inside Flicks (--llm-file), for questions about a title.
+# The small language model inside Flicks, for the chats (`flicks setup --model` downloads the model itself).
 llm = ["llama-cpp-python==0.3.36"]
-# Build-time only: precomputing collaborative-filtering neighbours, evaluating recommenders, shrinking series covers.
-datasets = ["numpy>=1.26", "pillow>=11"]  # Pillow shrinks full-size series covers
+# Optional for `flicks setup`: Pillow shrinks full-size series covers (without it, TVmaze's smaller ones are used).
+datasets = ["pillow>=11"]
 dev = [
     "httpx2",       # starlette's TestClient transport
-    "numpy>=1.26",  # the datasets extra, so its tests run in CI
-    "pillow>=11",
+    "pillow>=11",   # the datasets extra, so its tests run in CI
     "pytest>=8",
     "ruff>=0.16",
 ]

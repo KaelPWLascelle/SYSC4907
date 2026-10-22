@@ -47,7 +47,7 @@ def read_ratings(path: Path, prefix='ml'):
 
 def build(ratings, catalogue_ids, k=K, shrink=SHRINK):
     """{item: [(neighbour, similarity), ...]} for catalogue items, strongest first."""
-    import numpy as np  # build-time dependency only (pip install -e ".[datasets]")
+    import numpy as np  # used only while importing (flicks setup); the app never imports it
 
     users = sorted({r.user for r in ratings})
     items = sorted({r.item for r in ratings} & set(catalogue_ids))
