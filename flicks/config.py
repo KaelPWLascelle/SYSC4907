@@ -10,6 +10,14 @@ HOME = Path.home()/'.flicks'
 DEFAULT_DB = HOME/'feedback.sqlite3'
 DEFAULT_POSTERS = HOME/'posters'
 DEFAULT_SERIES = HOME/'catalogs'/'series.json'
+DEFAULT_MOVIELENS = HOME/'catalogs'/'movielens-small.json'  # written by `flicks setup` (flicks.datasets.movielens)
+# The small language model `flicks setup --model` downloads; used automatically when present (flicks/setup.py).
+DEFAULT_MODEL = HOME/'models'/'Qwen2.5-1.5B-Instruct-Q4_K_M.gguf'
+
+
+def default_films():
+    """The film catalogue to use when none is named: the imported MovieLens one, or the bundled demo."""
+    return DEFAULT_MOVIELENS if DEFAULT_MOVIELENS.is_file() else DEFAULT_CATALOG
 
 
 @dataclass(frozen=True)

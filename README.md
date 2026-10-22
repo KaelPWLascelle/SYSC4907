@@ -10,253 +10,177 @@ couch vote from their phones. No online accounts, no cloud, no tracking.
 Flicks is a SYSC 4907 capstone project at Carleton University, supervised by Dr. Huang
 ([project proposal](docs/proposal.md)).
 
-## Features
+## Install
 
-- **Search in everyday words.** "funny films from the 90s", "tom hanks" or "war films before 1960":
-  Flicks reads decades, lengths, genres and moods, then matches titles, people and plots.
-- **Personal recommendations, computed locally.** A TF-IDF taste profile built from your ratings,
-  reranked for the current scene, with every score broken down into its factors.
-- **Films and TV series.** Import about 1,000 popular series from TVmaze and they join the films in
-  one ranking. The scene asks for a film, a series or either, and a series' time is one episode.
-- **Streaming-style interface.** A top pick for tonight, a ranked rail, continue watching, browse
-  and search, and a "why this pick" sheet for any title.
-- **Playback of your own files.** MP4 and WebM stream with seeking; progress is saved and resumed.
-- **Public-domain films.** Films in the catalogue that are public domain in the US stream from the
-  Internet Archive, so a recommendation can be played straight away. A "Ready to watch now" row lists them
-  (and your own files) ranked for you, and **Ready to play** limits the picks to what can play now.
-- **Ask Flicks.** Type or say "something relaxing under 90 minutes, no horror" and preview the
-  change before it applies. Speech is transcribed on the device by Whisper.
-- **See and tune your taste.** "Your taste" charts the genres you lean toward and away from, the themes
-  behind your likes, and which liked films shape your picks. Tune how much ratings, mood, intensity and
-  discovery count, with a live preview of your new top five.
-- **Profiles, kept on this device.** "Who's watching?" keeps each person's ratings, history and picks
-  apart, with an optional PIN. Export a profile as a small file and import it on another computer;
-  nothing goes through an account or a server.
-- **Ask in your own words, instantly.** A tiny model trained for Flicks (the Ask student, under 2 MB, no
-  GPU, no model server) reads "long week, I want to switch off, nothing scary" into the scene, and "why
-  this pick" explains every pick in a plain sentence.
-- **Discover.** A full-screen feed, one film at a time: like or pass and the next films change. Films you
-  can play preview themselves, offline; trailers from YouTube play only if you allow them.
-- **Up next and "Pick for me".** When a film ends, rate it in one tap and the next pick starts after a
-  short countdown. Can't decide? "Pick for me" draws one of your top picks and tells you the odds.
-- **Couch mode.** Phones on your Wi-Fi scan a QR code, vote with hidden ballots, and act as a remote
-  for the TV.
-- **Installable.** Runs in its own window from Chrome or Edge.
+You need **Python 3.10 or newer** and **pipx**, which installs Python apps in their own environment.
 
-## Quick start
+| | Install pipx |
+|---|---|
+| macOS | `brew install pipx` then `pipx ensurepath` |
+| Windows | `py -m pip install --user pipx` then `py -m pipx ensurepath` |
+| Linux | `sudo apt install pipx` (or your distribution's package) then `pipx ensurepath` |
 
-You need Python 3.10+ and Node 20+ (Node is only needed to build the interface).
+Open a new terminal after `ensurepath`, then:
 
 ```sh
-python3 -m venv .venv
-.venv/bin/pip install -e ".[dev]"
-npm --prefix web ci
-npm --prefix web run build
-.venv/bin/flicks
+pipx install https://github.com/KaelPWLascelle/SYSC4907/releases/download/v0.5.0/flicks-0.5.0-py3-none-any.whl
+flicks setup
+flicks
 ```
 
-Open <http://127.0.0.1:8765>. On Windows, use `.venv\Scripts\pip` and `.venv\Scripts\flicks`.
+1. **`pipx install`** installs Flicks, with its interface already built (no Node, no clone). Newer versions
+   are on the [releases page](https://github.com/KaelPWLascelle/SYSC4907/releases).
+2. **`flicks setup`** downloads the catalogues once: about 9,000 films from MovieLens with descriptions
+   from Wikipedia, public-domain films to stream, trailers for Discover, about 1,000 TV series, and
+   posters. The first run takes around 40 minutes, most of it the TV series (`flicks setup --no-series`
+   skips them). It is safe to stop and run again, and it only downloads public data. `flicks setup --check`
+   shows what is installed.
+3. **`flicks`** starts the app and opens <http://127.0.0.1:8765> in your browser. Press Ctrl+C to stop it.
 
-Ratings and watch progress are stored in `~/.flicks/feedback.sqlite3` and survive restarts. Use
-`--db` for a separate profile.
+Without `flicks setup`, Flicks still runs, with a 36-film demo catalogue.
+
+Your ratings, watch history and profiles stay in `~/.flicks/` (`%USERPROFILE%\.flicks` on Windows), and
+survive updates. To update, run the `pipx install` line again with the new version and `--force`. To
+remove Flicks, run `pipx uninstall flicks`, and delete `~/.flicks` if you also want your data gone.
+
+### Optional: the chats' language model
+
+The corner chat works without it. With it, a small language model inside Flicks (Qwen2.5 1.5B, about
+1 GB) answers questions about any title and words the corner chat's replies:
+
+```sh
+flicks setup --model
+pipx inject flicks llama-cpp-python
+```
+
+The first command downloads the model and checks its fingerprint. The second installs the runtime. On
+some computers it compiles llama.cpp, which takes a few minutes and needs a C compiler: Xcode Command
+Line Tools on macOS, or Visual Studio Build Tools on Windows. Flicks then loads the model automatically
+(`flicks --no-llm` to turn it off). Answers take about a second and can be wrong. See
+[ADR 0019](docs/adr/0019-title-chat.md).
+
+## Features
+
+- **Personal recommendations, computed locally.** Your ratings, what the titles are about, and what
+  people with similar taste enjoyed (learned in advance from public MovieLens ratings, never from other
+  users), reranked for tonight. Every score is broken down into its parts.
+- **Films and TV series** in one ranking. Ask for a film, a series or either; a series' time is one episode.
+- **Search in everyday words.** "funny films from the 90s", "tom hanks" or "war films before 1960".
+- **Ask Flicks.** Type or say "something relaxing under 90 minutes, no horror" and preview the change
+  before it applies. A tiny model trained for Flicks (under 2 MB, no GPU) reads "long week, I want to
+  switch off, nothing scary" into the evening's settings.
+- **The corner chat.** The round button in the bottom corner asks what you're in the mood for and how much
+  time you have, then offers three picks you can open, swap for others, or make the scene on Home.
+- **Ask about a title.** With the optional model, ask any title "Who's in it?", "Is it scary?" or "Why this pick?".
+- **Play your own files and public-domain films.** MP4 and WebM stream with seeking, and progress is
+  saved. About 60 films that are public domain in the US stream from the Internet Archive.
+- **Discover.** A full-screen feed, one title at a time: like or pass and the next ones change. Trailers
+  from YouTube play only if you allow them.
+- **Up next and "Pick for me".** Rate a film in one tap when it ends and the next pick starts. Can't
+  decide? "Pick for me" draws one of your top picks and tells you the odds.
+- **See and tune your taste.** Charts of the genres and themes behind your picks, and sliders for how
+  much ratings, mood, intensity and discovery count.
+- **Profiles on this device.** Each person's ratings and history stay apart, with an optional PIN, and a
+  profile can be exported as a file.
+- **Couch mode.** Phones on your Wi-Fi scan a QR code, vote with hidden ballots, and act as a remote.
 
 ## Using Flicks
 
 ### Play your films
 
 ```sh
-.venv/bin/flicks --media ~/Movies --media /Volumes/Films
+flicks --media ~/Movies --media /Volumes/Films
 ```
 
-Name files the way Jellyfin and Plex do, `A Trip to the Moon (1902).mp4` (optionally inside a folder
-of the same name), or by content ID (`m033.webm`). MP4 (H.264/AAC) and WebM play in every browser;
-MKV and MOV may not, and Flicks says so instead of failing silently. Public-domain films such as
-*A Trip to the Moon*, *Sherlock Jr.* and *The General* make good demo material.
+Name files the way Jellyfin and Plex do, `A Trip to the Moon (1902).mp4` (optionally inside a folder of
+the same name). MP4 (H.264/AAC) and WebM play in every browser; MKV and MOV may not, and Flicks says so
+instead of failing silently.
 
-### Use the MovieLens catalogue (about 9,700 films)
+### What `flicks setup` downloads
 
-Flicks ships with a small hand-curated catalogue of 36 films. To browse and get recommendations from
-the MovieLens "latest-small" dataset instead:
+| Step | What you get | Source and terms |
+|---|---|---|
+| `films` | About 9,300 films with runtimes and descriptions, plus collaborative filtering ("fans of *Arrival* also like this") | [MovieLens](https://grouplens.org/datasets/movielens/) (non-commercial research use; cite Harper & Konstan, 2015), Wikidata (CC0), Wikipedia (CC BY-SA) |
+| `streams` | A **Play** button for about 60 films that are public domain in the US | Internet Archive; see [ADR 0011](docs/adr/0011-streaming.md) |
+| `trailers` | Trailer IDs for Discover; videos are never downloaded | MovieLens YouTube Trailers dataset; see [ADR 0016](docs/adr/0016-discover.md) |
+| `series` | The 1,000 most-voted TV series | TVmaze (CC BY-SA) and IMDb vote counts (non-commercial); see [ADR 0018](docs/adr/0018-tv-series.md) |
+| `posters` | Posters for the 3,000 most popular films and every series | Wikipedia and TVmaze; copyrighted, so they stay on your computer |
+| `model` (opt-in) | The chats' language model | Qwen2.5 1.5B Instruct (Apache 2.0) |
 
-```sh
-.venv/bin/python -m flicks.datasets.movielens
-.venv/bin/flicks --catalog ~/.flicks/catalogs/movielens-small.json --db ~/.flicks/movielens.sqlite3
-```
-
-The importer downloads MovieLens from GroupLens (verified against its published checksum) and adds
-runtimes and short descriptions from Wikidata and Wikipedia, matched by IMDb ID. Only public film
-identifiers are sent. It takes several minutes the first time and is cached after that. Moods and
-intensity are estimated from genres. MovieLens is for non-commercial research use and must be cited
-(Harper & Konstan, 2015); see [the catalogue guide](flicks/data/README.md#movielens).
-
-### Collaborative filtering and evaluation
-
-With the `datasets` extra installed (`.venv/bin/pip install -e ".[dev,datasets]"`), the MovieLens import
-also precomputes which films the same people liked (`movielens-small.neighbours.json`). Flicks then
-blends those patterns with its content model, entirely on your device ("Fans of *The Empire Strikes
-Back* also like this"). Until you have rated a few films, picks start from the films MovieLens raters
-liked most, and your own taste takes over as you rate. To measure recommendation quality on held-out
-MovieLens ratings:
-
-```sh
-.venv/bin/python -m flicks.datasets.evaluation
-```
-
-See [evaluation](docs/evaluation.md) for the protocol and results.
-
-### Stream public-domain films (optional)
-
-```sh
-.venv/bin/python -m flicks.datasets.archive        # after the MovieLens import
-```
-
-This matches the MovieLens catalogue to the Internet Archive's feature-film collection (about a
-minute) and keeps only films that are public domain in the United States: released at least 96 years
-ago, or listed in Wikipedia's list of US public-domain films. About 60 films then get a **Play**
-button and stream from the Archive through Flicks. Public-domain status differs by country, and parts
-of a film (such as a later score) can still be protected. See [ADR 0011](docs/adr/0011-streaming.md).
-
-### Add trailers for Discover (optional)
-
-```sh
-.venv/bin/python -m flicks.datasets.trailers --verify   # after the MovieLens import
-```
-
-This matches the catalogue to the MovieLens YouTube Trailers dataset (GroupLens) and stores video IDs
-only; nothing is downloaded from YouTube. `--verify` asks YouTube which videos can still be embedded,
-sending video IDs only (about 13 minutes; 6,101 of 9,349 films kept). Discover plays a trailer only
-after you turn on **Online trailers**, in YouTube's privacy-enhanced mode, and only for the card on
-screen. A trailer YouTube won't play in your country shows the film's poster instead, and is skipped from
-then on. Without trailers, Discover previews the films you can play here and shows posters for the rest.
-See [ADR 0016](docs/adr/0016-discover.md).
-
-### Add TV series (optional)
-
-```sh
-.venv/bin/python -m flicks.datasets.tvmaze
-```
-
-This builds `~/.flicks/catalogs/series.json` from TVmaze's show index (summaries, genres, seasons and
-covers; CC BY-SA) and IMDb's vote counts (non-commercial use), keeping the 1,000 most-voted scripted,
-animated and documentary series. It takes about half an hour the first time, within TVmaze's rate limit,
-and is cached after that. Flicks then loads the series beside whichever film catalogue you run
-(`--no-series` for films only), and `python -m flicks.posters` adds their covers. Series are rated,
-searched, shortlisted and explained like films; playing episodes is not supported yet. See
-[ADR 0018](docs/adr/0018-tv-series.md).
-
-### Add posters (optional)
-
-```sh
-.venv/bin/python -m flicks.posters
-```
-
-This caches artwork for the catalogues Flicks loads: TVmaze covers for imported series (full-size
-originals shrunk to the films' 330 px width with the `datasets` extra installed, otherwise TVmaze's
-210 px versions), and Wikipedia poster images for the 3,000 most popular films (`--all` for every film; about 25 KB each, fetched politely so it takes a few minutes).
-Only titles, years and image addresses are sent, and only when you
-run the command. Artwork is copyrighted, so it stays in your local cache and out of git. Without it,
-Flicks draws title cards.
+Only public identifiers (titles, years, IMDb IDs) are sent while importing, and nothing is sent while you
+use the app, except when you play a public-domain film or turn on trailers. `flicks setup --only posters`
+runs one step. Each step is also a command of its own (for example `python -m flicks.datasets.tvmaze
+--limit 300`); see [the catalogue guide](flicks/data/README.md) to bring your own catalogue.
 
 ### Ask Flicks
 
-Press <kbd>/</kbd> and type a request, or record one if voice is set up:
+Press <kbd>/</kbd> and type a request, or record one if [voice](docs/voice.md) is set up:
 
-- **Search in everyday words:** "funny films from the 90s", "keaton", "something about Rome", "war
-  films before 1960". Results open in Browse with what Flicks understood shown as chips.
-- **Play a title:** "play The General", "put on Metropolis".
+- **Search:** "funny films from the 90s", "keaton", "war films before 1960".
+- **Play a title:** "play The General".
 - **Find similar titles:** "more like Alien".
 - **Change the scene or rate:** "relaxing, under 90 minutes, no horror", "I hate musicals", "Like Arrival".
 
-Searches and plays happen at once. Ratings and scene changes are shown first and change nothing
-until you press Apply. See [voice commands](docs/voice.md) to enable on-device speech.
-
-### How Ask reads you
-
-Requests go to the cheapest reader that understands them: exact rules first, then the **Ask student**, a
-small classifier distilled for Flicks that turns a described scene into mood, intensity, novelty and a
-genre to avoid. It answers in well under a millisecond and only when confident; you still
-preview and apply. Rebuild and evaluate it with `python -m flicks.datasets.ask` (needs the `datasets` extra);
-see [ADR 0014](docs/adr/0014-ask-student.md).
-
-A local language model can be added as a further tier with `--llm-url` ([ADR 0013](docs/adr/0013-local-llm.md)),
-but it is experimental and off by default: it needs several GB of free memory, and on an 8 GB laptop it
-makes the whole computer unresponsive.
-
-**Ask about a title (experimental).** A small model can also run inside Flicks, with no model server, to
-answer questions about the title you opened ("Who's in it?", "Why this pick?") from the catalogue's own
-details ([ADR 0019](docs/adr/0019-title-chat.md)). Install the `llm` extra, download a GGUF model such as
-[Qwen2.5 1.5B Instruct](https://huggingface.co/bartowski/Qwen2.5-1.5B-Instruct-GGUF) (`Q4_K_M`, about 1 GB),
-and start Flicks with `--llm-file PATH`. Answers stream in about a second on an M2 and can be wrong.
-
-**The corner chat.** The round button in the bottom corner of Home asks what you're in the mood for and how
-much time you have, then offers three picks you can open, swap for others, or make the scene on Home. It
-works without a model, in Flicks' own words; with `--llm-file`, the model words the questions and the pitch,
-while Flicks still decides what to ask and what to pick.
+Searches and plays happen at once. Ratings and scene changes are shown first and change nothing until you
+press Apply. Requests go to the cheapest reader that understands them: exact rules first, then the Ask
+student, a classifier distilled for Flicks that answers in under a millisecond ([ADR 0014](docs/adr/0014-ask-student.md)).
 
 ### Profiles
 
 Open the profile button (top right) to switch profiles, add one, set a PIN, or export, import, clear or
-delete your data. With more than one profile, Flicks asks who is watching when it opens. A PIN keeps
-others in the household out of your profile; it does not encrypt the database
-([ADR 0012](docs/adr/0012-local-profiles.md)).
+delete your data. A PIN keeps others in the household out of your profile; it does not encrypt the
+database ([ADR 0012](docs/adr/0012-local-profiles.md)).
 
 ### Couch mode
 
-Open **Couch** in the top bar and press **Start a couch session**. Nothing listens on your network
-until you do, and `--no-couch` hides couch mode altogether. Phones on the same Wi-Fi scan the QR code, swipe through a shortlist
-built from your scene, and the group pick appears on the TV. Any phone can then play, pause or stop
-the film. Guests reach a separate server that cannot see your ratings or history, and names and
-votes are forgotten when the session ends. See [how couch mode works](docs/couch.md).
+Open **Couch** in the top bar and press **Start a couch session**. Nothing listens on your network until
+you do. Phones on the same Wi-Fi scan the QR code, vote on a shortlist built from your scene, and the group
+pick appears on the TV. Guests reach a separate server that cannot see your ratings or history, and their
+names and votes are forgotten when the session ends. See [how couch mode works](docs/couch.md).
 
 ### Command-line options
+
+`flicks --help` lists them all. The ones you are most likely to use:
 
 | Option | Default | Purpose |
 |---|---|---|
 | `--media DIR` | none | Folder of video files to play; repeat for more folders |
-| `--db FILE` | `~/.flicks/feedback.sqlite3` | Profiles, ratings and watch history |
 | `--port N` | `8765` | Local port for the app |
-| `--posters DIR` | `~/.flicks/posters` | Poster cache from `python -m flicks.posters` |
-| `--no-couch` | couch on | Hide couch mode (nothing listens on the network until a session starts either way) |
-| `--couch-host ADDR` | detected | Home-network address phones connect to |
-| `--couch-port N` | `8770` | Port for the couch guest server |
+| `--db FILE` | `~/.flicks/feedback.sqlite3` | Profiles, ratings and watch history |
+| `--no-browser` | opens it | Don't open the browser on start |
+| `--no-series` | series on when installed | Films only |
+| `--no-couch` | couch on | Hide couch mode |
+| `--no-llm` | model on when installed | Don't load the language model |
+| `--llm-cpu` | GPU when available | Run the language model on the CPU only |
+| `--catalog FILE` | the imported films, else the demo | Your own catalogue ([format](flicks/data/README.md)) |
 | `--voice-model DIR` | none | Local Whisper model for speech ([voice setup](docs/voice.md)) |
-| `--tags FILE` | none | System One catalogue tags ([System One](docs/system-one.md)) |
-| `--system-one-url URL` | none | Local System One server for free-text requests |
-| `--llm-url URL` | none | Experimental: a local language model server (needs several GB free) |
-| `--llm-model NAME` | `qwen3.5:2b` | Model name in that server |
-| `--llm-file GGUF` | none | Experimental: a small model run inside Flicks for questions about a title (`llm` extra) |
-| `--llm-cpu` | GPU if available | Run the `--llm-file` model on the CPU only |
-| `--no-ask-student` | off | Turn off the Ask student (rules only) |
-| `--catalog FILE` | bundled | Your own catalogue ([format](flicks/data/README.md)) |
-| `--series FILE` | `~/.flicks/catalogs/series.json` if present | TV series from `python -m flicks.datasets.tvmaze`; `--no-series` for films only |
-| `--archive FILE` | `<catalog>.archive.json` if present | Internet Archive matches from `python -m flicks.datasets.archive` |
-| `--trailers FILE` | `<catalog>.trailers.json` if present | Trailer video IDs for Discover from `python -m flicks.datasets.trailers` |
-| `--dev` | off | Accept requests from the Vite dev server |
+| `--llm-url URL` | none | Experimental: a local model server instead of the built-in model ([ADR 0013](docs/adr/0013-local-llm.md)) |
 
 ## How it works
 
 ```
-Browser (React)  ──HTTP──▶  FastAPI on 127.0.0.1  ──▶  recommender · repositories (SQLite) · media library
+Browser (React)  ──HTTP──▶  FastAPI on 127.0.0.1  ──▶  recommender · Ask readers · language model (optional)
+                                                      · repositories (SQLite) · media library
 Phones on Wi-Fi  ──HTTP──▶  couch guest server (only during a session, couch routes only)
 ```
 
 The server binds to loopback, so the app is reachable only from this machine. Couch mode is the one
-opt-in exception, and it runs as a separate server with no access to your data. The running app
-makes remote requests only when you play a public-domain film or turn on Discover trailers, and then
-only to that title's source. Security rules
-(Host and Origin checks, JSON-only requests, size limits, a strict Content Security Policy) are
-enforced in one place and covered by tests.
+opt-in exception, and it runs as a separate server with no access to your data. Security rules (Host and
+Origin checks, JSON-only requests, size limits, a strict Content Security Policy) are enforced in one
+place and covered by tests.
 
 See [architecture](docs/architecture.md) for the components, the ranking model and the API, and the
-[architecture decision records](docs/adr/README.md) for why the stack is FastAPI, SQLite and React.
+[architecture decision records](docs/adr/README.md) for why Flicks is built the way it is.
 
 ## Project layout
 
 ```
-flicks/            Python package: recommender, API, storage, media, Discover, couch mode, voice, System One
+flicks/            Python package: recommender, API, storage, media, Discover, couch mode, assistants
   api/             FastAPI apps, routes and the request guard
-  data/            Bundled demo catalogue
-  datasets/        MovieLens, TVmaze, trailer and Internet Archive importers, neighbours, offline evaluation
+  assistant/       Ask rules, the Ask student, the title chat, the corner chat, the language model runtime
+  data/            Bundled demo catalogue and the Ask student's weights
+  datasets/        MovieLens, TVmaze, trailer and Internet Archive importers, neighbours, evaluation
+  setup.py         `flicks setup`
 web/               React + TypeScript interface (built into flicks/static/)
 tests/             Backend tests (pytest)
 scripts/           Voice-model download and icon generation
@@ -265,7 +189,19 @@ docs/              Architecture, decision records, feature guides, evaluation
 
 ## Development
 
-Run the API and the interface dev server side by side; changes reload instantly:
+From a clone, with Python 3.10+ and Node 20+:
+
+```sh
+python3 -m venv .venv
+.venv/bin/pip install -e ".[dev]"
+npm --prefix web ci
+npm --prefix web run build      # the interface, into flicks/static/ (not committed)
+.venv/bin/flicks setup          # optional: the full catalogues
+.venv/bin/flicks
+```
+
+On Windows, use `.venv\Scripts\pip` and `.venv\Scripts\flicks`. For live reloading, run the API and the
+interface dev server side by side:
 
 ```sh
 .venv/bin/flicks --dev
@@ -280,19 +216,21 @@ Checks (CI runs them on every push, with the Python tests on Linux, Windows and 
 npm --prefix web run lint
 npm --prefix web test
 npm --prefix web run build
-npm --prefix web run test:e2e   # Playwright: the real app in Chromium, desktop and phone (first: npx --prefix web playwright install chromium)
+npm --prefix web run test:e2e   # Playwright, Chromium and WebKit (first: npx --prefix web playwright install chromium webkit)
 ```
 
-Measurements (not run in CI; results and how to read them are in [docs/test-report.md](docs/test-report.md)):
+Measurements (not run in CI; results are in [docs/test-report.md](docs/test-report.md)):
 
 ```sh
-.venv/bin/python -m flicks.benchmark                     # latency and memory, bundled and MovieLens catalogues
-.venv/bin/python -m flicks.datasets.ask --evaluate-only  # the Ask student on its held-out test set
+.venv/bin/python -m flicks.benchmark                     # latency and memory
 .venv/bin/python -m flicks.datasets.evaluation           # recommendation quality on held-out MovieLens ratings
-.venv/bin/python -m flicks.assistant.agent_eval --no-llm # the whole Ask pipeline on the agent's hard cases
+.venv/bin/python -m flicks.datasets.ask --evaluate-only  # the Ask student on its held-out test set
+.venv/bin/python -m flicks.assistant.agent_eval --no-llm # the Ask pipeline on hard cases
 ```
 
-`flicks/static/` is build output and is not committed.
+**Releasing.** Bump `version` in `pyproject.toml`, merge, then tag the merge commit `v<version>` and push the
+tag. The release workflow builds the interface and the wheel, checks the wheel, and publishes both to
+GitHub Releases ([ADR 0020](docs/adr/0020-packaging.md)). Update the version in the install line above.
 
 ## Documentation
 

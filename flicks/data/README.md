@@ -18,7 +18,7 @@ No rights to the underlying films are conveyed.
 
 ## MovieLens
 
-`python -m flicks.datasets.movielens` builds `~/.flicks/catalogs/movielens-small.json` from the
+`flicks setup` (or `python -m flicks.datasets.movielens` on its own) builds `~/.flicks/catalogs/movielens-small.json` from the
 MovieLens "latest-small" dataset:
 
 - **From MovieLens:** titles (with "Matrix, The" reordered), years, genres (mapped to this

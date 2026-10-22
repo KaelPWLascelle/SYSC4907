@@ -29,8 +29,8 @@ from pathlib import Path
 import time
 from urllib import error, parse
 
-from .config import DEFAULT_CATALOG, DEFAULT_SERIES
 from .config import DEFAULT_POSTERS as DEFAULT_DIR
+from .config import DEFAULT_SERIES, default_films
 from .core import load_catalog
 from .net import get as _get
 from .net import get_json
@@ -333,8 +333,7 @@ def streamable_ids(catalog_path: Path, catalogue_ids):
 
 
 def default_catalogs():
-    from .datasets.movielens import DEFAULT_OUT as MOVIELENS
-    return [MOVIELENS if MOVIELENS.is_file() else DEFAULT_CATALOG, *([DEFAULT_SERIES] if DEFAULT_SERIES.is_file() else [])]
+    return [default_films(), *([DEFAULT_SERIES] if DEFAULT_SERIES.is_file() else [])]
 
 
 def main(argv=None):

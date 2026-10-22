@@ -92,6 +92,7 @@ jobs:
       - run: npm --prefix web ci && npm --prefix web run build
       - run: python -m pip install .
       - run: flicks --help
+      - run: cd /tmp && flicks setup --check
       - run: |
           cd /tmp && python - <<'PY'
           from flicks.config import DEFAULT_CATALOG, DEFAULT_STATIC

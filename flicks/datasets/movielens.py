@@ -26,7 +26,7 @@ import re
 import zipfile
 
 from .. import net
-from ..config import HOME
+from ..config import DEFAULT_MOVIELENS, HOME
 from ..core import load_catalog
 from . import genres as genre_rules
 from . import neighbours, wikimedia
@@ -36,7 +36,7 @@ ARCHIVE_URL = f'https://files.grouplens.org/datasets/movielens/{DATASET}.zip'
 CHECKSUM_URL = f'{ARCHIVE_URL}.md5'
 MAX_ARCHIVE_BYTES = 10 * 1024 * 1024
 DEFAULT_CACHE = HOME/'datasets'
-DEFAULT_OUT = HOME/'catalogs'/'movielens-small.json'
+DEFAULT_OUT = DEFAULT_MOVIELENS
 TAGS_PER_TITLE = 5
 CITATION = ('F. Maxwell Harper and Joseph A. Konstan. 2015. The MovieLens Datasets: History and Context. '
             'ACM Transactions on Interactive Intelligent Systems (TiiS) 5, 4: 19:1-19:19. https://doi.org/10.1145/2827872')
@@ -244,7 +244,7 @@ def import_movielens(out: Path = DEFAULT_OUT, cache: Path = DEFAULT_CACHE, log=p
 def _build_neighbours(catalogue: Path, ratings: Path, catalogue_ids, log):
     """Collaborative-filtering neighbours and popularity next to the catalogue, when NumPy (the datasets extra) is installed."""
     if importlib.util.find_spec('numpy') is None:
-        log('Skipping collaborative filtering: pip install -e ".[datasets]" and re-run to add it')
+        log('Skipping collaborative filtering: NumPy is missing; reinstall Flicks and run flicks setup again')
         return None
     rows = neighbours.read_ratings(ratings)
     built = neighbours.build(rows, catalogue_ids)
@@ -266,7 +266,7 @@ def main(argv=None):
     print(f"Wrote {result['titles']} titles to {args.out}")
     for reason, count in result['skipped'].items():
         print(f'  skipped {count}: {reason}')
-    print(f'Run: flicks --catalog {args.out} --db {HOME/"movielens.sqlite3"}')
+    print('Run: flicks' + ('' if args.out == DEFAULT_OUT else f' --catalog {args.out}'))
 
 
 if __name__ == '__main__':

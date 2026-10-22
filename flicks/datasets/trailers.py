@@ -27,7 +27,7 @@ import re
 import zipfile
 
 from .. import net
-from ..config import DEFAULT_CATALOG
+from ..config import default_films
 from ..core import load_catalog
 from ..text import title_key
 from ..trailers import FORMAT, YOUTUBE_ID, trailers_path
@@ -133,10 +133,11 @@ def import_trailers(catalog_path, *, cache=DEFAULT_CACHE, check=False, log=print
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description='Match catalogue films to YouTube trailers for Discover')
-    parser.add_argument('--catalog', type=Path, default=DEFAULT_CATALOG, help=f'Catalogue to match (default {DEFAULT_CATALOG})')
+    parser.add_argument('--catalog', type=Path, default=None, help='Catalogue to match (default: the imported MovieLens one, else the demo)')
     parser.add_argument('--cache', type=Path, default=DEFAULT_CACHE)
     parser.add_argument('--verify', action='store_true', help='Drop videos YouTube no longer embeds (sends video IDs to YouTube)')
     args = parser.parse_args(argv)
+    args.catalog = args.catalog or default_films()
     print('Only the public trailer list is downloaded; your catalogue and ratings are not sent.')
     result = import_trailers(args.catalog, cache=args.cache, check=args.verify)
     print(f"{result['kept']} of {result['films']} films have a trailer ({result['matched']} matched) -> {result['path']}")

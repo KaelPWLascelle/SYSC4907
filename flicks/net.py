@@ -5,15 +5,20 @@ Browsing, rating and asking never make remote requests (docs/adr/0001-local-firs
 actions do, and they send public catalogue data only (docs/adr/0011-streaming.md).
 """
 import functools
+from http.client import IncompleteRead
 import ipaddress
 import json
 from pathlib import Path
 import ssl
-from urllib import parse, request
+import time
+from urllib import error, parse, request
 
 USER_AGENT = 'Flicks (SYSC 4907 student project; https://github.com/KaelPWLascelle/SYSC4907)'
 CHUNK = 256 * 1024
 WEB_SCHEMES = frozenset({'http', 'https'})
+# Waits before retrying a request that failed for a temporary reason (a timeout, a dropped connection,
+# HTTP 429 or 5xx): a long import should not fail on one blip from Wikipedia or TVmaze.
+RETRY_WAITS = (2, 6, 15)
 
 
 @functools.cache
@@ -26,11 +31,21 @@ def ssl_context():
     return context
 
 
-def get(url, limit, *, accept='*/*', timeout=30):
-    """The response body, refusing anything larger than `limit` bytes."""
+def get(url, limit, *, accept='*/*', timeout=30, waits=RETRY_WAITS):
+    """The response body, refusing anything larger than `limit` bytes. Temporary failures are retried."""
     req = request.Request(url, headers={'User-Agent': USER_AGENT, 'Accept': accept})
-    with request.urlopen(req, timeout=timeout, context=ssl_context()) as reply:
-        data = reply.read(limit + 1)
+    for wait in (*waits, None):
+        try:
+            with request.urlopen(req, timeout=timeout, context=ssl_context()) as reply:
+                data = reply.read(limit + 1)
+            break
+        except error.HTTPError as failure:
+            if wait is None or not (failure.code == 429 or failure.code >= 500):
+                raise
+        except (error.URLError, TimeoutError, ConnectionError, IncompleteRead):  # IncompleteRead: dropped mid-body
+            if wait is None:
+                raise
+        time.sleep(wait)
     if len(data) > limit:
         raise ValueError('response too large')
     return data

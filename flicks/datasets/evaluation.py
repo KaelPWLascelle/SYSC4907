@@ -1,6 +1,6 @@
 """Offline evaluation of recommendation quality on MovieLens: leave-one-out, without leakage.
 
-    python -m flicks.datasets.evaluation        # needs the MovieLens catalogue and the [datasets] extra
+    python -m flicks.datasets.evaluation        # needs the MovieLens catalogue (flicks setup)
 
 Protocol (docs/evaluation.md):
 - Users with at least MIN_LIKES liked catalogue films (rating >= LIKE) are evaluated. One liked film
