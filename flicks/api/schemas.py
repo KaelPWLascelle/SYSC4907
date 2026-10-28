@@ -116,3 +116,4 @@ class ConciergeIn(Body):
     messages: list[MessageIn] = Field(min_length=1, max_length=12)
     session: SessionIn = Field(default_factory=SessionIn)
     shown: list[StrictStr] = Field(default_factory=list, max_length=30)
+    previous: list[StrictStr] = Field(default_factory=list, max_length=8)  # the last reply's titles, for follow-ups

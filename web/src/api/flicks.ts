@@ -53,9 +53,9 @@ export const flicksApi = {
     onEvent: (event: AskTitleEvent) => void,
     signal?: AbortSignal,
   ) => streamLines<AskTitleEvent>('/api/ask-title', { ...json('POST', query), signal }, onEvent),
-  /** The corner chat: the next question, or three picks (assistant/concierge.py). */
+  /** The corner chat: an answer with titles, or the next question (assistant/concierge.py, open_chat.py). */
   concierge: (
-    query: { messages: ConciergeMessage[]; session: Session; shown: string[] },
+    query: { messages: ConciergeMessage[]; session: Session; shown: string[]; previous: string[] },
     onEvent: (event: ConciergeEvent) => void,
     signal?: AbortSignal,
   ) => streamLines<ConciergeEvent>('/api/concierge', { ...json('POST', query), signal }, onEvent),

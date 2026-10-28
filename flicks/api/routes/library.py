@@ -160,11 +160,11 @@ def ask_title(body: AskTitleIn, svc: Services = Depends(services), me: Viewer = 
 
 @router.post('/api/concierge')
 def concierge(body: ConciergeIn, svc: Services = Depends(services), me: Viewer = Depends(viewer)):
-    """The corner chat (assistant/concierge.py): the next question, or three picks, streamed as
-    newline-delimited JSON: {"understood"}, maybe {"picks", "session"}, {"delta"} pieces, then {"done"}."""
+    """The corner chat (assistant/concierge.py, open_chat.py): an answer with titles, or the next question,
+    streamed as newline-delimited JSON: {"understood"}, maybe {"picks"}, {"delta"} pieces, then {"done"}."""
     with client_errors():
         events = svc.concierge.converse(me.ratings.all(), body.session.to_domain(),
-                                        [m.model_dump() for m in body.messages], set(body.shown))
+                                        [m.model_dump() for m in body.messages], set(body.shown), body.previous)
         first = next(events)  # reads the conversation now, so bad input is a 400 rather than a broken stream
 
     def lines():

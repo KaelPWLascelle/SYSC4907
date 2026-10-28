@@ -39,18 +39,19 @@ class EmbeddedChat:
         self.load_seconds = None
 
     # ---- Chat protocol ----
-    def complete(self, messages, *, json_mode=False, max_tokens=300, wait=None):
-        return ''.join(self.stream(messages, max_tokens=max_tokens, wait=wait, json_mode=json_mode)).strip()
+    def complete(self, messages, *, json_mode=False, max_tokens=300, wait=None, schema=None):
+        return ''.join(self.stream(messages, max_tokens=max_tokens, wait=wait, json_mode=json_mode, schema=schema)).strip()
 
-    def stream(self, messages, *, max_tokens=300, wait=None, json_mode=False):
-        """Yield the reply's text as it is generated. Thinking blocks are dropped."""
+    def stream(self, messages, *, max_tokens=300, wait=None, json_mode=False, schema=None):
+        """Yield the reply's text as it is generated. Thinking blocks are dropped. `schema`: a JSON schema the
+        reply must follow (with json_mode), enforced while sampling by llama.cpp's grammar."""
         if not self.lock.acquire(timeout=60 if wait is None else wait):
             raise LLMError('The built-in model is busy; try again in a moment')
         try:
             llm = self._load()
             options = {'stream': True, 'max_tokens': max_tokens, 'temperature': 0.2}
             if json_mode:
-                options['response_format'] = {'type': 'json_object'}
+                options['response_format'] = {'type': 'json_object', **({'schema': schema} if schema else {})}
             buffer, thinking, started = '', False, False
             for chunk in llm.create_chat_completion(messages, **options):
                 delta = chunk['choices'][0]['delta'].get('content')

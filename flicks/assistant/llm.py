@@ -28,7 +28,7 @@ class Chat(Protocol):
     model: str
 
     def complete(self, messages: list[dict], *, json_mode: bool = False, max_tokens: int = 300,
-                 wait: float | None = None) -> str: ...
+                 wait: float | None = None, schema: dict | None = None) -> str: ...
 
 
 class LocalChat:
@@ -48,8 +48,9 @@ class LocalChat:
         self.lock = threading.Lock()
         self._status = None  # (checked at, status)
 
-    def complete(self, messages, *, json_mode=False, max_tokens=300, wait=None):
-        """`wait`: how long to wait for an earlier generation to finish first (default: the timeout)."""
+    def complete(self, messages, *, json_mode=False, max_tokens=300, wait=None, schema=None):
+        """`wait`: how long to wait for an earlier generation to finish first (default: the timeout).
+        `schema` is not sent: servers differ in how they take one, and callers validate the JSON anyway."""
         body = {'model': self.model, 'messages': messages, 'temperature': 0.2, 'max_tokens': max_tokens,
                 'stream': False, 'reasoning_effort': 'none'}  # thinking models: answer directly; latency matters
         if json_mode:

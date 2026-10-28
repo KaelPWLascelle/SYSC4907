@@ -129,12 +129,15 @@ export interface ConciergeMessage {
   text: string;
 }
 
-/** What Flicks understood, then maybe three picks, then the reply word by word and the finished reply. */
+/**
+ * What Flicks understood, then maybe titles (with a scene for Home when they are picks for tonight), then
+ * the reply word by word (with a model, one checked sentence at a time) and the finished reply.
+ */
 export type ConciergeEvent =
   | { understood: string[]; patch: Partial<Session> }
-  | { picks: Recommendation[]; session: Session }
+  | { picks: Recommendation[]; session?: Session }
   | { delta: string }
-  | { done: true; step: 'mood' | 'time' | 'picks'; text: string; model: boolean };
+  | { done: true; step: 'mood' | 'time' | 'picks' | 'answer' | 'help'; text: string; model: boolean };
 
 /** One finished question and answer about a title, sent back for follow-up questions. */
 export interface AskTurn {
