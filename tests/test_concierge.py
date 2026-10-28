@@ -58,6 +58,22 @@ class ConciergeTests(unittest.TestCase):
             self.assertFalse(events[-1]['model'])
             self.assertIn(names[0], events[-1]['text'])
 
+    def test_a_reply_cut_off_by_the_token_limit_ends_at_its_last_whole_sentence(self):
+        chat = FakeChat('Got it, something tense? How much time do you',
+                        'All three suit a tense night. The first is a slow burn that',
+                        'These three are all')
+        with tempfile.TemporaryDirectory() as temp, app_client(Path(temp), chat=chat) as (client, _):
+            _, events = ask(client, 'something tense')
+            self.assertEqual(events[-1], {'done': True, 'step': 'time', 'text': 'Got it, something tense?', 'model': True})
+            _, events = ask(client, 'something tense', 'about 90 minutes')
+            self.assertEqual(events[-1]['text'], 'All three suit a tense night.')
+            self.assertTrue(events[-1]['model'])
+            # No sentence finished: Flicks' own sentence instead.
+            _, events = ask(client, 'something tense', 'about 90 minutes')
+            names = [p['content']['title'] for p in next(e for e in events if 'picks' in e)['picks']]
+            self.assertFalse(events[-1]['model'])
+            self.assertIn(names[0], events[-1]['text'])
+
     def test_rejects_an_empty_conversation(self):
         with tempfile.TemporaryDirectory() as temp, app_client(Path(temp)) as (client, _):
             reply, _ = ask(client, '   ')
