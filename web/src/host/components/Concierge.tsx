@@ -14,6 +14,8 @@ interface ConciergeProps {
   onOpen: (item: Content) => void;
   /** Make the settings the conversation arrived at the scene on Home. */
   onApply: (session: Session) => void;
+  /** A language model is available: the chat takes any question (assistant/open_chat.py). */
+  open?: boolean;
 }
 
 interface Line extends ConciergeMessage {
@@ -26,13 +28,23 @@ interface Line extends ConciergeMessage {
 }
 
 const GREETING: Line = { role: 'assistant', text: 'Hi! What are you in the mood for tonight?' };
+const OPEN_GREETING: Line = {
+  role: 'assistant',
+  text: 'Hi! Ask me for a mood, a person, a film you love, or anything about a title.',
+};
 const STARTERS = ['Cozy and funny', 'Edge of my seat', 'Something thoughtful', 'Surprise me'];
+const OPEN_STARTERS = ['Cozy and funny', 'Tom Hanks films', 'Something like Arrival', 'Surprise me'];
 const AFTER_PICKS = ['Show me others', 'Under 90 minutes', 'Something lighter'];
+const OPEN_AFTER_PICKS = ['Show me others', 'Which is shortest?', 'Something lighter'];
 
-/** The corner chat: a few questions, then three picks for tonight. Works without a language model. */
-export function Concierge({ session, onOpen, onApply }: ConciergeProps) {
+/**
+ * The corner chat. With a language model it takes any question and answers from what Flicks finds; without
+ * one it asks a few questions, then offers three picks for tonight.
+ */
+export function Concierge({ session, onOpen, onApply, open: answers = false }: ConciergeProps) {
+  const greeting = answers ? OPEN_GREETING : GREETING;
   const [open, setOpen] = useState(false);
-  const [lines, setLines] = useState<Line[]>([GREETING]);
+  const [lines, setLines] = useState<Line[]>([greeting]);
   const [draft, setDraft] = useState('');
   const [shown, setShown] = useState<string[]>([]);
   const library = useLibrary();
@@ -70,7 +82,13 @@ export function Concierge({ session, onOpen, onApply }: ConciergeProps) {
     controller.current = new AbortController();
     flicksApi
       .concierge(
-        { messages: conversation.map(({ role, text: said }) => ({ role, text: said })), session, shown },
+        {
+          messages: conversation.map(({ role, text: said }) => ({ role, text: said })),
+          session,
+          shown,
+          // The last titles shown, for follow-ups such as "which is shortest?".
+          previous: lines.findLast(line => line.picks)?.picks?.map(pick => pick.content.id) ?? [],
+        },
         event => {
           if ('understood' in event) {
             setLines(current =>
@@ -99,7 +117,7 @@ export function Concierge({ session, onOpen, onApply }: ConciergeProps) {
 
   const restart = () => {
     controller.current?.abort();
-    setLines([GREETING]);
+    setLines([greeting]);
     setShown([]);
     input.current?.focus();
   };
@@ -109,7 +127,17 @@ export function Concierge({ session, onOpen, onApply }: ConciergeProps) {
     send(draft);
   };
 
-  const replies = busy ? [] : lines.length === 1 ? STARTERS : last?.picks ? AFTER_PICKS : [];
+  const replies = busy
+    ? []
+    : lines.length === 1
+      ? answers
+        ? OPEN_STARTERS
+        : STARTERS
+      : last?.picks
+        ? answers
+          ? OPEN_AFTER_PICKS
+          : AFTER_PICKS
+        : [];
 
   return (
     <>

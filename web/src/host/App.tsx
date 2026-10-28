@@ -482,6 +482,7 @@ function Home({ initial, onProfile }: { initial: AppState; onProfile?: () => voi
       {!discoverOpen && !playing && (
         <Concierge
           session={session}
+          open={initial.llm?.available ?? false}
           onOpen={setDetails}
           onApply={scene => {
             setSession(scene);

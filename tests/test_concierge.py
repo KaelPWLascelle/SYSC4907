@@ -48,20 +48,21 @@ class ConciergeTests(unittest.TestCase):
             self.assertFalse(again & {item['id'] for item in first})
 
     def test_the_model_words_the_reply_and_a_stray_title_falls_back(self):
-        chat = FakeChat('How long have you got tonight?', 'Try Blade Runner instead.')
+        # Without a plan from the model, the questions; the model still words them.
+        chat = FakeChat('no plan', 'How long have you got tonight?', 'no plan', 'Try Blade Runner instead.')
         with tempfile.TemporaryDirectory() as temp, app_client(Path(temp), chat=chat) as (client, _):
             _, events = ask(client, 'something tense')
             self.assertEqual(events[-1], {'done': True, 'step': 'time', 'text': 'How long have you got tonight?', 'model': True})
-            self.assertIn('"they said": "something tense"', chat.requests[0]['messages'][1]['content'])
+            self.assertIn('"they said": "something tense"', chat.requests[1]['messages'][1]['content'])
             _, events = ask(client, 'something tense', 'about 90 minutes')
             names = [p['content']['title'] for p in next(e for e in events if 'picks' in e)['picks']]
             self.assertFalse(events[-1]['model'])
             self.assertIn(names[0], events[-1]['text'])
 
     def test_a_reply_cut_off_by_the_token_limit_ends_at_its_last_whole_sentence(self):
-        chat = FakeChat('Got it, something tense? How much time do you',
-                        'All three suit a tense night. The first is a slow burn that',
-                        'These three are all')
+        chat = FakeChat('no plan', 'Got it, something tense? How much time do you',
+                        'no plan', 'All three suit a tense night. The first is a slow burn that',
+                        'no plan', 'These three are all')
         with tempfile.TemporaryDirectory() as temp, app_client(Path(temp), chat=chat) as (client, _):
             _, events = ask(client, 'something tense')
             self.assertEqual(events[-1], {'done': True, 'step': 'time', 'text': 'Got it, something tense?', 'model': True})

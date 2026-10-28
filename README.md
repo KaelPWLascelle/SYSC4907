@@ -46,7 +46,8 @@ remove Flicks, run `pipx uninstall flicks`, and delete `~/.flicks` if you also w
 ### Optional: the chats' language model
 
 The corner chat works without it. With it, a small language model inside Flicks (Qwen3.5 2B, about
-1.4 GB) answers questions about any title and words the corner chat's replies:
+1.4 GB) answers questions about any title, and the corner chat takes any question ("Do we have any RDJ
+movies?", "something like Toy Story but for adults", "which of those is shortest?"):
 
 ```sh
 flicks setup --model
@@ -56,7 +57,7 @@ pipx inject flicks llama-cpp-python
 The first command downloads the model and checks its fingerprint. The second installs the runtime. On
 some computers it compiles llama.cpp, which takes a few minutes and needs a C compiler: Xcode Command
 Line Tools on macOS, or Visual Studio Build Tools on Windows. Flicks then loads the model automatically
-(`flicks --no-llm` to turn it off). Answers take one to four seconds and can be wrong. If you
+(`flicks --no-llm` to turn it off). Answers take one to six seconds and can be wrong. If you
 downloaded the earlier model (Qwen2.5 1.5B), run `flicks setup --model` again; the old file in
 `~/.flicks/models` can then be deleted. See
 [ADR 0019](docs/adr/0019-title-chat.md).
@@ -72,7 +73,9 @@ downloaded the earlier model (Qwen2.5 1.5B), run `flicks setup --model` again; t
   before it applies. A tiny model trained for Flicks (under 2 MB, no GPU) reads "long week, I want to
   switch off, nothing scary" into the evening's settings.
 - **The corner chat.** The round button in the bottom corner asks what you're in the mood for and how much
-  time you have, then offers three picks you can open, swap for others, or make the scene on Home.
+  time you have, then offers three picks you can open, swap for others, or make the scene on Home. With
+  the optional model it takes any question: a person, a franchise, titles like one you love, or a
+  follow-up about what it just showed.
 - **Ask about a title.** With the optional model, ask any title "Who's in it?", "Is it scary?" or "Why this pick?".
 - **Play your own files and public-domain films.** MP4 and WebM stream with seeking, and progress is
   saved. About 60 films that are public domain in the US stream from the Internet Archive.
@@ -229,6 +232,7 @@ Measurements (not run in CI; results are in [docs/test-report.md](docs/test-repo
 .venv/bin/python -m flicks.datasets.ask --evaluate-only  # the Ask student on its held-out test set
 .venv/bin/python -m flicks.assistant.agent_eval --no-llm # the Ask pipeline on hard cases
 .venv/bin/python -m flicks.assistant.title_chat_eval ~/.flicks/models/Qwen3.5-2B-Q4_K_M.gguf  # the title chat, scored by hand
+.venv/bin/python -m flicks.assistant.open_chat_eval ~/.flicks/models/Qwen3.5-2B-Q4_K_M.gguf   # the open corner chat
 ```
 
 **Releasing.** Bump `version` in `pyproject.toml`, merge, then tag the merge commit `v<version>` and push the

@@ -16,6 +16,7 @@ import re
 from ..core import MOODS, Session
 from ..text import normalize
 from .llm import LLMError
+from .open_chat import OpenChat
 
 MAX_MESSAGES = 12
 MAX_TEXT = 300
@@ -83,6 +84,8 @@ class Concierge:
     def __init__(self, recommender, titles, interpreter, similar, chat=None, checker=None):
         self.recommender, self.titles, self.interpreter, self.similar = recommender, titles, interpreter, similar
         self.chat, self.checker = chat, checker  # checker: narrator.Narrator, for spotting catalogue titles
+        # With a model, the chat is open: any question, answered from what Flicks' tools find (open_chat.py).
+        self.open = OpenChat(self) if chat is not None and checker is not None else None
 
     # ---------- reading ----------
     def read(self, texts):
@@ -155,13 +158,24 @@ class Concierge:
         return session, self.recommender.picks(feedback, chosen, scores), bool(filtered) or not (wish.genres or wish.years)
 
     # ---------- talking ----------
-    def converse(self, feedback, base, messages, shown=()):
-        """Yield events: {"understood"}, maybe {"picks"}, {"delta"}s, then {"done"}."""
-        messages = list(messages)[-MAX_MESSAGES:]
-        texts = [' '.join(str(m['text']).split())[:MAX_TEXT] for m in messages if m['role'] == 'user']
-        texts = [t for t in texts if t]
+    def converse(self, feedback, base, messages, shown=(), previous=()):
+        """Yield events: {"understood"}, maybe {"picks"}, {"delta"}s, then {"done"}. `previous`: the titles of
+        the last reply, for follow-ups ("which of those is shortest?")."""
+        messages = [{'role': m['role'], 'text': ' '.join(str(m['text']).split())[:MAX_TEXT]}
+                    for m in list(messages)[-MAX_MESSAGES:]]
+        texts = [m['text'] for m in messages if m['role'] == 'user' and m['text']]
         if not texts:
             raise ValueError('Say what you feel like watching')
+        if self.open is not None:
+            events = self.open.converse(feedback, base, [m for m in messages if m['text']], shown, previous)
+            try:
+                first = next(events)
+            except LLMError:
+                pass  # the model could not plan (busy, failed): the questions below, in Flicks' own words
+            else:
+                yield first
+                yield from events
+                return
         wish = self.read(texts)
         # Questions asked so far: answers to them are the user turns after the first assistant message.
         step = self.next_step(wish, len(texts))

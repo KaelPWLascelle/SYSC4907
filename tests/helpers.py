@@ -40,8 +40,8 @@ class FakeChat:
     def __init__(self, *replies, error=None):
         self.replies, self.error, self.requests = list(replies), error, []
 
-    def complete(self, messages, *, json_mode=False, max_tokens=300, wait=None):
-        self.requests.append({'messages': list(messages), 'json_mode': json_mode, 'wait': wait})
+    def complete(self, messages, *, json_mode=False, max_tokens=300, wait=None, schema=None):
+        self.requests.append({'messages': list(messages), 'json_mode': json_mode, 'wait': wait, 'schema': schema})
         if self.error:
             raise self.error
         if not self.replies:

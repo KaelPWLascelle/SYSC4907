@@ -32,7 +32,7 @@ chat?
   are skipped), or make the settings the scene on Home. **Code decides what to ask and what to pick; the
   model only words the question and the pitch** from facts the code chose, and a reply that names a title
   it was not given falls back to Flicks' own sentence. So the chat works without any model, and a weak
-  model can only make the wording worse, never the picks.
+  model can only make the wording worse, never the picks. With a model it is now open (below).
 
 ## Evaluation
 Three titles (Arrival, Toy Story, Breaking Bad) × 8 questions: director, cast, plot, why it was picked,
@@ -90,9 +90,37 @@ Same machine; scored by hand as above.
 low-memory machines (`--llm-file`). Twenty-four questions are too few to claim the proposal's 95%
 groundedness target.
 
+### An open corner chat (2026-10-28)
+With only two questions to word, the chat could not answer "Do we have any RDJ movies?", "Iron Man", "Pixar"
+or "what can you do?", and the Ask student read "Pixar" and "anime" as *no animation*. We accept a little
+less accuracy in the wording for a chat that takes any question. Following the pattern that works for
+1–4B models (one call to plan, code to act, one call to answer; TinyAgent, "Small LLMs Are Weak Tool
+Learners"), with a model the chat now runs `flicks/assistant/open_chat.py`:
+- **Plan:** one reply held to a JSON schema by llama.cpp's grammar: `find` (words to search, such as a
+  person, franchise or topic, and/or a mood, genres, length, decade, films or series), `similar`, `about`
+  one title, `previous` (the titles just shown) or `help`. Flicks' own readers overrule it for lengths
+  ("an hour and a half"), decades, films or series and genres to avoid, and filters the viewer did not say
+  are dropped: small models fill optional fields.
+- **Act, in code:** search on the titles' own words (descriptions name casts and directors), titles
+  most like one, the recommender's picks for a mood (as before), or a title's full entry. Results are
+  ordered by Flicks' ranking, so "Robert Downey Jr." starts with Iron Man.
+- **Answer:** the model writes a few sentences from the results only, told why each matched. Each sentence
+  is checked when it finishes and shown only if every title it names is in the results, a title the
+  search matched, or one the viewer said. Nothing shown is taken back, and the cards are always the tool's
+  real titles. If the model cannot plan (busy or failed), the two questions above still work.
+
+On 32 requests and 4 follow-ups (`python -m flicks.assistant.open_chat_eval MODEL.gguf`, empty profile,
+Metal), Qwen3.5 2B answered about 27 of the 32 well, judged by hand, and all 4 follow-ups (the old chat
+about 8 of the 32): Iron
+Man found its sequels and the Avengers, RDJ his films, Pixar its films, Star Wars the original trilogy, "which of
+those is the shortest?" the right one. The median reply took 4.0 s and the slowest 6.0 s, including a
+2.4 s model load. The wording is less reliable than the cards: it sometimes adds a wrong detail (it gave The
+Prestige Inception's running time), and a mood alone on an empty profile still gives crowd favourites.
+
 ## Next
 - Answer the predictable questions in code (fits tonight, why this pick, who directed it, when the
   description says), like the Ask rules, and keep the model for open questions.
+- Measure the open chat on the CPU, and score its answers automatically where the results hold the answer.
 - Grow the question set to about 50 across many titles, and score groundedness automatically where the
   answer is in the facts.
 - Try Gemma 3 1B, and the same model for narrated explanations.
