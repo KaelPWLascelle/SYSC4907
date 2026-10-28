@@ -55,17 +55,47 @@ pad the reasons with plot, and true facts the catalogue does not hold (Randy New
 Telling the model the age rating is unknown fixed the worst of it. Llama 3.2 1B often starts with a stray
 "You." and once said "You liked Breaking Bad" as the reason for Breaking Bad.
 
-**Choice for now: Qwen2.5 1.5B Instruct** (Apache 2.0, so it can ship with Flicks). It answers factual
-questions best and is honest about gaps, within the proposal's 1.5 GB and 5 s targets on Metal; on a CPU
-its long answers can exceed 5 s. Qwen2.5 0.5B is the fallback for low-memory machines. None reaches the
-proposal's 95% groundedness target yet.
+**First choice (2026-10-22): Qwen2.5 1.5B Instruct.** It answered factual questions best and was honest
+about gaps, within the proposal's 1.5 GB and 5 s targets on Metal.
+
+### Qwen3.5 (2026-10-28)
+The Qwen3.5 small models (March 2026, Apache 2.0) run on the same llama.cpp (llama-cpp-python 0.3.36).
+The same 24 questions, now through the app's own prompt and answer check
+(`python -m flicks.assistant.title_chat_eval MODEL.gguf [--cpu]`), with Qwen2.5 1.5B re-run alongside.
+Same machine; scored by hand as above.
+
+| Model (Q4_K_M) | File | Added memory, Metal (CPU) | Metal: first words / full answer (median, worst) | CPU only: first words / full (median, worst) | Right / partly / wrong |
+|---|---:|---:|---|---|---|
+| Qwen2.5 1.5B Instruct | 1.0 GB | 1.1 GB (2.0 GB) | 0.06 s / 0.70 s (2.1 s) | 0.08 s / 1.2 s (2.6 s) | 14 / 7 / 3 |
+| Qwen3.5 0.8B | 0.6 GB | 0.8 GB (1.3 GB) | 0.31 s / 0.62 s (1.0 s) | 1.2 s / 1.6 s (2.4 s) | 15 / 3 / 6 |
+| **Qwen3.5 2B** | 1.4 GB | 1.4 GB (2.3 GB) | 0.69 s / 1.4 s (2.1 s) | 2.5 s / 3.5 s (4.2 s) | **21 / 3 / 0** |
+
+- **Qwen3.5 2B gets nothing wrong.** Asked whether a title is OK for kids, it says Flicks doesn't know the
+  age rating, where Qwen2.5 1.5B still answered "suitable for kids" for Arrival and Toy Story. "Why was this
+  recommended?" names the liked films ("because you liked Interstellar and Contact") instead of padding with
+  plot, and it declines the Alien comparison. Its partly right answers add true facts that are not in the
+  catalogue (Breaking Bad's meth cooking), and once it used markdown italics.
+- **Qwen3.5 0.8B is not an upgrade:** it named Steven Spielberg as Breaking Bad's director, rated Toy Story
+  "for kids aged 6 and up" and judged Breaking Bad "better than Alien".
+- **Every answer starts later.** Qwen3.5 reads the title's facts again for each question (0.7 s on Metal,
+  2.5 s on the CPU) where Qwen2.5 reuses them for follow-ups, likely because Qwen3.5's recurrent layers
+  cannot reuse part of a cached prompt. Still well within 5 s, including the CPU's worst case.
+- **No thinking.** With the `/no_think` the prompts already add for Qwen3 names, no answer opened a
+  `<think>` block.
+- **Memory is tight:** 1.43 GB added on Metal against the 1.5 GB target. On the CPU every model, Qwen2.5
+  included, adds more than 1.5 GB.
+
+**Choice now: Qwen3.5 2B** (Apache 2.0). It is the first model with no wrong answers on this set, within the
+1.5 GB and 5 s targets on Metal and within 5 s on the CPU. Qwen2.5 0.5B remains the fallback for
+low-memory machines (`--llm-file`). Twenty-four questions are too few to claim the proposal's 95%
+groundedness target.
 
 ## Next
 - Answer the predictable questions in code (fits tonight, why this pick, who directed it, when the
   description says), like the Ask rules, and keep the model for open questions.
 - Grow the question set to about 50 across many titles, and score groundedness automatically where the
   answer is in the facts.
-- Try Qwen3 1.7B and Gemma 3 1B, and the same model for narrated explanations.
+- Try Gemma 3 1B, and the same model for narrated explanations.
 - Other places the same pattern fits (code decides, the model words it): a spoken summary of "Your
   taste", a one-line reason on each Discover card, and an icebreaker in couch mode ("Two of you liked
   heist films…").
@@ -73,5 +103,5 @@ proposal's 95% groundedness target yet.
 ## Consequences
 - `pip install 'flicks[llm]'` builds or downloads llama.cpp (prebuilt Metal wheels were corrupt on
   2026-10-22; building from source needs CMake, installable with pip). Model files are downloaded by the
-  user, about 1 GB, and are not redistributed by Flicks.
+  user, about 1.4 GB, and are not redistributed by Flicks.
 - Without `--llm-file` nothing changes: no panel, no extra memory.

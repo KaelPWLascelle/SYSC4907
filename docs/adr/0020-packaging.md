@@ -25,8 +25,8 @@ so `pip install git+https://…` gave a server with no page. Collaborative filte
   already found automatically. The model setup downloaded is loaded when llama-cpp-python is installed
   (`--no-llm` turns it off). The trailer import now also defaults to the imported catalogue, as its
   documentation said; it used to default to the 36-film demo.
-- **The model download is pinned and checked.** `flicks setup --model` fetches Qwen2.5 1.5B Instruct
-  (Q4_K_M, Apache 2.0) from one Hugging Face revision, resumes an interrupted download, and keeps the file
+- **The model download is pinned and checked.** `flicks setup --model` fetches Qwen3.5 2B
+  (Q4_K_M, Apache 2.0; Qwen2.5 1.5B Instruct until 2026-10-28) from one Hugging Face revision, resumes an interrupted download, and keeps the file
   only if its SHA-256 matches, so the file that runs is the one the team evaluated (ADR 0019). The runtime
   stays an extra (`pipx inject flicks llama-cpp-python`): it compiles llama.cpp on some machines and most
   users never need it.
