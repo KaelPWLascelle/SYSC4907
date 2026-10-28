@@ -26,6 +26,7 @@ QUESTIONS = {
     'mood': 'What are you in the mood for? A feeling, a genre or a film you loved all work.',
     'time': 'How much time do you have tonight?',
 }
+SENTENCE_END = re.compile(r'[.!?…]["”’)]*(?=\s|$)')
 VOICE = ('You are Flicks, a warm, brief film concierge inside a video player, talking to the viewer as "you". '
          'Plain text only, no lists or markdown.')
 ASK = VOICE + (' Write one short, friendly question (at most 20 words) asking the viewer about {topic}. You may '
@@ -208,7 +209,7 @@ class Concierge:
         except LLMError:
             yield from self._done(fallback, step, False)
             return
-        text = ' '.join(text.split())
+        text = _whole_sentences(' '.join(text.split()))
         if self._grounded(text, allowed, question):
             yield from self._done(text, step, True)
         else:
@@ -230,3 +231,11 @@ class Concierge:
     @staticmethod
     def _done(text, step, worded):
         yield {'done': True, 'step': step, 'text': text, 'model': worded}
+
+
+def _whole_sentences(text):
+    """The reply up to its last finished sentence: the token limit can stop a model mid-sentence ("...a
+    nostalgic, heartwarming romance perfect"). Nothing is left when no sentence finished, so Flicks' own
+    sentence is used instead."""
+    ends = list(SENTENCE_END.finditer(text))
+    return text[:ends[-1].end()] if ends else ''
