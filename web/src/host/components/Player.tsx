@@ -1,20 +1,28 @@
-import { type SyntheticEvent, useCallback, useEffect, useRef, useState } from 'react';
+import { type CSSProperties, type SyntheticEvent, useCallback, useEffect, useRef, useState } from 'react';
 
 import { mediaUrl } from '../../api/flicks';
 import type { PlayerState, Rating, TitleRef } from '../../api/types';
 import { Icon } from '../../components/Icon';
 import { RateButtons } from '../../components/RateButtons';
 import { cx } from '../../lib/cx';
+import { runtime } from '../../lib/format';
 import { prefersReducedMotion } from '../../lib/motion';
+import { clockAfter } from '../../lib/useNow';
 
 const SAVE_EVERY_MS = 10_000;
 const CHROME_HIDE_MS = 2500;
 const MEDIA_ERR_SRC_NOT_SUPPORTED = 4; // HTMLMediaElement.error.code (spec value; not every environment defines MediaError)
 const UP_NEXT_SECONDS = 10;
+/** Paused this long, the screen becomes an intermission card. */
+const INTERMISSION_MS = 5 * 60_000;
+/** The film leader before a film starts from the beginning: 3, 2, 1, each this long. */
+const LEADER_STEP_MS = 800;
 
 interface PlayerProps {
   item: TitleRef;
   startAt: number;
+  /** Count in with a few frames of film leader before playing (starting from the beginning). */
+  leader?: boolean;
   directPlay: boolean;
   /** Where a remote title streams from (through Flicks), for error messages; null for local files. */
   streamedFrom?: string | null;
@@ -34,6 +42,7 @@ interface PlayerProps {
 export function Player({
   item,
   startAt,
+  leader = false,
   directPlay,
   streamedFrom = null,
   remote,
@@ -53,6 +62,10 @@ export function Player({
   const [chromeVisible, setChromeVisible] = useState(true);
   const [ended, setEnded] = useState(false);
   const hideTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const [counting, setCounting] = useState(() => leader && !prefersReducedMotion());
+  const [intermission, setIntermission] = useState<{ position: number; duration: number; ends: string } | null>(null);
+  const intermissionTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => () => clearTimeout(intermissionTimer.current), []);
 
   const save = useCallback(() => {
     const node = video.current;
@@ -107,7 +120,7 @@ export function Player({
     },
     src: mediaUrl(item.id),
     controls: true,
-    autoPlay: true,
+    autoPlay: !counting,
     onLoadedMetadata: (event: SyntheticEvent<HTMLMediaElement>) => {
       const node = event.currentTarget;
       // Whether to resume is decided once, by the server's `resumable` rule; only guard a stale position
@@ -118,15 +131,30 @@ export function Player({
       if (Date.now() - lastSave.current >= SAVE_EVERY_MS) save();
     },
     onPlay: () => {
+      clearTimeout(intermissionTimer.current);
+      setIntermission(null);
       setEnded(false);
       setAutoplayBlocked(false);
       showChrome();
       onPlayback?.('playing');
     },
-    onPause: () => {
+    onPause: (event: SyntheticEvent<HTMLMediaElement>) => {
       save();
       setChromeVisible(true);
       onPlayback?.('paused');
+      const node = event.currentTarget;
+      clearTimeout(intermissionTimer.current);
+      if (!node.ended && Number.isFinite(node.duration)) {
+        intermissionTimer.current = setTimeout(
+          () =>
+            setIntermission({
+              position: node.currentTime,
+              duration: node.duration,
+              ends: clockAfter(Date.now(), (node.duration - node.currentTime) / 60),
+            }),
+          INTERMISSION_MS,
+        );
+      }
     },
     onEnded: () => {
       save();
@@ -175,6 +203,16 @@ export function Player({
         </button>
       </header>
       <video className="player-video" playsInline {...media} />
+      {counting && (
+        <Leader
+          title={item.title}
+          onDone={() => {
+            setCounting(false);
+            play();
+          }}
+        />
+      )}
+      {intermission && <Intermission item={item} {...intermission} onResume={play} />}
       {ended && (
         <EndCard
           item={item}
@@ -200,6 +238,66 @@ export function Player({
         </div>
       )}
     </dialog>
+  );
+}
+
+/** A few frames of film leader: 3, 2, 1, with the white "two-pop" frame, then the film. */
+function Leader({ title, onDone }: { title: string; onDone: () => void }) {
+  const [count, setCount] = useState(3);
+  const done = useRef(onDone);
+  useEffect(() => {
+    done.current = onDone;
+  });
+  useEffect(() => {
+    const timer = setTimeout(() => (count > 1 ? setCount(count - 1) : done.current()), LEADER_STEP_MS);
+    return () => clearTimeout(timer);
+  }, [count]);
+  return (
+    <div className={cx('leader', count === 1 && 'leader-pop')} aria-hidden="true">
+      <div className="leader-reel">
+        <span>{count}</span>
+      </div>
+      <p>{title}</p>
+    </div>
+  );
+}
+
+/** Paused for a while: an intermission card with what's left, when it would end, and a way back in. */
+function Intermission({
+  item,
+  position,
+  duration,
+  ends,
+  onResume,
+}: {
+  item: TitleRef;
+  position: number;
+  duration: number;
+  /** When the film would end if resumed now ("9:42 pm"). */
+  ends: string;
+  onResume: () => void;
+}) {
+  const left = duration - position;
+  const minutes = Math.max(1, Math.round(left / 60));
+  // A bulb per ten minutes of the film (at most 24): outlined for what you've seen, lit for what's left.
+  const slots = Math.min(24, Math.max(1, Math.ceil(duration / 600)));
+  const seen = Math.floor((slots * position) / duration);
+  return (
+    <div className="intermission" role="region" aria-label="Intermission">
+      <h2>Intermission</h2>
+      <p>
+        {item.title} has {runtime(minutes)} left. Resume now and it ends at {ends}.
+      </p>
+      <span className="bulbs" aria-hidden="true">
+        {Array.from({ length: slots }, (_, k) => (
+          <i key={k} className={k < seen ? 'bulb seen' : 'bulb on'} style={{ '--i': k } as CSSProperties} />
+        ))}
+      </span>
+      <button type="button" className="button button-primary" onClick={onResume}>
+        <Icon name="play" />
+        Resume
+      </button>
+    </div>
   );
 }
 

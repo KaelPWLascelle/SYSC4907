@@ -12,11 +12,11 @@
   padding: 0;
   border: 0;
   border-radius: 50%;
-  background: linear-gradient(145deg, #5e5ce6, var(--accent) 55%, #64d2ff);
+  background: var(--fill-strong);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
   color: #fff;
-  box-shadow:
-    0 12px 30px -8px rgba(10, 132, 255, 0.55),
-    0 4px 12px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
   transition:
     transform 0.25s var(--spring),
     box-shadow 0.25s;
@@ -28,10 +28,8 @@
   transition: transform 0.35s var(--spring);
 }
 .concierge-fab:hover {
-  transform: translateY(-2px) scale(1.04);
-  box-shadow:
-    0 16px 36px -8px rgba(10, 132, 255, 0.65),
-    0 6px 16px rgba(0, 0, 0, 0.5);
+  transform: scale(1.06);
+  background: rgba(255, 255, 255, 0.26);
 }
 .concierge-fab-open {
   background: var(--surface-3);
@@ -89,7 +87,7 @@
   display: grid;
   place-items: center;
   border-radius: 50%;
-  background: linear-gradient(145deg, #5e5ce6, var(--accent) 55%, #64d2ff);
+  background: var(--fill-strong);
 }
 .concierge-avatar svg {
   width: 19px;

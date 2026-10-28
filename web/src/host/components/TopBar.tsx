@@ -11,16 +11,21 @@ interface TopBarProps {
   onTaste?: () => void;
   /** Open the Discover feed. */
   onDiscover?: () => void;
+  /** The house lights: the bulb on the i switches them. */
+  dim?: boolean;
+  onLights?: () => void;
 }
 
-export function TopBar({ couch, onAsk, profile, onProfile, onTaste, onDiscover }: TopBarProps) {
+export function TopBar({ couch, onAsk, profile, onProfile, onTaste, onDiscover, dim, onLights }: TopBarProps) {
   return (
     <header className="topbar">
-      <a className="logo" href="#top" aria-label="Flicks home">
-        <Logo />
-      </a>
+      <div className="logo">
+        <Logo onBulb={onLights} dim={dim} />
+      </div>
       <nav className="nav" aria-label="Sections">
-        <a href="#top">Home</a>
+        <a href="#top" aria-current="page">
+          Tonight
+        </a>
         <a href="#browse">Browse</a>
         {onDiscover && (
           <button type="button" className="nav-button" onClick={onDiscover}>
@@ -35,20 +40,16 @@ export function TopBar({ couch, onAsk, profile, onProfile, onTaste, onDiscover }
         )}
       </nav>
       <div className="topbar-end">
-        <button type="button" className="ask-button" onClick={onAsk}>
+        <button type="button" className="ask-button" onClick={onAsk} title="Ask Flicks (/)">
           <Icon name="mic" />
-          Ask Flicks <kbd>/</kbd>
+          <span className="ask-label">Ask Flicks</span>
+          <kbd>/</kbd>
         </button>
-        <span className="privacy-chip" title="Ratings, voice and recommendations are computed on this device">
-          <i aria-hidden="true" />
-          On this device
-        </span>
         {profile && onProfile && (
           <button type="button" className="profile-button" onClick={onProfile} aria-label={`Profile: ${profile}`}>
             <span className="avatar" aria-hidden="true">
               {profile.slice(0, 1).toUpperCase()}
             </span>
-            <span className="profile-name">{profile}</span>
           </button>
         )}
       </div>
@@ -56,17 +57,41 @@ export function TopBar({ couch, onAsk, profile, onProfile, onTaste, onDiscover }
   );
 }
 
-export function Footer({ titles, posters, playable }: { titles: number; posters: boolean; playable: number }) {
+interface FooterProps {
+  titles: number;
+  posters: boolean;
+  playable: number;
+  profile?: string;
+}
+
+/** The end credits: what made tonight's picks, and where your data went (nowhere). */
+export function Footer({ titles, posters, playable, profile }: FooterProps) {
   return (
-    <footer className="footer">
-      <span>
-        <strong>flicks</strong> · SYSC 4907
-      </span>
-      <span>
-        {titles} titles · {playable} playable · local taste profile + explainable scene ranking · your ratings and
-        history never leave this device
-      </span>
-      {posters && <span>Artwork: Wikipedia, cached on this device for personal use</span>}
+    <footer className="footer credits">
+      <dl>
+        {profile && (
+          <>
+            <dt>Picked for</dt>
+            <dd>{profile}</dd>
+          </>
+        )}
+        <dt>Recommendations by</dt>
+        <dd>This computer</dd>
+        <dt>Catalogue</dt>
+        <dd>
+          {titles.toLocaleString('en')} titles, {playable.toLocaleString('en')} ready to play
+        </dd>
+        <dt>Your ratings and history</dt>
+        <dd>Never leave this device</dd>
+        <dt>The cloud</dt>
+        <dd>Not invited</dd>
+        <dt>Snacks</dt>
+        <dd>Your department</dd>
+      </dl>
+      <p>
+        Flicks, a SYSC 4907 project. {posters && 'Artwork from Wikipedia, cached on this device for personal use. '}
+        No data was harmed in the making of tonight’s pick.
+      </p>
     </footer>
   );
 }

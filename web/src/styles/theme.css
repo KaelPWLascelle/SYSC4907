@@ -1,138 +1,197 @@
 /*
- * Flicks · Apple-style visual system, applied over base.css and host.css.
+ * Flicks · Spotlight, applied over base.css and the page sheets.
  * Every selector starts with `html` on purpose: one extra type selector of specificity, so these
  * overrides beat the page sheets' rules of equal weight, whichever order the bundler emits the CSS
- * files in (this sheet is shared with the couch page, so it can load before host.css), while the page
- * sheets' more specific rules (`.chips-small .chip`) still win where they should. New components go in
- * their own sheet (taste.css), not here.
- * Principles from Apple's Human Interface Guidelines: content first, one restrained accent, layered
- * materials (translucent, blurred) instead of borders, large clear type, generous spacing, and motion
- * that feels physical but never gets in the way (reduced-motion respected).
+ * files in (this sheet is shared with the couch page), while the page sheets' more specific rules still
+ * win where they should. New components go in their own sheet, not here.
+ *
+ * The idea: a dark living room lit by the film in focus. Black and white, no brand colour; the page takes
+ * its light from the poster under the spotlight (--ambient). One warm bulb colour (--bulb) marks the lights
+ * that carry information: runtime, scores, the dot on the i. Focus is shown by lift and a white ring.
  */
+@property --ambient {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #15202b;
+}
+@property --spread {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 1;
+}
+@property --outer {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 1;
+}
+@property --inner {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 1;
+}
+
+html {
+  background: #000;
+  transition:
+    --ambient 1.2s var(--spring),
+    --outer 1.2s var(--spring),
+    --inner 1.2s var(--spring);
+}
 html body {
-  font: 17px/1.47 var(--sans);
-  letter-spacing: -0.012em;
-  background: var(--bg);
+  font: 17px/1.5 var(--sans);
+  letter-spacing: -0.005em;
+  background: transparent;
+  overflow-x: clip;
+}
+/* The room light: strongest where the poster stands, spilling down to the left. */
+html body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(55% 70% at 80% 30%, color-mix(in oklab, var(--ambient) 90%, transparent), transparent 70%),
+    radial-gradient(60% 50% at 0% 100%, color-mix(in oklab, var(--ambient) 35%, transparent), transparent 80%), #000;
+  transition: opacity 1.2s;
+}
+html h1,
+html h2,
+html h3 {
+  font-family: var(--sans);
 }
 html h2 {
   font-size: clamp(22px, 2.2vw, 28px);
   font-weight: 700;
-  letter-spacing: -0.022em;
+  letter-spacing: -0.02em;
 }
 html h3 {
   font-size: 17px;
   font-weight: 600;
-  letter-spacing: -0.015em;
+  letter-spacing: -0.01em;
 }
 html :focus-visible {
-  outline: 3px solid rgba(10, 132, 255, 0.7);
-  outline-offset: 2px;
+  outline: 2px solid #fff;
+  outline-offset: 3px;
   border-radius: 10px;
 }
 html ::selection {
-  background: rgba(10, 132, 255, 0.45);
+  background: rgba(255, 226, 168, 0.4);
 }
 html .eyebrow {
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0;
   text-transform: none;
   color: var(--muted);
 }
 html .fine {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--faint);
 }
 html .hint {
-  font-size: 13px;
+  font-size: 14px;
 }
 html .badge {
   border: 0;
   background: var(--fill);
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
   padding: 4px 10px;
+}
+html kbd {
+  font: 600 12px var(--sans);
+  padding: 1px 7px;
+  border-radius: 5px;
+  background: var(--fill);
+  color: var(--text);
 }
 
 /* ---------- Buttons ---------- */
 html .button {
-  min-height: 44px;
-  padding: 0 22px;
+  min-height: 48px;
+  padding: 0 24px;
   border: 0;
-  font-size: 15px;
+  border-radius: 14px;
+  font-size: 16px;
   font-weight: 600;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.005em;
   transition:
     background 0.2s,
-    transform 0.35s var(--spring),
+    transform 0.3s var(--spring),
     opacity 0.2s;
+}
+html .button:hover:not(:disabled) {
+  transform: scale(1.03);
 }
 html .button:active:not(:disabled) {
   transform: scale(0.97);
 }
-html .button-primary {
-  background: #f5f5f7;
-  color: #000;
-}
+html .button-primary,
 html .button-primary:hover:not(:disabled) {
   background: #fff;
+  color: #000;
 }
 html .button-quiet {
-  background: rgba(255, 255, 255, 0.12);
+  background: var(--fill);
   border: 0;
   color: var(--text);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
 }
 html .button-quiet:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--fill-strong);
 }
 html .button-danger {
-  background: rgba(255, 69, 58, 0.16);
+  background: rgba(255, 107, 94, 0.16);
   border: 0;
-  color: #ff6961;
+  color: #ff8a80;
 }
 html .button-danger:hover:not(:disabled) {
-  background: rgba(255, 69, 58, 0.26);
+  background: rgba(255, 107, 94, 0.26);
 }
 html .link {
-  color: var(--accent);
-  text-decoration: none;
+  color: var(--text);
+  text-decoration: underline;
+  text-decoration-color: var(--faint);
+  text-underline-offset: 3px;
   font-size: 14px;
 }
 html .link:hover {
-  color: var(--accent-strong);
-  text-decoration: underline;
+  color: var(--text);
+  text-decoration-color: currentColor;
 }
 html .round {
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   border: 0;
-  background: rgba(118, 118, 128, 0.3);
+  background: var(--fill);
   transition:
     background 0.2s,
-    transform 0.35s var(--spring);
+    transform 0.3s var(--spring);
 }
 html .round:hover:not(:disabled) {
-  background: rgba(118, 118, 128, 0.48);
+  background: var(--fill-strong);
+  transform: scale(1.06);
 }
 html .round:active:not(:disabled) {
   transform: scale(0.92);
 }
 
-/* ---------- Rating buttons ---------- */
+/* ---------- Rating: round thumbs; a like is a lit bulb ---------- */
 html .rate-button {
   border: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.55);
   color: var(--text);
   transition:
     background-color 0.3s var(--spring),
     color 0.3s var(--spring),
-    transform 0.35s var(--spring);
+    transform 0.3s var(--spring);
 }
 html .rate-button svg {
-  transition: transform 0.35s var(--spring);
+  transition: transform 0.3s var(--spring);
 }
-/* Turning a rating on: the thumb pops once. Turning it off just fades back. */
 html .rate-button[aria-pressed='true'] svg {
   animation: thumb-pop 0.42s var(--spring);
 }
@@ -140,155 +199,189 @@ html .rate-down[aria-pressed='true'] svg {
   animation-name: thumb-pop-down;
 }
 html .rate-button:hover:not(:disabled) {
-  background: rgba(60, 60, 64, 0.8);
+  background: rgba(60, 60, 60, 0.85);
 }
 html .rate-button:active:not(:disabled) {
   transform: scale(0.92);
 }
 html .rate-large .rate-button {
-  height: 44px;
-  padding: 0 18px;
-  font-size: 15px;
-  background: rgba(255, 255, 255, 0.12);
+  height: 48px;
+  padding: 0 20px;
+  font-size: 16px;
+  background: var(--fill);
 }
 html .rate-large .rate-button:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--fill-strong);
 }
-/* The pressed state wins over hover, so a liked title's thumb stays green under the pointer. */
 html .rate-up[aria-pressed='true'],
 html .rate-up[aria-pressed='true']:hover:not(:disabled) {
-  background: var(--like);
-  color: #002910;
+  background: var(--bulb);
+  color: #000;
+  box-shadow: 0 0 18px -4px var(--bulb-glow);
 }
 html .rate-down[aria-pressed='true'],
 html .rate-down[aria-pressed='true']:hover:not(:disabled) {
   background: var(--pass);
-  color: #fff;
+  color: #000;
 }
 
-/* ---------- Top bar: a thin glass material ---------- */
+/* ---------- Top bar: wordmark, a pill of sections, ask and profile ---------- */
 html .topbar {
-  height: 56px;
-  gap: 32px;
-  background: rgba(22, 22, 23, 0.86);
-  backdrop-filter: saturate(180%) blur(24px);
-  -webkit-backdrop-filter: saturate(180%) blur(24px);
-  border-bottom: 0.5px solid var(--line-strong);
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  height: 76px;
+  gap: 24px;
+  background: linear-gradient(rgba(0, 0, 0, 0.82), rgba(0, 0, 0, 0.5));
+  backdrop-filter: blur(24px) saturate(140%);
+  -webkit-backdrop-filter: blur(24px) saturate(140%);
+  border-bottom: 0;
+}
+html .logo {
+  justify-self: start;
 }
 html .logo-word {
-  font: 700 21px/1 var(--display);
-  letter-spacing: -0.03em;
+  position: relative;
+  display: inline-flex;
+  font: 700 28px/1 var(--sans);
+  letter-spacing: -0.045em;
+  color: var(--text);
+}
+html .logo-i {
+  position: relative;
+}
+/* The dot on the i is a bulb. It catches when the page loads, like an old bulb warming up. */
+html .logo-bulb {
+  position: absolute;
+  left: 50%;
+  top: 0.04em;
+  width: 0.25em;
+  height: 0.25em;
+  padding: 0;
+  translate: -50% 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--bulb);
+  box-shadow:
+    0 0 6px var(--bulb),
+    0 0 16px var(--bulb-glow);
+  animation: bulb-catch 1.4s steps(1) 0.3s both;
+}
+html button.logo-bulb::after {
+  /* A comfortable hit area around a 7px dot. */
+  content: '';
+  position: absolute;
+  inset: -12px;
+}
+@keyframes bulb-catch {
+  0% {
+    opacity: 0.15;
+  }
+  12% {
+    opacity: 1;
+  }
+  18% {
+    opacity: 0.25;
+  }
+  30% {
+    opacity: 1;
+  }
+  36% {
+    opacity: 0.5;
+  }
+  44%,
+  100% {
+    opacity: 1;
+  }
 }
 html .nav {
-  gap: 26px;
-  font-size: 14px;
-}
-html .nav a {
-  color: var(--muted);
-  transition: color 0.2s;
-}
-html .ask-button,
-html .profile-button {
-  height: 34px;
-  border: 0;
+  justify-self: center;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 999px;
   background: var(--fill);
-  color: var(--text);
-  font-size: 13px;
-  transition: background 0.2s;
+  font-size: 15px;
 }
-html .ask-button:hover,
-html .profile-button:hover {
+html .nav a,
+html .nav .nav-button {
+  padding: 8px 18px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--muted);
+  font: 500 15px var(--sans);
+  text-decoration: none;
+  transition:
+    color 0.2s,
+    background 0.2s;
+}
+html .nav a:hover,
+html .nav .nav-button:hover {
+  color: var(--text);
+}
+html .nav a[aria-current='page'] {
+  background: #fff;
+  color: #000;
+  font-weight: 600;
+}
+html .topbar-end {
+  justify-self: end;
+  margin-left: 0;
+  gap: 10px;
+}
+html .ask-button {
+  height: 40px;
+  gap: 10px;
+  padding: 0 10px 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--fill);
+  color: var(--muted);
+  font-size: 15px;
+  transition:
+    background 0.2s,
+    color 0.2s;
+}
+html .ask-button:hover {
   background: var(--fill-strong);
-  border-color: transparent;
+  color: var(--text);
 }
 html .ask-button svg {
   color: var(--text);
 }
-html .ask-button kbd {
-  font: 500 11px var(--sans);
-  padding: 1px 6px;
-  border-radius: 5px;
-  background: rgba(255, 255, 255, 0.12);
-  color: var(--muted);
-}
-html .privacy-chip {
-  font-size: 12px;
-}
-html .privacy-chip i {
-  background: var(--like);
-  box-shadow: 0 0 0 3px rgba(48, 209, 88, 0.18);
-}
 html .avatar {
   border: 0;
-  color: #fff;
-  font-weight: 600;
-  background: linear-gradient(145deg, #5e5ce6, #bf5af2);
-}
-
-/* ---------- Hero: content first, full-bleed artwork ---------- */
-html .hero {
-  min-height: min(82vh, 760px);
-  padding: 96px var(--gutter) 64px;
-  background: #000;
-}
-html .backdrop-art img {
-  filter: blur(36px) saturate(160%);
-  opacity: 0.7;
-}
-html .hero::after {
-  background:
-    linear-gradient(90deg, #000 4%, rgba(0, 0, 0, 0.78) 40%, rgba(0, 0, 0, 0.1) 78%),
-    linear-gradient(0deg, #000 0%, rgba(0, 0, 0, 0.35) 38%, transparent 60%);
-}
-html .hero h1 {
+  color: #000;
   font-weight: 700;
-  letter-spacing: -0.04em;
-  line-height: 1;
-  margin: 10px 0 14px;
+  background: #fff;
 }
-html .hero-meta {
-  font-size: 15px;
-  color: var(--muted);
-  opacity: 1;
-}
-html .hero-description {
-  font-size: 17px;
-  line-height: 1.5;
-  color: rgba(235, 235, 245, 0.8);
-}
-html .reasons li,
-html .details .reasons li {
-  font-size: 13px;
-  font-weight: 500;
-  padding: 6px 12px;
+html .profile-button {
+  height: 40px;
+  width: 40px;
+  padding: 0;
   border: 0;
-  background: rgba(255, 255, 255, 0.1);
-  color: var(--text);
+  border-radius: 50%;
+  background: none;
 }
-html .hero-actions {
-  gap: 10px;
-  margin-top: 30px;
-}
-html .poster-hero {
-  transform: none;
-  border-radius: var(--radius);
-  box-shadow:
-    var(--shadow),
-    0 0 0 0.5px rgba(255, 255, 255, 0.12);
+html .profile-button .avatar {
+  width: 40px;
+  height: 40px;
 }
 
-/* ---------- Ask: a floating material field ---------- */
+/* ---------- Ask: a glass field ---------- */
 html .ask {
-  margin-top: -26px;
+  margin-top: 8px;
   border: 0;
 }
 html .ask-bar {
-  border: 0.5px solid var(--line-strong);
-  border-radius: 22px;
-  background: var(--material);
-  backdrop-filter: blur(30px) saturate(180%);
-  -webkit-backdrop-filter: blur(30px) saturate(180%);
-  box-shadow: 0 20px 40px -20px rgba(0, 0, 0, 0.8);
+  border: 0;
+  border-radius: 18px;
+  background: var(--fill);
+  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
+  box-shadow: none;
+}
+html .ask-bar:focus-within {
+  background: var(--fill-strong);
 }
 html .ask-bar textarea {
   font-size: 17px;
@@ -305,17 +398,17 @@ html .mic {
   background: var(--fill);
 }
 
-/* ---------- Scene: a grouped settings card ---------- */
+/* ---------- Scene: one sentence with words you can change ---------- */
 html .scene {
-  margin-top: 40px;
-  padding: 22px 24px;
-  gap: 18px 36px;
-  border-radius: 22px;
-  background: var(--surface);
+  display: block;
+  margin-top: 28px;
+  padding: 0;
+  border-radius: 0;
+  background: none;
 }
 html .scene-label {
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 500;
   letter-spacing: 0;
   text-transform: none;
   color: var(--muted);
@@ -325,12 +418,13 @@ html .scene-label output {
   font-variant-numeric: tabular-nums;
 }
 html .chip {
-  height: 32px;
-  padding: 0 14px;
+  height: 36px;
+  padding: 0 16px;
   border: 0;
+  border-radius: 12px;
   background: var(--fill);
   color: var(--text);
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 500;
   transition:
     background 0.2s,
@@ -346,61 +440,181 @@ html .chip:active {
 }
 html .chip[aria-checked='true'],
 html .chip[aria-pressed='true'] {
-  background: #f5f5f7;
+  background: #fff;
   color: #000;
   border-color: transparent;
   font-weight: 600;
 }
 html .scene-avoid .chip[aria-pressed='true'] {
-  background: rgba(255, 69, 58, 0.2);
+  background: rgba(255, 107, 94, 0.2);
   color: #ff8a80;
 }
-/* iOS segmented control */
 html .segmented {
-  padding: 2px;
+  padding: 3px;
   border: 0;
-  border-radius: 9px;
+  border-radius: 12px;
   background: var(--fill);
 }
 html .segmented .chip {
-  height: 28px;
-  border-radius: 7px;
+  height: 30px;
+  border-radius: 9px;
   background: transparent;
-  font-size: 13px;
+  font-size: 14px;
 }
 html .segmented .chip[aria-checked='true'],
 html .segmented .chip[aria-pressed='true'] {
-  background: #636366;
-  color: #fff;
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.25);
+  background: #fff;
+  color: #000;
 }
 html .time {
   border: 0;
   background: var(--fill);
-  height: 32px;
+  height: 36px;
 }
 html .time input {
   font-variant-numeric: tabular-nums;
 }
-html .scene-slider input,
 html input[type='range'] {
-  accent-color: var(--accent);
+  accent-color: var(--bulb);
 }
 html .ends {
-  font-size: 11px;
+  font-size: 12px;
+}
+html .scene-sentence {
+  margin: 0;
+  font-family: var(--sans);
+  font-size: clamp(20px, 2.2vw, 26px);
+  font-weight: 500;
+  line-height: 1.6;
+  letter-spacing: -0.015em;
+  color: var(--muted);
+  text-wrap: balance;
+}
+/* The words you can change are underlined, like a form you fill in by talking. */
+html .scene-token {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0.1em;
+  padding: 0 0.1em;
+  border: 0;
+  border-bottom: 2px solid var(--faint);
+  border-radius: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  letter-spacing: inherit;
+  cursor: pointer;
+  transition:
+    border-color 0.2s,
+    color 0.2s;
+}
+html .scene-token:hover {
+  border-color: var(--text);
+}
+html .scene-token.is-open {
+  color: var(--bulb);
+  border-color: var(--bulb);
+}
+html .scene-caret {
+  width: 0.34em;
+  height: 0.34em;
+  margin-top: -0.12em;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg);
+  opacity: 0.5;
+  transition: transform 0.3s var(--spring);
+}
+html .scene-token.is-open .scene-caret {
+  transform: translateY(0.12em) rotate(225deg);
+}
+html .scene-picker {
+  margin-top: 16px;
+  padding: 16px;
+  border-radius: 18px;
+  background: var(--fill);
+  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
+  animation: fade-up 0.35s var(--spring);
+}
+html .scene-time {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+html .scene-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+}
+html .scene-more-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+html .scene-more-toggle[aria-expanded='true'] {
+  background: var(--fill-strong);
+}
+html .scene-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--bulb);
+  color: #000;
+  font-size: 12px;
+  font-weight: 700;
+}
+html .scene-more {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
+  gap: 20px 28px;
+  margin-top: 18px;
+  padding: 20px;
+  border-radius: 18px;
+  background: var(--fill);
+  animation: fade-up 0.35s var(--spring);
+}
+html .scene-more .scene-slider {
+  width: auto;
+}
+html .scene-more .scene-group {
+  gap: 10px;
+}
+html .scene-more .scene-avoid {
+  grid-column: 1 / -1;
+}
+html .scene-more .scene-avoid .chips {
+  max-width: none;
+}
+html .scene-more .link,
+html .scene-more .segmented {
+  align-self: flex-start;
+  font-size: 14px;
+}
+html .nowrap {
+  white-space: nowrap;
 }
 
-/* ---------- Rows and tiles ---------- */
+/* ---------- Rows and tiles: posters that lift toward you when focused ---------- */
 html .row-head h2 {
   font-size: 22px;
 }
 html .row-head p {
-  font-size: 14px;
+  font-size: 15px;
+  color: var(--muted);
 }
 html .rail {
   scroll-snap-type: x proximity;
-  gap: 20px;
-  padding: 10px 4px 22px;
+  gap: 24px;
+  padding: 14px 6px 26px;
   scrollbar-width: none;
 }
 html .rail::-webkit-scrollbar {
@@ -410,55 +624,80 @@ html .poster {
   border-radius: var(--radius-sm);
 }
 html .tile-open {
-  transition: transform 0.45s var(--spring);
+  border-radius: var(--radius-sm);
+  transition: transform 0.35s var(--spring);
 }
 html .tile-open .poster {
-  box-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.1);
-  transition: none;
+  box-shadow: none;
+  transition: box-shadow 0.35s var(--spring);
 }
 html .tile-open::after {
+  /* A soft highlight across the top, as if the card caught the light. */
   content: '';
   position: absolute;
   inset: 0;
-  z-index: -1;
-  border-radius: var(--radius-sm);
-  box-shadow: 0 24px 40px -14px rgba(0, 0, 0, 0.85);
+  border-radius: inherit;
+  background: radial-gradient(120% 60% at 50% 0%, rgba(255, 255, 255, 0.22), transparent 60%);
   opacity: 0;
-  transition: opacity 0.45s var(--spring);
+  transition: opacity 0.35s;
   pointer-events: none;
 }
 html .tile-open:hover,
 html .tile-open:focus-visible {
-  transform: scale(1.045);
-}
-html .tile-open:hover .poster,
-html .tile-open:focus-visible .poster {
-  transform: none;
-  box-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.18);
+  transform: scale(1.06);
+  outline: 0;
 }
 html .tile-open:hover::after,
 html .tile-open:focus-visible::after {
   opacity: 1;
 }
+html .tile-open:hover .poster,
+html .tile-open:focus-visible .poster {
+  transform: none;
+  box-shadow: 0 28px 44px -16px rgba(0, 0, 0, 0.95);
+}
+html .tile-open:focus-visible .poster {
+  box-shadow:
+    0 0 0 2px #fff,
+    0 28px 44px -16px rgba(0, 0, 0, 0.95);
+}
+html .tile-ranked {
+  padding-left: 0;
+}
 html .tile-ranked .rank {
-  font-weight: 800;
-  -webkit-text-stroke: 3px rgba(255, 255, 255, 0.2);
+  left: 8px;
+  top: 8px;
+  bottom: auto;
+  z-index: 2;
+  min-width: 26px;
+  padding: 3px 7px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.62);
+  font: 700 13px/1.2 var(--sans);
+  letter-spacing: 0;
+  text-align: center;
+  color: #fff;
+  -webkit-text-stroke: 0;
+  transition: transform 0.35s var(--spring);
+}
+html .tile-ranked:has(.tile-open:hover) .rank,
+html .tile-ranked:has(.tile-open:focus-visible) .rank {
+  transform: translate(-6px, -9px);
 }
 html .tile-title {
   font-size: 15px;
   font-weight: 600;
 }
 html .tile-sub {
-  font-size: 13px;
+  font-size: 14px;
   color: var(--muted);
 }
-/* A rating shows on its thumb button, not as a ring around the artwork. */
 html .tile.is-liked .tile-open .poster {
-  box-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.1);
+  box-shadow: none;
 }
 html .tile-badge {
   border: 0;
-  background: rgba(0, 0, 0, 0.55);
+  background: rgba(0, 0, 0, 0.6);
 }
 html .understood li {
   border: 0;
@@ -467,29 +706,29 @@ html .understood li {
 html .search input {
   border: 0;
   background: var(--fill);
-  border-radius: 12px;
+  border-radius: 14px;
   font-size: 17px;
 }
 
-/* ---------- Sheets: thick material, large radius ---------- */
+/* ---------- Sheets: thick glass ---------- */
 html .details {
   /* Size to the content in every engine: without this, Safari stretches a modal dialog to fill the
    viewport (its UA style has no fit-content height), leaving a tall empty sheet. */
   height: -webkit-fit-content;
   height: fit-content;
   align-content: start;
-  border: 0.5px solid var(--line-strong);
-  border-radius: 26px;
+  border: 0;
+  border-radius: 28px;
   background: var(--material-thick);
-  backdrop-filter: blur(40px) saturate(180%);
-  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  backdrop-filter: blur(50px) saturate(160%);
+  -webkit-backdrop-filter: blur(50px) saturate(160%);
   box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.9);
 }
 html .details[open] {
   animation: sheet-in 0.45s var(--spring);
 }
 html .details::backdrop {
-  background: rgba(0, 0, 0, 0.62);
+  background: rgba(0, 0, 0, 0.66);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
 }
@@ -501,37 +740,49 @@ html .details-body h2 {
   letter-spacing: -0.03em;
 }
 html .details-description {
-  color: rgba(235, 235, 245, 0.78);
+  color: rgba(255, 255, 255, 0.78);
   font-size: 16px;
 }
-html .factor-bar {
-  height: 6px;
-  border-radius: 3px;
+html .details .reasons li {
+  font-size: 14px;
+  font-weight: 500;
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 999px;
   background: var(--fill);
+  color: var(--text);
+}
+/* Scores are rows of bulbs: the track is the unlit row, the fill lights them from the left. */
+html .factor-bar {
+  height: 9px;
+  border-radius: 0;
+  background: radial-gradient(circle at 4.5px 50%, var(--line-strong) 3.6px, transparent 4.2px) 0 0 / 14px 100% repeat-x;
+  overflow: visible;
 }
 html .factor-bar span {
-  background: linear-gradient(90deg, #5ac8fa, var(--accent));
-  border-radius: 3px;
+  border-radius: 0;
+  background: radial-gradient(circle at 4.5px 50%, var(--bulb) 3.6px, transparent 4.2px) 0 0 / 14px 100% repeat-x;
+  filter: drop-shadow(0 0 4px var(--bulb-glow));
 }
 html .narration {
   border-left: 0;
   border-radius: 16px;
   padding: 14px 16px;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--fill);
   color: var(--text);
   font-size: 16px;
 }
 html .notice {
   border: 0;
   border-radius: 12px;
-  background: rgba(255, 159, 10, 0.14);
-  color: #ffd60a;
+  background: rgba(255, 226, 168, 0.12);
+  color: var(--bulb);
 }
 
 /* ---------- Profiles ---------- */
 html .gate {
   gap: 16px;
-  background: radial-gradient(80% 60% at 50% 0%, #1c1c1e 0%, #000 70%);
+  background: none;
 }
 html .gate h1 {
   font-weight: 700;
@@ -542,7 +793,7 @@ html .gate-profile {
   padding: 10px;
   border: 0;
   background: transparent;
-  transition: transform 0.45s var(--spring);
+  transition: transform 0.4s var(--spring);
 }
 html .gate-profile:hover,
 html .gate-profile:focus-visible {
@@ -552,21 +803,22 @@ html .gate-profile:focus-visible {
 html .gate-profile .avatar {
   width: 104px;
   height: 104px;
-  border-radius: 28px;
+  border-radius: 50%;
   font-size: 40px;
   box-shadow: 0 18px 30px -14px rgba(0, 0, 0, 0.9);
 }
+/* One flat colour each, like seats picked out on a sofa. */
 html .gate-profiles li:nth-child(5n + 2) .avatar {
-  background: linear-gradient(145deg, #ff9f0a, #ff375f);
+  background: #ffb4a2;
 }
 html .gate-profiles li:nth-child(5n + 3) .avatar {
-  background: linear-gradient(145deg, #30d158, #0a84ff);
+  background: #9bd4c8;
 }
 html .gate-profiles li:nth-child(5n + 4) .avatar {
-  background: linear-gradient(145deg, #64d2ff, #5e5ce6);
+  background: #b9b4ff;
 }
 html .gate-profiles li:nth-child(5n + 5) .avatar {
-  background: linear-gradient(145deg, #ffd60a, #ff9f0a);
+  background: var(--bulb);
 }
 html .gate-add .avatar,
 html .gate-profiles li:last-child .gate-add .avatar {
@@ -574,29 +826,54 @@ html .gate-profiles li:last-child .gate-add .avatar {
   color: var(--muted);
 }
 html .gate-name {
-  font-size: 15px;
+  font-size: 16px;
 }
 html .gate-form input,
 html .profile-form input {
-  height: 44px;
+  height: 48px;
   border: 0;
-  border-radius: 12px;
+  border-radius: 14px;
   background: var(--fill);
   font-size: 17px;
 }
 html .profile-import {
   border: 0;
   border-radius: 16px;
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--fill);
 }
 
-/* ---------- Footer ---------- */
+/* ---------- Footer: the end credits ---------- */
 html .footer {
-  font-size: 12px;
+  display: block;
+  margin-top: 96px;
+  padding: 72px 0 120px;
+  border-top: 1px solid var(--line);
+  text-align: center;
+  font-size: 15px;
+  color: var(--text);
+}
+html .credits dl {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 28px;
+  max-width: 680px;
+  margin: 0 auto;
+}
+html .credits dt {
+  text-align: right;
   color: var(--faint);
-  border-top: 0.5px solid var(--line);
+}
+html .credits dd {
+  margin: 0;
+  text-align: left;
+}
+html .credits p {
+  margin-top: 56px;
+  color: var(--faint);
+  font-size: 13px;
 }
 
+/* ---------- Motion ---------- */
 @keyframes sheet-in {
   from {
     opacity: 0;
@@ -606,14 +883,6 @@ html .footer {
     opacity: 1;
     transform: none;
   }
-}
-/* ---------- Motion: cross-fade the hero, dim rails while they reload ---------- */
-html .hero-inner,
-html .hero-backdrop {
-  animation: fade-up 0.5s var(--spring);
-}
-html .hero-backdrop {
-  animation-name: fade-in;
 }
 html .rail {
   transition: opacity 0.25s;
@@ -671,28 +940,33 @@ html .tile .poster {
   }
 }
 
-@media (max-width: 720px) {
+@media (max-width: 900px) {
   html .topbar {
-    gap: 12px;
-    height: 56px;
+    grid-template-columns: auto 1fr;
+    height: auto;
+    gap: 12px 16px;
+    padding-top: 14px;
+    padding-bottom: 12px;
   }
   html .nav {
-    gap: 14px;
+    grid-column: 1 / -1;
+    grid-row: 2;
+    justify-self: start;
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
   }
-  html .scene {
-    padding: 18px 16px;
-    border-radius: 18px;
+  html .nav a,
+  html .nav .nav-button {
+    padding: 7px 13px;
+    white-space: nowrap;
   }
-}
-@media (max-width: 480px) {
-  /* Icon only: the label stays in the DOM, so it is still the button's accessible name. */
-  html .ask-button {
-    font-size: 0;
-    gap: 0;
-    padding: 0 10px;
+  html .ask-label {
+    display: none;
   }
-  html .ask-button svg {
-    font-size: 17px;
+  html .credits dl {
+    gap: 8px 16px;
+    font-size: 14px;
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -700,131 +974,7 @@ html .tile .poster {
   html *::before,
   html *::after {
     animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
-}
-
-/* ---------- The scene, as a sentence (natural-language form + "More options") ---------- */
-html .scene {
-  display: block;
-  padding: 26px 28px 22px;
-}
-html .scene-sentence {
-  margin: 0;
-  font-family: var(--display);
-  font-size: clamp(22px, 2.6vw, 30px);
-  font-weight: 600;
-  line-height: 1.55;
-  letter-spacing: -0.02em;
-  color: var(--muted);
-  text-wrap: balance;
-}
-html .scene-token {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin: 0 0 0 2px;
-  padding: 0 12px 2px;
-  border: 0;
-  border-radius: 12px;
-  background: var(--fill);
-  color: var(--text);
-  font: inherit;
-  letter-spacing: inherit;
-  cursor: pointer;
-  transition:
-    background-color 0.25s var(--spring),
-    transform 0.35s var(--spring);
-}
-html .scene-token:hover {
-  background: var(--fill-strong);
-}
-html .scene-token:active {
-  transform: scale(0.97);
-}
-html .scene-token.is-open {
-  background: #f5f5f7;
-  color: #000;
-}
-html .scene-caret {
-  width: 0.38em;
-  height: 0.38em;
-  margin-top: -0.12em;
-  border-right: 2px solid currentColor;
-  border-bottom: 2px solid currentColor;
-  transform: rotate(45deg);
-  opacity: 0.6;
-  transition: transform 0.3s var(--spring);
-}
-html .scene-token.is-open .scene-caret {
-  transform: translateY(0.12em) rotate(225deg);
-}
-html .scene-picker {
-  margin-top: 16px;
-  padding: 14px;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.05);
-  animation: fade-up 0.35s var(--spring);
-}
-html .scene-time {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
-}
-html .scene-tools {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  margin-top: 18px;
-}
-html .scene-more-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-html .scene-more-toggle[aria-expanded='true'] {
-  background: var(--fill-strong);
-}
-html .scene-count {
-  display: inline-grid;
-  place-items: center;
-  min-width: 20px;
-  height: 20px;
-  padding: 0 6px;
-  border-radius: 999px;
-  background: var(--accent);
-  color: #fff;
-  font-size: 12px;
-  font-weight: 700;
-}
-html .scene-more {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
-  gap: 20px 28px;
-  margin-top: 18px;
-  padding-top: 18px;
-  border-top: 0.5px solid var(--line);
-  animation: fade-up 0.35s var(--spring);
-}
-html .scene-more .scene-slider {
-  width: auto;
-}
-html .scene-more .scene-group {
-  gap: 10px;
-}
-html .scene-more .scene-avoid {
-  grid-column: 1 / -1;
-}
-html .scene-more .scene-avoid .chips {
-  max-width: none;
-}
-html .scene-more .link,
-html .scene-more .segmented {
-  align-self: flex-start;
-  font-size: 13px;
-}
-html .nowrap {
-  white-space: nowrap;
 }

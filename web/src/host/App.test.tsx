@@ -111,3 +111,38 @@ test('a series shows its seasons, episodes and where its description is from', a
   expect(within(sheet).getByRole('link', { name: 'View it on TVmaze' })).toHaveAttribute('href', SERIES_INFO.page);
   expect(within(sheet).queryByRole('button', { name: 'Play' })).not.toBeInTheDocument();
 });
+
+test('pointing at or focusing a pick in the row puts it under the spotlight', async () => {
+  setup();
+  render(<App />);
+  await screen.findByRole('heading', { level: 1, name: 'Alpha' });
+  const row = screen.getByRole('region', { name: 'Top picks for this moment' });
+  await userEvent.hover(within(row).getByRole('button', { name: /^Gamma, / }));
+  expect(await screen.findByRole('heading', { level: 1, name: 'Gamma' })).toBeInTheDocument();
+  // It stays there when the pointer leaves, like a remote's focus.
+  await userEvent.unhover(within(row).getByRole('button', { name: /^Gamma, / }));
+  expect(screen.getByRole('heading', { level: 1, name: 'Gamma' })).toBeInTheDocument();
+});
+
+test('the runtime bulbs say whether the pick fits the evening', async () => {
+  setup();
+  render(<App />);
+  await screen.findByRole('heading', { level: 1, name: 'Alpha' });
+  expect(screen.getByText(/^Fits your 2 hours, ends around /)).toBeInTheDocument();
+});
+
+test('the bulb on the i, or L, dims the house lights; Escape brings them up', async () => {
+  setup();
+  render(<App />);
+  await screen.findByRole('heading', { level: 1, name: 'Alpha' });
+  const root = document.documentElement;
+  await userEvent.click(screen.getByRole('button', { name: 'Dim the lights' }));
+  expect(root).toHaveClass('is-dim');
+  expect(screen.getByRole('button', { name: 'Bring the lights up' })).toHaveAttribute('aria-pressed', 'true');
+  await userEvent.keyboard('{Escape}');
+  expect(root).not.toHaveClass('is-dim');
+  await userEvent.keyboard('l');
+  expect(root).toHaveClass('is-dim');
+  await userEvent.keyboard('l');
+  expect(root).not.toHaveClass('is-dim');
+});

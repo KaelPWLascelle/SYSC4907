@@ -5,7 +5,7 @@ import { Icon } from '../../components/Icon';
 import { Poster } from '../../components/Poster';
 import { RateButtons } from '../../components/RateButtons';
 import { cx } from '../../lib/cx';
-import { subtitle, timestamp } from '../../lib/format';
+import { runtime, subtitle, timestamp } from '../../lib/format';
 import { useLibrary } from '../library';
 
 interface TileProps {
@@ -14,20 +14,28 @@ interface TileProps {
   rank?: number;
   /** Resume playback instead of opening details (continue watching). */
   resume?: boolean;
+  /** Pointed at or focused: put this title under the spotlight. */
+  onFeature?: () => void;
 }
 
-export function Tile({ item, rank, resume = false }: TileProps) {
+export function Tile({ item, rank, resume = false, onFeature }: TileProps) {
   const library = useLibrary();
   const rating = library.feedback[item.id];
   const entry = library.media.get(item.id);
   const playable = entry !== undefined;
   const progress = library.progress.get(item.id);
   const resumeAt = resume && progress?.resumable ? progress.position_seconds : null;
+  const watched = progress?.resumable ? progress.position_seconds / progress.duration_seconds : null;
+  const left = progress?.resumable ? Math.round((progress.duration_seconds - progress.position_seconds) / 60) : null;
   const label =
     resumeAt !== null ? `Resume ${item.title} from ${timestamp(resumeAt)}` : `${item.title}, ${item.year}. Details`;
 
   return (
-    <article className={cx('tile', rank && 'tile-ranked', rating === 1 && 'is-liked', rating === -1 && 'is-disliked')}>
+    <article
+      className={cx('tile', rank && 'tile-ranked', rating === 1 && 'is-liked', rating === -1 && 'is-disliked')}
+      // A resume stub is torn where you stopped.
+      style={resume && watched !== null ? ({ '--torn': `${Math.round(watched * 100)}%` } as CSSProperties) : undefined}
+    >
       {rank !== undefined && (
         <span className="rank" aria-hidden="true">
           {rank}
@@ -38,6 +46,8 @@ export function Tile({ item, rank, resume = false }: TileProps) {
         className="tile-open"
         aria-label={label}
         onClick={() => (resumeAt !== null ? library.play(item) : library.openDetails(item))}
+        onPointerEnter={onFeature}
+        onFocus={onFeature}
       >
         <Poster item={item} hasPoster={library.posters.has(item.id)} />
         {playable && (
@@ -55,7 +65,7 @@ export function Tile({ item, rank, resume = false }: TileProps) {
       </button>
       <div className="tile-info">
         <h3 className="tile-title">{item.title}</h3>
-        <p className="tile-sub">{subtitle(item)}</p>
+        <p className="tile-sub">{resume && left !== null ? `${runtime(Math.max(1, left))} left` : subtitle(item)}</p>
       </div>
       <RateButtons title={item.title} rating={rating} onRate={value => library.rate(item.id, value)} />
     </article>

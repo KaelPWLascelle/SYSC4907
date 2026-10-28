@@ -174,6 +174,7 @@ function GenreChart({ genres, onBrowse }: { genres: TasteResponse['genres']; onB
         </table>
       ) : (
         <>
+          <GenreWeb genres={rows} />
           <div className="diverging-legend" aria-hidden="true">
             <span>
               <span className="swatch swatch-pass" />
@@ -213,6 +214,59 @@ function GenreChart({ genres, onBrowse }: { genres: TasteResponse['genres']; onB
       )}
       {tip.node}
     </section>
+  );
+}
+
+/**
+ * Your taste as a web: one thread per genre, spun from your ratings. Your shape is drawn on it; the dotted
+ * middle ring is "no opinion", so genres you like pull the shape out and genres you pass on pull it in.
+ * A picture of the list below it, which stays the way to read and browse the same numbers.
+ */
+function GenreWeb({ genres }: { genres: TasteResponse['genres'] }) {
+  const threads = genres.slice(0, 8);
+  if (threads.length < 3) return null;
+  const C = 160;
+  const R = 120;
+  const n = threads.length;
+  const angle = (k: number) => (k / n) * Math.PI * 2 - Math.PI / 2;
+  const at = (k: number, r: number) => [C + Math.cos(angle(k)) * r, C + Math.sin(angle(k)) * r] as const;
+  // Rings sag a little between threads, the way silk does.
+  const ring = (f: number) => {
+    const r = R * f;
+    let d = '';
+    for (let k = 0; k < n; k++) {
+      const [x1, y1] = at(k, r);
+      const [x2, y2] = at(k + 1, r);
+      const mid = (angle(k) + angle(k + 1)) / 2;
+      const sag = r * 0.88;
+      d += `${k ? '' : `M${x1.toFixed(1)} ${y1.toFixed(1)}`}Q${(C + Math.cos(mid) * sag).toFixed(1)} ${(C + Math.sin(mid) * sag).toFixed(1)} ${x2.toFixed(1)} ${y2.toFixed(1)}`;
+    }
+    return d;
+  };
+  const shape = threads.map((g, k) => at(k, R * (0.5 + Math.max(-1, Math.min(1, g.affinity)) * 0.5)));
+  return (
+    <svg className="taste-web" viewBox="-70 -24 460 368" aria-hidden="true">
+      {[0.25, 0.5, 0.75, 1].map(f => (
+        <path key={f} className={f === 0.5 ? 'web-ring web-zero' : 'web-ring'} d={ring(f)} />
+      ))}
+      {threads.map((g, k) => {
+        const [x, y] = at(k, R);
+        const [lx, ly] = at(k, R + 20);
+        const anchor = Math.abs(lx - C) < 8 ? 'middle' : lx > C ? 'start' : 'end';
+        return (
+          <g key={g.genre} className={g.affinity < 0 ? 'web-thread is-pass' : 'web-thread'}>
+            <line x1={C} y1={C} x2={x} y2={y} />
+            <text x={lx} y={ly + 5} textAnchor={anchor}>
+              {capitalize(g.genre)}
+            </text>
+          </g>
+        );
+      })}
+      <polygon className="web-shape" points={shape.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ')} />
+      {shape.map(([x, y], k) => (
+        <circle key={k} className="web-knot" cx={x} cy={y} r={3.5} />
+      ))}
+    </svg>
   );
 }
 
