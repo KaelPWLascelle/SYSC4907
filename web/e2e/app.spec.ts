@@ -207,3 +207,72 @@ test('a PIN profile asks who is watching and needs its PIN', async ({ page }) =>
   // Leave one profile behind, so later tests (and fresh browsers) are not asked who is watching.
   expect((await page.request.delete('/api/profiles/current')).status()).toBe(200);
 });
+
+test('the spotlight follows the pick you point at, without moving the page below', async ({ page }) => {
+  await page.goto('/');
+  const first = await topPick(page);
+  const actions = page.locator('.hero-actions');
+  const before = await actions.boundingBox();
+  const tile = page.locator('#picks .tile').nth(2).locator('.tile-open');
+  await tile.scrollIntoViewIfNeeded();
+  await tile.hover();
+  await expect(heroTitle(page)).not.toHaveText(first);
+  await page.evaluate(() => window.scrollTo(0, 0));
+  expect((await actions.boundingBox())?.y).toBeCloseTo(before?.y ?? 0, 0);
+});
+
+test('the bulb on the i dims the house lights, and Escape brings them back', async ({ page }) => {
+  await page.goto('/');
+  await topPick(page);
+  const html = page.locator('html');
+  await page.getByRole('button', { name: 'Dim the lights' }).click();
+  await expect(html).toHaveClass(/is-dim/);
+  await page.keyboard.press('Escape');
+  await expect(html).not.toHaveClass(/is-dim/);
+  await page.keyboard.press('l');
+  await expect(html).toHaveClass(/is-dim/);
+  await page.keyboard.press('l');
+  await expect(html).not.toHaveClass(/is-dim/);
+});
+
+test('“Your taste” hangs rated films in a web of genres, and a usual night becomes the scene', async ({ page }) => {
+  for (const [id, value] of [
+    ['m001', 1],
+    ['m004', 1],
+    ['m008', -1],
+  ] as const) {
+    await page.request.post('/api/feedback', { data: { id, value } });
+  }
+  await page.goto('/');
+  await topPick(page);
+  await page.getByRole('button', { name: 'Your taste' }).click();
+  const sheet = page.getByRole('dialog', { name: 'Your taste' });
+  const web = sheet.getByRole('group', { name: 'Your taste as a web of genres' });
+  await expect(web).toBeVisible();
+  await expect(web.locator('.web-drop')).toHaveCount(3);
+  await web.getByRole('button', { name: /^Horror: liked 0, passed 1$/ }).click();
+  await expect(sheet.getByText(/^You passed on the one horror title you rated/)).toBeVisible();
+
+  const pad = sheet.getByRole('slider', { name: /Your usual night/ });
+  await pad.focus();
+  for (const key of ['ArrowLeft', 'ArrowLeft', 'ArrowLeft', 'ArrowDown', 'ArrowDown']) await page.keyboard.press(key);
+  await expect(sheet.getByText('Most nights you want something gentle, about 1½ hours.')).toBeVisible();
+  const asked = page.waitForRequest(r => r.url().endsWith('/api/recommend') && r.postDataJSON().session.minutes === 90);
+  await sheet.getByRole('button', { name: 'Use as my usual night' }).click();
+  await asked;
+  await sheet.getByRole('button', { name: 'Close' }).click();
+  await expect(page.getByRole('button', { name: 'Time: 1½ hours. Change' })).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole('button', { name: 'Time: 1½ hours. Change' })).toBeVisible();
+
+  for (const id of ['m001', 'm004', 'm008']) await page.request.post('/api/feedback', { data: { id, value: 0 } });
+  await page.evaluate(() => localStorage.clear());
+});
+
+test('late at night the room dims and offers picks that end sooner', async ({ page }) => {
+  await page.goto('/?hour=23');
+  await topPick(page);
+  await expect(page.locator('html')).toHaveAttribute('data-time', 'late');
+  await page.getByRole('button', { name: 'Show picks that end in 90 minutes' }).click();
+  await expect(page.getByRole('button', { name: 'Time: 1½ hours. Change' })).toBeVisible();
+});

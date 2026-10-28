@@ -61,6 +61,14 @@ class TasteSummaryTests(unittest.TestCase):
     def test_no_ratings_is_an_empty_summary(self):
         result = self.summary.summarize({})
         self.assertEqual((result['genres'], result['themes'], result['influences']), ([], {'liked': [], 'passed': []}, []))
+        self.assertEqual(result['rated'], [])
+
+    def test_rated_titles_carry_their_genres_and_rating(self):
+        rated = self.summary.summarize({'heist': 1, 'song': -1, 'unknown': 1})['rated']
+        self.assertEqual(rated, [
+            {'id': 'heist', 'title': 'Heist', 'year': 2000, 'genres': ['crime'], 'rating': 1},
+            {'id': 'song', 'title': 'Song', 'year': 2000, 'genres': ['musical'], 'rating': -1},
+        ])  # titles no longer in the catalogue are left out
 
 
 class TasteApiTests(unittest.TestCase):
@@ -71,6 +79,7 @@ class TasteApiTests(unittest.TestCase):
             taste = client.get('/api/taste').json()
             self.assertEqual((taste['liked'], taste['passed']), (2, 1))
             self.assertTrue(taste['genres'] and taste['themes']['liked'])
+            self.assertEqual({(r['id'], r['rating']) for r in taste['rated']}, {('m001', 1), ('m004', 1), ('m008', -1)})
             tuned = client.post('/api/recommend', json={'session': {'mix': [1, 0, 0, 0]}}).json()['recommendations']
             self.assertEqual({k for p in tuned for k, v in p['factors'].items() if v}, {'taste'})
             self.assertEqual(client.post('/api/recommend', json={'session': {'mix': [1, 1, 0, 0]}}).status_code, 400)

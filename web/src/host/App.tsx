@@ -22,8 +22,10 @@ import { Footer, TopBar } from './components/TopBar';
 import { useCouchHost } from './hooks/useCouchHost';
 import { useHistory } from './hooks/useHistory';
 import { useHouseLights } from './hooks/useHouseLights';
+import { dayPart, useNow } from '../lib/useNow';
 import { useRecommendations } from './hooks/useRecommendations';
 import { type Library, LibraryContext } from './library';
+import { type Night, saveNight, savedNight } from './night';
 import { DEFAULT_SESSION } from './session';
 
 /** Ratings with `id` set to `value` (0 removes it), as a new object. */
@@ -138,10 +140,18 @@ function savedMix(profile: number | undefined): Mix | null {
 function Home({ initial, onProfile }: { initial: AppState; onProfile?: () => void }) {
   const [feedback, setFeedback] = useState(initial.feedback);
   const profileId = initial.profile?.id;
+  // "Your usual night" shapes the scene a visit starts from (and the one Reset returns to).
+  const [night, setNight] = useState<Night | null>(() => savedNight(profileId));
+  const base = useMemo(() => ({ ...DEFAULT_SESSION, ...night }), [night]);
   const [session, setSession] = useState(() => ({
-    ...DEFAULT_SESSION,
+    ...base,
     mix: savedMix(profileId) ?? DEFAULT_SESSION.mix,
   }));
+  const applyNight = (next: Night) => {
+    setNight(next);
+    saveNight(profileId, next);
+    setSession(current => ({ ...current, ...next }));
+  };
   const [tasteOpen, setTasteOpen] = useState(false);
   const applyMix = (mix: Mix) => {
     setSession(current => ({ ...current, mix }));
@@ -168,6 +178,11 @@ function Home({ initial, onProfile }: { initial: AppState; onProfile?: () => voi
   const history = useHistory();
   const couch = useCouchHost(initial.couch);
   const lights = useHouseLights();
+  // The room follows the clock: a little warmer in the evening, cooler and lower late at night.
+  const part = dayPart(useNow());
+  useEffect(() => {
+    document.documentElement.dataset.time = part;
+  }, [part]);
   // The pick under the spotlight: the one you last pointed at or focused in the row, else the top pick.
   const [featuredId, setFeaturedId] = useState<string | null>(null);
 
@@ -366,6 +381,7 @@ function Home({ initial, onProfile }: { initial: AppState; onProfile?: () => voi
         <AskBar controller={controller} voice={initial.voice} inputRef={askInput} />
         <SceneBar
           session={session}
+          base={base}
           mode={mode}
           genres={initial.genres}
           series={(initial.series ?? 0) > 0}
@@ -373,6 +389,14 @@ function Home({ initial, onProfile }: { initial: AppState; onProfile?: () => voi
           onMode={setMode}
           onTaste={() => setTasteOpen(true)}
         />
+        {part === 'late' && session.minutes > 90 && (
+          <p className="late-note">
+            It’s late.{' '}
+            <button type="button" className="link" onClick={() => setSession(current => ({ ...current, minutes: 90 }))}>
+              Show picks that end in 90 minutes
+            </button>
+          </p>
+        )}
         {notice && (
           <p className="notice page-notice" role="alert">
             {notice}
@@ -432,6 +456,8 @@ function Home({ initial, onProfile }: { initial: AppState; onProfile?: () => voi
         session={session}
         feedback={feedback}
         picks={picks}
+        night={{ intensity: base.intensity, minutes: base.minutes }}
+        onNight={applyNight}
         onClose={() => setTasteOpen(false)}
         onMix={mix => {
           applyMix(mix);

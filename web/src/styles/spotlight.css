@@ -310,6 +310,33 @@ html .hero-art.is-passed .poster-hero {
     opacity 0.45s ease-in;
 }
 
+/* ---------- Posters tilt toward the pointer ---------- */
+html .tile-open:hover,
+html .tile-open:focus-visible {
+  transform: perspective(800px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) scale(1.06);
+}
+html .tile-open::after {
+  background: radial-gradient(circle at var(--gx, 50%) var(--gy, 0%), rgba(255, 255, 255, 0.28), transparent 55%);
+}
+html .rail-stubs .tile-open:hover,
+html .rail-stubs .tile-open:focus-visible {
+  transform: none;
+}
+
+/* ---------- The room follows the clock ---------- */
+html[data-time='evening'] body::before {
+  filter: sepia(0.2) saturate(1.15);
+}
+html[data-time='late'] body::before {
+  filter: brightness(0.6) saturate(0.8) hue-rotate(-12deg);
+}
+html .late-note {
+  width: min(1360px, calc(100% - 2 * var(--gutter)));
+  margin: 14px auto 0;
+  color: var(--muted);
+  font-size: 15px;
+}
+
 /* ---------- House lights ---------- */
 /* Down, everything but the spotlit poster fades, and the pointer carries a faint torch. The mask is always
    there; only its two alphas change (on <html>), so the fade can ease. useHouseLights sets --tx and --ty. */
@@ -511,6 +538,320 @@ html .intermission .bulb.on {
   }
 }
 
+/* ---------- Couch mode: the room ---------- */
+html .couch-panel {
+  padding: 40px 0 8px;
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  background: none;
+}
+html .couch-idle {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px 40px;
+}
+html .couch-idle h2 {
+  font-size: 22px;
+}
+html .couch-idle p {
+  max-width: 62ch;
+  margin-top: 6px;
+  color: var(--muted);
+}
+html .couch-live {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 32px 64px;
+  align-items: start;
+  margin-top: 0;
+}
+html .couch-join {
+  text-align: left;
+}
+html .couch-join h2 {
+  font-size: 34px;
+  letter-spacing: -0.03em;
+}
+html .couch-join .hint {
+  margin-top: 8px;
+  color: var(--muted);
+}
+html .couch-join img {
+  display: block;
+  width: 200px;
+  height: 200px;
+  margin-top: 20px;
+  padding: 12px;
+  border-radius: 20px;
+  background: #fff;
+}
+html .couch-code {
+  margin-top: 4px;
+  font: 700 26px/1.2 var(--sans);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.16em;
+  color: var(--text);
+}
+html .couch-status {
+  min-height: 3em;
+  margin-top: 18px;
+  font-size: 18px;
+  line-height: 1.4;
+  color: var(--text);
+}
+html .couch-join .remote-buttons {
+  margin-top: 12px;
+}
+html .couch-stage {
+  position: relative;
+  isolation: isolate;
+  /* The winner's light stays on the stage, never over the code to scan. */
+  overflow: clip;
+  padding-top: 24px;
+}
+/* Rows of equal length (8 titles are two rows of 4, not 7 and 1), centred under the light. */
+html .couch-shortlist {
+  display: grid;
+  grid-template-columns: repeat(var(--cols, 4), minmax(0, 150px));
+  justify-content: center;
+  gap: 22px;
+  margin: 0;
+  padding: 8px 0 0;
+  list-style: none;
+}
+html .couch-film {
+  --spread: 0.6;
+  position: relative;
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+  animation: fade-up 0.6s var(--spring) both;
+  animation-delay: calc(var(--n) * 60ms);
+  transition:
+    opacity 0.8s var(--spring),
+    transform 0.8s var(--spring),
+    filter 0.8s;
+}
+html .couch-film .poster {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  box-shadow: 0 24px 40px -18px #000;
+}
+html .couch-film .beam {
+  bottom: 30%;
+  opacity: 0;
+  /* Fade in from the top of the stage instead of starting at a hard edge. */
+  -webkit-mask-image: linear-gradient(transparent, #000 45%);
+  mask-image: linear-gradient(transparent, #000 45%);
+}
+html .couch-film .bulbs {
+  justify-content: center;
+  gap: 5px;
+  min-height: 9px;
+}
+html .couch-play {
+  min-height: 36px;
+  padding: 0 14px;
+  font-size: 14px;
+}
+html .couch-play svg {
+  font-size: 14px;
+}
+/* The reveal: everything else steps back, and the light finds the group's pick. */
+html .is-revealed .couch-film:not(.is-winner) {
+  opacity: 0.3;
+  filter: grayscale(1);
+  transform: translateY(14px) scale(0.95);
+}
+html .is-revealed .couch-film:not(.is-winner):hover,
+html .is-revealed .couch-film:not(.is-winner):focus-within {
+  opacity: 0.8;
+  filter: none;
+}
+html .couch-film.is-winner {
+  z-index: 2;
+  transform: scale(1.08);
+}
+html .couch-film.is-winner .beam {
+  opacity: 0.6;
+  transition: opacity 1s 0.3s;
+}
+html .couch-film.is-winner .couch-play {
+  background: #fff;
+  color: #000;
+}
+html .couch-verdict {
+  margin-top: 28px;
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  text-align: center;
+  color: var(--text);
+  animation: fade-up 0.8s var(--spring) 0.5s both;
+}
+html .couch-now {
+  margin-top: 12px;
+  text-align: center;
+  color: var(--muted);
+}
+
+/* The sofa: a back, two arms and a cushion per seat; each guest sits down as their phone joins. */
+html .sofa {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  max-width: 760px;
+  margin: 40px auto 0;
+  padding-top: 8px;
+}
+html .sofa::before {
+  /* The back */
+  content: '';
+  position: absolute;
+  left: 34px;
+  right: 34px;
+  top: 112px;
+  height: 104px;
+  border-radius: 40px;
+  background: rgba(255, 255, 255, 0.07);
+}
+html .sofa::after {
+  /* Its shadow on the floor */
+  content: '';
+  position: absolute;
+  left: 2%;
+  right: 2%;
+  bottom: 26px;
+  height: 30px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(0, 0, 0, 0.7), transparent);
+  z-index: -1;
+}
+html .sofa-arm {
+  position: relative;
+  flex: none;
+  width: 64px;
+  height: 100px;
+  margin-bottom: 44px;
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.07);
+}
+html .seats {
+  position: relative;
+  display: flex;
+  flex: 1;
+  margin: 0 -18px;
+  padding: 0;
+  list-style: none;
+}
+html .seat {
+  position: relative;
+  flex: 1;
+  display: grid;
+  align-content: start;
+  justify-items: center;
+  min-width: 0;
+}
+/* A pendant bulb over each seat: off while they vote, lit when they're done. */
+html .seat-bulb {
+  position: relative;
+  width: 11px;
+  height: 11px;
+  margin-top: 38px;
+  border-radius: 50%;
+  background: var(--line-strong);
+  transition:
+    background 0.4s,
+    box-shadow 0.4s;
+}
+html .seat-bulb::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 100%;
+  width: 1px;
+  height: 38px;
+  background: var(--line);
+}
+html .seat.is-voting .seat-bulb {
+  background: rgba(255, 226, 168, 0.45);
+  animation: bulb-chase 2s ease-in-out infinite;
+}
+html .seat.is-done .seat-bulb {
+  background: var(--bulb);
+  box-shadow: 0 0 12px var(--bulb-glow);
+}
+html .seat-person {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 50px;
+  height: 50px;
+  margin-top: 26px;
+  border-radius: 50%;
+  background: var(--g);
+  color: #000;
+  font: 700 21px var(--sans);
+  animation: sit-down 0.6s var(--spring) both;
+}
+html .seat-person::after {
+  /* Shoulders, half hidden by the cushion */
+  content: '';
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 50%;
+  width: 84px;
+  height: 48px;
+  translate: -50% 0;
+  border-radius: 42px 42px 8px 8px;
+  background: var(--g);
+}
+@keyframes sit-down {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+}
+html .seat-cushion {
+  position: relative;
+  z-index: 2;
+  width: calc(100% - 10px);
+  height: 58px;
+  margin-top: 20px;
+  border-radius: 18px;
+  background: #262626;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+html .seat.is-empty .seat-cushion {
+  margin-top: 96px;
+  background: #1c1c1c;
+}
+html .seat-label {
+  display: grid;
+  justify-items: center;
+  margin-top: 12px;
+  font-size: 16px;
+  line-height: 1.3;
+  text-align: center;
+}
+html .seat-label b {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+html .seat-label small {
+  font-size: 13px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
 /* ---------- Your taste: the web ---------- */
 html .taste-web {
   display: block;
@@ -538,6 +879,12 @@ html .web-thread text {
 html .web-thread.is-pass text {
   fill: var(--faint);
 }
+/* The shape and its knots sit on top of the threads; clicks go through to the thread underneath. */
+html .web-ring,
+html .web-shape,
+html .web-knot {
+  pointer-events: none;
+}
 html .web-shape {
   fill: rgba(255, 226, 168, 0.1);
   stroke: var(--bulb);
@@ -558,7 +905,188 @@ html .web-knot {
   }
 }
 
+html .web-thread {
+  cursor: pointer;
+  outline: none;
+}
+html .web-thread .web-hit {
+  stroke: transparent;
+  stroke-width: 26;
+}
+html .web-thread line {
+  transition:
+    stroke 0.2s,
+    stroke-width 0.2s;
+}
+html .web-thread.is-on line:not(.web-hit),
+html .web-thread:focus-visible line:not(.web-hit) {
+  stroke: #fff;
+  stroke-width: 1.6;
+}
+html .web-thread.is-on text,
+html .web-thread:focus-visible text {
+  fill: #fff;
+  font-weight: 600;
+}
+/* Rated films hang in the web like drops: lit for a like, hollow for a pass. */
+html .web-drop {
+  fill: #fff;
+  stroke: rgba(0, 0, 0, 0.6);
+  stroke-width: 2;
+  animation: fade-in 0.4s both;
+  animation-delay: calc(0.9s + var(--n) * 50ms);
+  transition: opacity 0.25s;
+}
+html .web-drop.is-pass {
+  fill: #000;
+  stroke: rgba(255, 255, 255, 0.5);
+  stroke-width: 1.5;
+}
+html .web-drop.is-dim {
+  opacity: 0.2;
+}
+html .web-detail {
+  min-height: 132px;
+  margin-bottom: 20px;
+}
+html .web-detail h4 {
+  margin: 0;
+  font-size: 20px;
+  letter-spacing: -0.01em;
+}
+html .web-detail p {
+  margin-top: 6px;
+  color: var(--muted);
+}
+html .web-films {
+  display: flex;
+  gap: 8px;
+  margin: 14px 0;
+}
+html .web-films .poster {
+  width: 52px;
+  flex: none;
+  border-radius: 6px;
+}
+html .web-films .poster.is-pass {
+  filter: grayscale(1) brightness(0.55);
+}
+html .web-films .poster-fallback {
+  padding: 4px;
+}
+html .web-films .poster-fallback-title {
+  font-size: 9px;
+}
+html .web-films .poster-fallback-year {
+  display: none;
+}
+html .bar-row .bulbs {
+  gap: 4px;
+}
+html .bar-row .bulb {
+  width: 7px;
+  height: 7px;
+}
+
+/* ---------- Your usual night: a shape you drag ---------- */
+html .usual-night {
+  grid-column: 1 / -1;
+}
+html .night-body {
+  display: grid;
+  grid-template-columns: minmax(0, 300px) minmax(0, 1fr);
+  gap: 24px 40px;
+  align-items: center;
+}
+html .night-pad {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at var(--px) var(--py), rgba(255, 226, 168, 0.16), transparent 65%),
+    rgba(255, 255, 255, 0.04);
+  touch-action: none;
+  cursor: grab;
+}
+html .night-pad:active {
+  cursor: grabbing;
+}
+html .night-pad svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+html .night-blob {
+  fill: rgba(255, 255, 255, 0.92);
+}
+html .night-axis {
+  position: absolute;
+  color: var(--faint);
+  font-size: 13px;
+  pointer-events: none;
+}
+html .night-left {
+  left: 12px;
+  top: 50%;
+  translate: 0 -50%;
+}
+html .night-right {
+  right: 12px;
+  top: 50%;
+  translate: 0 -50%;
+}
+html .night-top {
+  top: 10px;
+  left: 50%;
+  translate: -50% 0;
+}
+html .night-bottom {
+  bottom: 10px;
+  left: 50%;
+  translate: -50% 0;
+}
+html .night-say {
+  font-size: 22px;
+  line-height: 1.35;
+  color: var(--text);
+  text-wrap: pretty;
+}
+html .night-copy .hint {
+  margin: 10px 0 18px;
+  max-width: 44ch;
+}
+html .night-copy .fine {
+  min-height: 1.5em;
+  margin-top: 10px;
+}
+
 @media (max-width: 900px) {
+  html .night-body {
+    grid-template-columns: 1fr;
+  }
+  html .night-pad {
+    max-width: 320px;
+  }
+  html .couch-live {
+    grid-template-columns: 1fr;
+  }
+  html .couch-shortlist {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+  }
+  html .sofa-arm {
+    width: 28px;
+    border-radius: 14px;
+  }
+  html .seat-person {
+    width: 40px;
+    height: 40px;
+    font-size: 17px;
+  }
+  html .seat-person::after {
+    width: 62px;
+  }
   /* host.css hides the first nav link on phones; here it is Tonight, the current page. */
   html .nav a:first-child {
     display: inline-block;
@@ -604,5 +1132,9 @@ html .web-knot {
 @media (prefers-reduced-motion: reduce) {
   html .motes {
     display: none;
+  }
+  html .tile-open:hover,
+  html .tile-open:focus-visible {
+    transform: none;
   }
 }

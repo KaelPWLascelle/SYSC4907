@@ -29,6 +29,8 @@ type Field = 'time' | 'mood' | 'energy' | 'kind';
 
 interface SceneBarProps {
   session: Session;
+  /** The scene a reset returns to: the default, shaped by "Your usual night". */
+  base?: Session;
   mode: Mode;
   genres: string[];
   /** Offer films / series / either when the catalogue has TV series. */
@@ -46,7 +48,16 @@ const energyWord = (intensity: number) => (intensity < 0.35 ? 'gentle' : intensi
  * change it. Everything else (discovery, exact intensity, genres to avoid, the lens and the scoring mix)
  * waits behind "More", with a count of what has been changed there.
  */
-export function SceneBar({ session, mode, genres, series = false, onSession, onMode, onTaste }: SceneBarProps) {
+export function SceneBar({
+  session,
+  base = DEFAULT_SESSION,
+  mode,
+  genres,
+  series = false,
+  onSession,
+  onMode,
+  onTaste,
+}: SceneBarProps) {
   const [field, setField] = useState<Field | null>(null);
   const [more, setMore] = useState(false);
   const pickerId = useId();
@@ -73,13 +84,14 @@ export function SceneBar({ session, mode, genres, series = false, onSession, onM
     session.excluded_genres.length > 0,
     mode !== 'session',
     !sameMix(session.mix, DEFAULT_MIX),
-    !ENERGY.some(e => Math.abs(e.value - session.intensity) < 0.001),
+    !ENERGY.some(e => Math.abs(e.value - session.intensity) < 0.001) &&
+      Math.abs(session.intensity - base.intensity) > 0.001,
   ].filter(Boolean).length;
   const changed =
     advanced > 0 ||
     session.mood !== DEFAULT_SESSION.mood ||
-    session.minutes !== DEFAULT_SESSION.minutes ||
-    session.intensity !== DEFAULT_SESSION.intensity ||
+    session.minutes !== base.minutes ||
+    session.intensity !== base.intensity ||
     session.kind !== DEFAULT_SESSION.kind ||
     session.playable;
 
@@ -162,7 +174,7 @@ export function SceneBar({ session, mode, genres, series = false, onSession, onM
             type="button"
             className="link"
             onClick={() => {
-              onSession({ ...DEFAULT_SESSION, mix: session.mix });
+              onSession({ ...base, mix: session.mix });
               onMode('session');
               setField(null);
             }}

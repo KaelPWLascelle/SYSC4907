@@ -31,3 +31,13 @@ test('Discover fits a phone', async ({ page }) => {
   expect(await overflow(page)).toBeLessThanOrEqual(0);
   await page.keyboard.press('Escape');
 });
+
+test('the couch room fits a phone', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Start a couch session' }).click();
+  await expect(page.locator('.couch-code')).toBeVisible();
+  await expect(page.getByRole('list', { name: 'Who’s voting' })).toBeAttached();
+  expect(await overflow(page)).toBeLessThanOrEqual(0);
+  await page.getByRole('button', { name: 'End session' }).click();
+  await expect(page.getByRole('button', { name: 'Start a couch session' })).toBeVisible();
+});
