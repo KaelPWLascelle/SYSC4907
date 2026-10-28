@@ -337,4 +337,6 @@ export interface TasteResponse {
   themes: { liked: { term: string; weight: number }[]; passed: { term: string; weight: number }[] };
   /** Liked films whose fans' ratings (MovieLens) shape the most picks. */
   influences: { title: string; picks: number }[];
+  /** The rated titles, with their genres (absent from older servers). */
+  rated?: { id: string; title: string; year: number; genres: string[]; rating: Rating }[];
 }

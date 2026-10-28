@@ -60,7 +60,8 @@ test('the mix tuner previews the new order and applies it to every pick request'
   await screen.findByRole('heading', { level: 1, name: 'Alpha' });
   await userEvent.click(screen.getByRole('button', { name: 'Your taste' }));
   const sheet = await screen.findByRole('dialog', { name: 'Your taste' });
-  const sliders = await within(sheet).findAllByRole('slider');
+  // The mix's four sliders (the usual-night shape is a slider too, in its own card).
+  const sliders = (await within(sheet).findAllByRole('slider')).filter(s => !s.closest('.usual-night'));
   expect(sliders).toHaveLength(4);
   for (const slider of sliders.slice(1)) fireEvent.change(slider, { target: { value: '0' } });
   expect(await within(sheet).findByText('Gamma', {}, { timeout: 2000 })).toBeInTheDocument();

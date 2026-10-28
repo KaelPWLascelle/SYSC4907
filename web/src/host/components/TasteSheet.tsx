@@ -10,13 +10,21 @@ import {
   type TasteResponse,
 } from '../../api/types';
 import { Icon } from '../../components/Icon';
+import { Poster } from '../../components/Poster';
+import { cx } from '../../lib/cx';
 import { capitalize } from '../../lib/format';
 import { normalizeMix, sameMix } from '../../lib/mix';
 import { useDebounced } from '../../lib/useDebounced';
+import { useLibrary } from '../library';
+import type { Night } from '../night';
 import { FACTOR_KEYS, FACTOR_LABELS } from '../reasons';
+import { UsualNight } from './UsualNight';
 
 interface TasteSheetProps {
   open: boolean;
+  /** "Your usual night", and how to change it. */
+  night: Night;
+  onNight: (night: Night) => void;
   session: Session;
   /** Ratings; the view reloads whenever they change. */
   feedback: Record<string, Rating>;
@@ -31,7 +39,17 @@ interface TasteSheetProps {
 const message = (error: unknown) => (error instanceof Error ? error.message : String(error));
 const percent = (value: number) => `${Math.round(value * 100)}%`;
 /** "Your taste": what the ratings say, drawn from the same models that rank, and a tuner for the mix. */
-export function TasteSheet({ open, session, feedback, picks, onClose, onMix, onBrowse }: TasteSheetProps) {
+export function TasteSheet({
+  open,
+  session,
+  feedback,
+  picks,
+  night,
+  onNight,
+  onClose,
+  onMix,
+  onBrowse,
+}: TasteSheetProps) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [taste, setTaste] = useState<{ key: string; data: TasteResponse | null; error: string }>({
     key: '',
@@ -101,10 +119,11 @@ export function TasteSheet({ open, session, feedback, picks, onClose, onMix, onB
                     }. Nothing here leaves this device.`}
               </p>
               <div className="taste-grid">
-                <GenreChart genres={data.genres} onBrowse={browse} />
+                <GenreChart genres={data.genres} rated={data.rated ?? []} liked={data.liked} onBrowse={browse} />
                 <ThemeChart liked={data.themes.liked} passed={data.themes.passed} onBrowse={browse} />
                 <Influences influences={data.influences} />
                 <MixTuner session={session} picks={picks} onMix={onMix} />
+                <UsualNight night={night} onNight={onNight} />
               </div>
             </>
           )}
@@ -132,7 +151,17 @@ function useTooltip() {
   return { show, hide, node };
 }
 
-function GenreChart({ genres, onBrowse }: { genres: TasteResponse['genres']; onBrowse: (q: string) => void }) {
+function GenreChart({
+  genres,
+  rated,
+  liked,
+  onBrowse,
+}: {
+  genres: TasteResponse['genres'];
+  rated: Rated;
+  liked: number;
+  onBrowse: (q: string) => void;
+}) {
   const [table, setTable] = useState(false);
   const tip = useTooltip();
   const rows = genres.slice(0, 12);
@@ -174,7 +203,7 @@ function GenreChart({ genres, onBrowse }: { genres: TasteResponse['genres']; onB
         </table>
       ) : (
         <>
-          <GenreWeb genres={rows} />
+          <GenreWeb genres={rows} rated={rated} liked={liked} onBrowse={onBrowse} />
           <div className="diverging-legend" aria-hidden="true">
             <span>
               <span className="swatch swatch-pass" />
@@ -217,12 +246,27 @@ function GenreChart({ genres, onBrowse }: { genres: TasteResponse['genres']; onB
   );
 }
 
+type Rated = NonNullable<TasteResponse['rated']>;
+
 /**
  * Your taste as a web: one thread per genre, spun from your ratings. Your shape is drawn on it; the dotted
  * middle ring is "no opinion", so genres you like pull the shape out and genres you pass on pull it in.
- * A picture of the list below it, which stays the way to read and browse the same numbers.
+ * The films you rated hang in it, pulled toward their genres. Point at a thread to see what made it; the
+ * list below stays the way to read and browse the same numbers.
  */
-function GenreWeb({ genres }: { genres: TasteResponse['genres'] }) {
+function GenreWeb({
+  genres,
+  rated,
+  liked,
+  onBrowse,
+}: {
+  genres: TasteResponse['genres'];
+  rated: Rated;
+  liked: number;
+  onBrowse: (q: string) => void;
+}) {
+  const library = useLibrary();
+  const [selected, setSelected] = useState<string | null>(null);
   const threads = genres.slice(0, 8);
   if (threads.length < 3) return null;
   const C = 160;
@@ -244,30 +288,127 @@ function GenreWeb({ genres }: { genres: TasteResponse['genres'] }) {
     return d;
   };
   const shape = threads.map((g, k) => at(k, R * (0.5 + Math.max(-1, Math.min(1, g.affinity)) * 0.5)));
+  // Each rated film hangs between the threads of its genres: liked ones out toward the rim, passes near the middle.
+  const drops = rated.flatMap((film, i) => {
+    let x = 0;
+    let y = 0;
+    for (const genre of film.genres) {
+      const k = threads.findIndex(t => t.genre === genre);
+      if (k < 0) continue;
+      x += Math.cos(angle(k));
+      y += Math.sin(angle(k));
+    }
+    const length = Math.hypot(x, y);
+    if (!length) return [];
+    const r = R * (film.rating === 1 ? 0.7 : 0.28) + ((i * 29) % 24) - 12;
+    return [{ film, x: C + (x / length) * r, y: C + (y / length) * r }];
+  });
+  const chosen = threads.find(t => t.genre === selected);
+  const choose = (genre: string) => setSelected(genre);
   return (
-    <svg className="taste-web" viewBox="-70 -24 460 368" aria-hidden="true">
-      {[0.25, 0.5, 0.75, 1].map(f => (
-        <path key={f} className={f === 0.5 ? 'web-ring web-zero' : 'web-ring'} d={ring(f)} />
-      ))}
-      {threads.map((g, k) => {
-        const [x, y] = at(k, R);
-        const [lx, ly] = at(k, R + 20);
-        const anchor = Math.abs(lx - C) < 8 ? 'middle' : lx > C ? 'start' : 'end';
-        return (
-          <g key={g.genre} className={g.affinity < 0 ? 'web-thread is-pass' : 'web-thread'}>
-            <line x1={C} y1={C} x2={x} y2={y} />
-            <text x={lx} y={ly + 5} textAnchor={anchor}>
-              {capitalize(g.genre)}
-            </text>
-          </g>
-        );
-      })}
-      <polygon className="web-shape" points={shape.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ')} />
-      {shape.map(([x, y], k) => (
-        <circle key={k} className="web-knot" cx={x} cy={y} r={3.5} />
-      ))}
-    </svg>
+    <div className="taste-web-wrap">
+      <svg className="taste-web" viewBox="-70 -24 460 368" role="group" aria-label="Your taste as a web of genres">
+        {[0.25, 0.5, 0.75, 1].map(f => (
+          <path key={f} className={f === 0.5 ? 'web-ring web-zero' : 'web-ring'} d={ring(f)} aria-hidden="true" />
+        ))}
+        {threads.map((g, k) => {
+          const [x, y] = at(k, R);
+          const [lx, ly] = at(k, R + 20);
+          const anchor = Math.abs(lx - C) < 8 ? 'middle' : lx > C ? 'start' : 'end';
+          return (
+            <g
+              key={g.genre}
+              className={cx('web-thread', g.affinity < 0 && 'is-pass', selected === g.genre && 'is-on')}
+              role="button"
+              tabIndex={0}
+              aria-pressed={selected === g.genre}
+              aria-label={`${capitalize(g.genre)}: liked ${g.liked}, passed ${g.passed}`}
+              onPointerEnter={() => choose(g.genre)}
+              onFocus={() => choose(g.genre)}
+              onClick={() => choose(g.genre)}
+              onKeyDown={event => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  choose(g.genre);
+                }
+              }}
+            >
+              <line className="web-hit" x1={C} y1={C} x2={x} y2={y} />
+              <line x1={C} y1={C} x2={x} y2={y} />
+              <text x={lx} y={ly + 5} textAnchor={anchor}>
+                {capitalize(g.genre)}
+              </text>
+            </g>
+          );
+        })}
+        <polygon
+          className="web-shape"
+          points={shape.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ')}
+          aria-hidden="true"
+        />
+        {shape.map(([x, y], k) => (
+          <circle key={k} className="web-knot" cx={x} cy={y} r={3.5} aria-hidden="true" />
+        ))}
+        {drops.map(({ film, x, y }, i) => (
+          <circle
+            key={film.id}
+            className={cx(
+              'web-drop',
+              film.rating === -1 && 'is-pass',
+              selected && !film.genres.includes(selected) && 'is-dim',
+            )}
+            cx={x}
+            cy={y}
+            r={4.5}
+            style={{ '--n': i } as CSSProperties}
+            aria-hidden="true"
+          >
+            <title>{`${film.title} (${film.rating === 1 ? 'liked' : 'passed'})`}</title>
+          </circle>
+        ))}
+      </svg>
+      <div className="web-detail" aria-live="polite">
+        {chosen ? (
+          <>
+            <h4>{capitalize(chosen.genre)}</h4>
+            <p>{threadSentence(chosen, liked)}</p>
+            <div className="web-films">
+              {rated
+                .filter(film => film.genres.includes(chosen.genre))
+                .slice(0, 6)
+                .map(film => (
+                  <Poster
+                    key={film.id}
+                    item={film}
+                    hasPoster={library.posters.has(film.id)}
+                    className={film.rating === 1 ? 'poster' : 'poster is-pass'}
+                  />
+                ))}
+            </div>
+            <button type="button" className="button button-quiet" onClick={() => onBrowse(chosen.genre)}>
+              Browse {chosen.genre.replace('-', ' ')}
+            </button>
+          </>
+        ) : (
+          <p className="hint">Point at a thread to see what made it.</p>
+        )}
+      </div>
+    </div>
   );
+}
+
+/** One plain sentence about a genre's thread, from the same counts the chart shows. */
+function threadSentence(g: TasteResponse['genres'][number], likedTotal: number): string {
+  const name = g.genre.replace('-', ' ');
+  if (g.liked && !g.passed) {
+    return g.liked === likedTotal && likedTotal > 1
+      ? `Every film you liked is ${name}. It’s the strongest thread in your web, and many of your picks hang from it.`
+      : `${g.liked} ${g.liked === 1 ? 'film' : 'films'} you liked ${g.liked === 1 ? 'is' : 'are'} ${name}, so your picks lean this way.`;
+  }
+  if (g.passed && !g.liked) {
+    return `You passed on ${g.passed === 1 ? 'the one' : `all ${g.passed}`} ${name} ${g.passed === 1 ? 'title' : 'titles'} you rated, so Flicks keeps ${name} out of your picks unless you ask. One like would change that.`;
+  }
+  return `${g.liked} liked and ${g.passed} passed: a mixed thread, so Flicks only leans ${g.affinity >= 0 ? 'toward' : 'away from'} ${name} a little.`;
 }
 
 function ThemeChart({
@@ -332,8 +473,8 @@ function ThemeChart({
   );
 }
 
+/** Each bulb is one of your top picks that a liked film led to. */
 function Influences({ influences }: { influences: TasteResponse['influences'] }) {
-  const top = influences[0]?.picks ?? 1;
   return (
     <section className="taste-card" aria-labelledby="influences-title">
       <div className="taste-card-head">
@@ -347,14 +488,16 @@ function Influences({ influences }: { influences: TasteResponse['influences'] })
             {influences.map(i => (
               <li key={i.title} className="bar-row static">
                 <span className="bar-label">{i.title}</span>
-                <span className="bar-track">
-                  <span className="bar-fill like" style={{ '--size': i.picks / top } as CSSProperties} />
+                <span className="bulbs" aria-hidden="true">
+                  {Array.from({ length: i.picks }, (_, k) => (
+                    <i key={k} className="bulb on" style={{ '--i': k } as CSSProperties} />
+                  ))}
                 </span>
                 <span className="bar-value">{i.picks}</span>
               </li>
             ))}
           </ul>
-          <p className="fine">How many of your top 40 picks each liked film led to, through MovieLens ratings.</p>
+          <p className="fine">Each bulb is one of your top 40 picks that the film led to, through MovieLens ratings.</p>
         </>
       )}
     </section>

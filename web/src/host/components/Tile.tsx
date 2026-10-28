@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import type { CSSProperties, PointerEvent } from 'react';
 
 import type { Content } from '../../api/types';
 import { Icon } from '../../components/Icon';
@@ -17,6 +17,19 @@ interface TileProps {
   /** Pointed at or focused: put this title under the spotlight. */
   onFeature?: () => void;
 }
+
+/** The card tilts toward the pointer and catches the light where it points, like a TV's focused poster. */
+const tilt = (event: PointerEvent<HTMLButtonElement>) => {
+  if (event.pointerType !== 'mouse') return;
+  const node = event.currentTarget;
+  const box = node.getBoundingClientRect();
+  const x = (event.clientX - box.left) / box.width;
+  const y = (event.clientY - box.top) / box.height;
+  node.style.setProperty('--ry', `${((x - 0.5) * 12).toFixed(2)}deg`);
+  node.style.setProperty('--rx', `${((0.5 - y) * 12).toFixed(2)}deg`);
+  node.style.setProperty('--gx', `${(x * 100).toFixed(1)}%`);
+  node.style.setProperty('--gy', `${(y * 100).toFixed(1)}%`);
+};
 
 export function Tile({ item, rank, resume = false, onFeature }: TileProps) {
   const library = useLibrary();
@@ -48,6 +61,11 @@ export function Tile({ item, rank, resume = false, onFeature }: TileProps) {
         onClick={() => (resumeAt !== null ? library.play(item) : library.openDetails(item))}
         onPointerEnter={onFeature}
         onFocus={onFeature}
+        onPointerMove={tilt}
+        onPointerLeave={event => {
+          event.currentTarget.style.removeProperty('--rx');
+          event.currentTarget.style.removeProperty('--ry');
+        }}
       >
         <Poster item={item} hasPoster={library.posters.has(item.id)} />
         {playable && (

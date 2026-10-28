@@ -35,8 +35,20 @@ the TV page with a few cinema details that carry information rather than decorat
     resumed now, and a way back in.
   - Continue watching is a row of ticket stubs, torn where you stopped.
   - The footer is the end credits, and says where your data went: nowhere.
-  - Your taste adds a web: one thread per genre, with your shape drawn on it (the list below stays the way
-    to read and browse the same numbers).
+  - Your taste adds a web: one thread per genre, with your shape drawn on it and the films you rated
+    hanging in it (`/api/taste` now returns them, with their genres). Choosing a thread explains it in a
+    sentence, shows its films and offers to browse it. The list below stays the way to read and browse the
+    same numbers. "Films shaping your picks" is a row of bulbs, one per pick.
+  - Couch mode is drawn as the room: the code to scan, the shortlist on screen, and a sofa that fills as
+    phones join, with a bulb over each seat that lights when that guest has voted on everything. At the
+    reveal each title's votes show as bulbs, the others step back, and the spotlight finds the group's pick.
+  - The room follows the clock: a little warmer in the evening, cooler and lower from 10 pm, when Tonight
+    offers picks that end in 90 minutes. `?hour=23` previews it.
+  - Posters in a row tilt toward the pointer and catch the light where it points.
+- **"Your usual night", drawn rather than chosen.** On Your taste, a shape you drag across for how tense
+  and up or down for how long: round and soft for a gentle night, a star with sharper points for a tense
+  one, bigger for a longer one. Saved per profile in this browser (like the mix), it sets the intensity and
+  length a visit starts from and the scene Reset returns to; Tonight can still ask for something else.
 - **The app icon is the i:** a white stem and a warm bulb on black (`scripts/make_icons.py`).
 
 ## Consequences
@@ -44,5 +56,6 @@ the TV page with a few cinema details that carry information rather than decorat
   dust drifts in the beam. All of it stops under `prefers-reduced-motion`.
 - Accessible names did not change, so the unit and end-to-end tests needed no rewrites; new tests cover
   the spotlight following focus, the house lights, the runtime bulbs, the leader and the intermission.
-- Couch mode's host panel and the phone page take the new tokens but keep their layout; a redrawn couch
-  view (seats that fill as phones join) is left for the couch dashboard work.
+- The couch room shows votes per title, not per person: the server reports each guest's progress and each
+  title's totals, never who voted for what, and the view keeps it that way. The phone page takes the new
+  tokens but keeps its layout.

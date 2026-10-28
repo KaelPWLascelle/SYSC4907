@@ -13,3 +13,12 @@ export function useNow(): number {
 /** "9:42 pm": the clock time `minutes` after `now`. */
 export const clockAfter = (now: number, minutes: number) =>
   new Date(now + minutes * 60_000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }).toLowerCase();
+
+export type DayPart = 'day' | 'evening' | 'late';
+
+/** Evening from 5 pm, late from 10 pm until 5 am. `?hour=23` in the address previews another time. */
+export function dayPart(now: number): DayPart {
+  const preview = new URLSearchParams(window.location.search).get('hour');
+  const hour = preview !== null && /^\d{1,2}$/.test(preview) ? Number(preview) % 24 : new Date(now).getHours();
+  return hour >= 22 || hour < 5 ? 'late' : hour >= 17 ? 'evening' : 'day';
+}

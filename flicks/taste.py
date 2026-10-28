@@ -11,6 +11,7 @@ from .core import Session
 PASS_WEIGHT = 0.7      # a pass counts for less than a like, as in the content model's profile
 THEMES = 12
 INFLUENCE_PICKS = 40   # how many top picks the "films shaping your picks" count looks at
+RATED = 60             # rated titles drawn into the genre web (enough to show its shape, not every rating)
 
 
 class TasteSummary:
@@ -27,7 +28,15 @@ class TasteSummary:
         liked = [self.by_id[k] for k, v in sorted(feedback.items()) if v == 1 and k in self.by_id]
         passed = [self.by_id[k] for k, v in sorted(feedback.items()) if v == -1 and k in self.by_id]
         return {'liked': len(liked), 'passed': len(passed), 'genres': self.genres(liked, passed),
-                'themes': self.themes(liked, passed), 'influences': self.influences(feedback) if liked else []}
+                'themes': self.themes(liked, passed), 'influences': self.influences(feedback) if liked else [],
+                'rated': self.rated(liked, passed)}
+
+    @staticmethod
+    def rated(liked, passed):
+        """The rated titles themselves, with their genres, so the view can show where each one pulls."""
+        rows = [(item, 1) for item in liked] + [(item, -1) for item in passed]
+        return [{'id': item.id, 'title': item.title, 'year': item.year, 'genres': list(item.genres), 'rating': rating}
+                for item, rating in rows[:RATED]]
 
     @staticmethod
     def genres(liked, passed):
