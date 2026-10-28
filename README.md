@@ -45,8 +45,8 @@ remove Flicks, run `pipx uninstall flicks`, and delete `~/.flicks` if you also w
 
 ### Optional: the chats' language model
 
-The corner chat works without it. With it, a small language model inside Flicks (Qwen2.5 1.5B, about
-1 GB) answers questions about any title and words the corner chat's replies:
+The corner chat works without it. With it, a small language model inside Flicks (Qwen3.5 2B, about
+1.4 GB) answers questions about any title and words the corner chat's replies:
 
 ```sh
 flicks setup --model
@@ -56,7 +56,9 @@ pipx inject flicks llama-cpp-python
 The first command downloads the model and checks its fingerprint. The second installs the runtime. On
 some computers it compiles llama.cpp, which takes a few minutes and needs a C compiler: Xcode Command
 Line Tools on macOS, or Visual Studio Build Tools on Windows. Flicks then loads the model automatically
-(`flicks --no-llm` to turn it off). Answers take about a second and can be wrong. See
+(`flicks --no-llm` to turn it off). Answers take one to four seconds and can be wrong. If you
+downloaded the earlier model (Qwen2.5 1.5B), run `flicks setup --model` again; the old file in
+`~/.flicks/models` can then be deleted. See
 [ADR 0019](docs/adr/0019-title-chat.md).
 
 ## Features
@@ -105,7 +107,7 @@ instead of failing silently.
 | `trailers` | Trailer IDs for Discover; videos are never downloaded | MovieLens YouTube Trailers dataset; see [ADR 0016](docs/adr/0016-discover.md) |
 | `series` | The 1,000 most-voted TV series | TVmaze (CC BY-SA) and IMDb vote counts (non-commercial); see [ADR 0018](docs/adr/0018-tv-series.md) |
 | `posters` | Posters for the 3,000 most popular films and every series | Wikipedia and TVmaze; copyrighted, so they stay on your computer |
-| `model` (opt-in) | The chats' language model | Qwen2.5 1.5B Instruct (Apache 2.0) |
+| `model` (opt-in) | The chats' language model | Qwen3.5 2B (Apache 2.0) |
 
 Only public identifiers (titles, years, IMDb IDs) are sent while importing, and nothing is sent while you
 use the app, except when you play a public-domain film or turn on trailers. `flicks setup --only posters`
@@ -226,6 +228,7 @@ Measurements (not run in CI; results are in [docs/test-report.md](docs/test-repo
 .venv/bin/python -m flicks.datasets.evaluation           # recommendation quality on held-out MovieLens ratings
 .venv/bin/python -m flicks.datasets.ask --evaluate-only  # the Ask student on its held-out test set
 .venv/bin/python -m flicks.assistant.agent_eval --no-llm # the Ask pipeline on hard cases
+.venv/bin/python -m flicks.assistant.title_chat_eval ~/.flicks/models/Qwen3.5-2B-Q4_K_M.gguf  # the title chat, scored by hand
 ```
 
 **Releasing.** Bump `version` in `pyproject.toml`, merge, then tag the merge commit `v<version>` and push the

@@ -12,7 +12,7 @@ DEFAULT_POSTERS = HOME/'posters'
 DEFAULT_SERIES = HOME/'catalogs'/'series.json'
 DEFAULT_MOVIELENS = HOME/'catalogs'/'movielens-small.json'  # written by `flicks setup` (flicks.datasets.movielens)
 # The small language model `flicks setup --model` downloads; used automatically when present (flicks/setup.py).
-DEFAULT_MODEL = HOME/'models'/'Qwen2.5-1.5B-Instruct-Q4_K_M.gguf'
+DEFAULT_MODEL = HOME/'models'/'Qwen3.5-2B-Q4_K_M.gguf'
 
 
 def default_films():

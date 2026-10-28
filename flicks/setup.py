@@ -2,7 +2,7 @@
 
     flicks setup               # films, public-domain streams, trailers, TV series and posters
     flicks setup --no-series   # skip TV series, the slowest step (about half an hour the first time)
-    flicks setup --model       # also the small language model for the chats (about 1 GB)
+    flicks setup --model       # also the small language model for the chats (about 1.4 GB)
     flicks setup --check       # show what is installed, without downloading anything
 
 Each step is one of the import commands the README documents, run in order. They cache what they
@@ -21,12 +21,12 @@ from urllib import request
 from . import net
 from .config import DEFAULT_CATALOG, DEFAULT_MODEL, DEFAULT_MOVIELENS, DEFAULT_POSTERS, DEFAULT_SERIES, DEFAULT_STATIC
 
-# Qwen2.5 1.5B Instruct, 4-bit (Apache 2.0), pinned to one revision and checked by its SHA-256, so the file
+# Qwen3.5 2B, 4-bit (Apache 2.0), pinned to one revision and checked by its SHA-256, so the file
 # Flicks runs is exactly the one the team evaluated (docs/adr/0019-title-chat.md).
-MODEL_URL = ('https://huggingface.co/bartowski/Qwen2.5-1.5B-Instruct-GGUF/resolve/'
-             '9eadc66189c7641e1ddd226b8267a9119b2ce2d4/Qwen2.5-1.5B-Instruct-Q4_K_M.gguf')
-MODEL_SHA256 = '1adf0b11065d8ad2e8123ea110d1ec956dab4ab038eab665614adba04b6c3370'
-MODEL_BYTES = 986_048_768
+MODEL_URL = ('https://huggingface.co/bartowski/Qwen_Qwen3.5-2B-GGUF/resolve/'
+             '7d26695454df6de5fbcce2e58681e62dae06ce43/Qwen_Qwen3.5-2B-Q4_K_M.gguf')
+MODEL_SHA256 = '57a1085840f497d764a7fc5d346922dbde961efb54cc792ea81d694fd846a1d8'
+MODEL_BYTES = 1_396_198_496
 RUNTIME_HINT = ("The chats also need llama.cpp's Python package: run `pipx inject flicks llama-cpp-python` if "
                 "you installed Flicks with pipx, or `pip install \"flicks[llm]\"` otherwise.")
 
@@ -72,7 +72,7 @@ STEPS = [  # (name, what it adds, function, needs the films first)
     ('trailers', 'Trailer IDs for Discover (videos are never downloaded)', _trailers, True),
     ('series', 'About 1,000 TV series from TVmaze (slow the first time: about half an hour)', _series, False),
     ('posters', 'Posters and covers for the most popular titles', _posters, False),
-    ('model', 'The small language model for the chats (about 1 GB)', _model, False),
+    ('model', 'The small language model for the chats (about 1.4 GB)', _model, False),
 ]
 
 
@@ -158,7 +158,7 @@ def print_status(out=None):
 def main(argv=None):
     parser = argparse.ArgumentParser(prog='flicks setup', description='Download the catalogues, posters and, optionally, '
                                      'the language model Flicks uses. Safe to stop and run again.')
-    parser.add_argument('--model', action='store_true', help='Also download the small language model (about 1 GB)')
+    parser.add_argument('--model', action='store_true', help='Also download the small language model (about 1.4 GB)')
     parser.add_argument('--no-series', action='store_true', help='Skip TV series (the slowest step)')
     parser.add_argument('--no-posters', action='store_true', help='Skip posters (Flicks draws title cards instead)')
     parser.add_argument('--only', choices=[name for name, *_ in STEPS], action='append',
