@@ -9,11 +9,13 @@ interface RailProps {
   badge?: string;
   /** New results are on their way: the current ones dim slightly. */
   busy?: boolean;
+  /** "stubs": ticket stubs torn where you stopped (continue watching). */
+  variant?: 'stubs';
   children: ReactNode;
 }
 
 /** A titled, horizontally scrolling row with previous/next buttons on pointer devices. */
-export function Rail({ id, title, status, badge, busy = false, children }: RailProps) {
+export function Rail({ id, title, status, badge, busy = false, variant, children }: RailProps) {
   const scroller = useRef<HTMLDivElement>(null);
   const scroll = (direction: 1 | -1) =>
     scroller.current?.scrollBy({ left: direction * scroller.current.clientWidth * 0.85, behavior: 'smooth' });
@@ -38,7 +40,7 @@ export function Rail({ id, title, status, badge, busy = false, children }: RailP
           </button>
         </div>
       </div>
-      <div className="rail" ref={scroller} aria-busy={busy}>
+      <div className={variant ? `rail rail-${variant}` : 'rail'} ref={scroller} aria-busy={busy}>
         {children}
       </div>
     </section>

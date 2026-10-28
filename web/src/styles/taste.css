@@ -66,13 +66,14 @@
   margin-right: 6px;
   vertical-align: -1px;
 }
-/* Diverging: blue <-> red with a neutral midpoint (validated pair; docs/adr/0015-your-taste.md) */
+/* Diverging: lit bulb <-> red with a neutral midpoint. The two differ strongly in lightness as well as
+   hue, so they stay apart for colour-blind viewers (docs/adr/0015-your-taste.md). */
 .swatch-like,
 .mix-taste {
-  background: #3987e5;
+  background: var(--bulb);
 }
 .swatch-pass {
-  background: #e66767;
+  background: var(--pass);
   margin-left: 0;
 }
 .diverging-legend {
@@ -116,7 +117,7 @@
   top: 2px;
   bottom: 2px;
   width: 1px;
-  background: #545458;
+  background: var(--line-strong);
 }
 .diverging-track:hover,
 .diverging-track:focus-visible {
@@ -131,12 +132,12 @@
 }
 .diverging-bar.like {
   left: calc(50% + 1px);
-  background: #3987e5;
+  background: var(--bulb);
   border-radius: 0 4px 4px 0;
 }
 .diverging-bar.pass {
   right: calc(50% + 1px);
-  background: #e66767;
+  background: var(--pass);
   border-radius: 4px 0 0 4px;
 }
 .bars {
@@ -183,10 +184,10 @@ button.bar-row:focus-visible {
   border-radius: 0 4px 4px 0;
 }
 .bar-fill.like {
-  background: #3987e5;
+  background: var(--bulb);
 }
 .bar-fill.pass {
-  background: #d95926;
+  background: var(--pass);
 }
 .bar-value {
   font-variant-numeric: tabular-nums;
@@ -198,7 +199,7 @@ button.bar-row:focus-visible {
   transform: translate(-50%, calc(-100% - 8px));
   padding: 6px 10px;
   border-radius: 8px;
-  background: #3a3a3c;
+  background: var(--surface-3);
   color: var(--text);
   font-size: 12px;
   white-space: nowrap;
@@ -241,13 +242,13 @@ button.bar-row:focus-visible {
   transition: flex-grow 0.35s var(--spring);
 }
 .mix-mood {
-  background: #d95926;
+  background: var(--pass);
 }
 .mix-intensity {
-  background: #199e70;
+  background: #9bd4c8;
 }
 .mix-novelty {
-  background: #c98500;
+  background: #b9b4ff;
 }
 .mix-sliders {
   display: grid;
@@ -306,10 +307,10 @@ button.bar-row:focus-visible {
   font-variant-numeric: tabular-nums;
 }
 .preview-move.up {
-  color: #30d158;
+  color: var(--bulb);
 }
 .preview-move.down {
-  color: #ff6961;
+  color: var(--pass);
 }
 
 @media (max-width: 720px) {

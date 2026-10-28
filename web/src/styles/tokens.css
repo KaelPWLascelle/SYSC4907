@@ -1,30 +1,38 @@
-/* Flicks · design tokens: the one place colours, radii, spacing, motion and type are defined. */
+/*
+ * Flicks · design tokens: the one place colours, radii, spacing, motion and type are defined.
+ * Spotlight: black and white, lit by the film in focus (--ambient, set from its poster), with one warm
+ * bulb colour for the lights that carry information (runtime, scores, the dot on the i).
+ */
 :root {
   color-scheme: dark;
   --bg: #000;
-  --bg-raised: #1c1c1e;
-  --surface: #1c1c1e;
-  --surface-2: #2c2c2e;
-  --surface-3: #3a3a3c;
-  --fill: rgba(118, 118, 128, 0.24);
-  --fill-strong: rgba(118, 118, 128, 0.36);
-  --material: rgba(30, 30, 32, 0.72);
-  --material-thick: rgba(28, 28, 30, 0.97);
-  --line: rgba(84, 84, 88, 0.34);
-  --line-strong: rgba(84, 84, 88, 0.6);
-  --text: #f5f5f7;
-  --muted: rgba(235, 235, 245, 0.64);
-  --faint: rgba(235, 235, 245, 0.38);
-  --accent: #0a84ff;
-  --accent-strong: #409cff;
-  --accent-ink: #fff;
-  --like: #30d158;
-  --pass: #ff453a;
-  --radius: 18px;
+  --bg-raised: #141414;
+  --surface: #141414;
+  --surface-2: #1e1e1e;
+  --surface-3: #2a2a2a;
+  --fill: rgba(255, 255, 255, 0.1);
+  --fill-strong: rgba(255, 255, 255, 0.18);
+  --material: rgba(28, 28, 28, 0.72);
+  --material-thick: rgba(22, 22, 22, 0.94);
+  --line: rgba(255, 255, 255, 0.1);
+  --line-strong: rgba(255, 255, 255, 0.18);
+  --text: #fff;
+  --muted: rgba(255, 255, 255, 0.6);
+  --faint: rgba(255, 255, 255, 0.36);
+  --bulb: #ffe2a8;
+  --bulb-glow: rgba(255, 226, 168, 0.7);
+  --accent: var(--bulb);
+  --accent-strong: #fff0cc;
+  --accent-ink: #000;
+  --like: var(--bulb);
+  --pass: #ff6b5e;
+  /* The colour the film in focus throws into the room; Hero sets it from the poster. */
+  --ambient: #15202b;
+  --radius: 16px;
   --radius-sm: 12px;
-  --gutter: clamp(16px, 4vw, 56px);
-  --shadow: 0 30px 60px -20px rgba(0, 0, 0, 0.75), 0 12px 24px -12px rgba(0, 0, 0, 0.6);
+  --gutter: clamp(16px, 5vw, 88px);
+  --shadow: 0 30px 60px -20px rgba(0, 0, 0, 0.85), 0 12px 24px -12px rgba(0, 0, 0, 0.6);
   --spring: cubic-bezier(0.2, 0.8, 0.2, 1);
-  --sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
-  --display: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', 'Segoe UI', Roboto, sans-serif;
+  --sans: 'Hanken Grotesk Variable', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --display: var(--sans);
 }

@@ -10,6 +10,8 @@ export default defineConfig({
   build: {
     outDir: '../flicks/static',
     emptyOutDir: true,
+    // Fonts stay files: the server's Content-Security-Policy (default-src 'self') blocks data: URLs.
+    assetsInlineLimit: (file: string) => (file.endsWith('.woff2') || file.endsWith('.woff') ? false : undefined),
     rollupOptions: { input: { main: 'index.html', couch: 'couch.html' } },
   },
   server: {

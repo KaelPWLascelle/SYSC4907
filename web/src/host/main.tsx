@@ -1,9 +1,11 @@
+import '@fontsource-variable/hanken-grotesk';
 import '../styles/tokens.css';
 import '../styles/base.css';
 import '../styles/host.css';
 import '../styles/player.css';
 import '../styles/couch.css';
 import '../styles/theme.css';
+import '../styles/spotlight.css';
 import '../styles/taste.css';
 import '../styles/discover.css';
 import '../styles/titlechat.css';

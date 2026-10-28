@@ -1,9 +1,7 @@
 /* Couch mode: host panel */
 .couch-panel {
-  padding: 28px clamp(18px, 3vw, 36px);
-  border-radius: 22px;
-  background: linear-gradient(135deg, rgba(245, 196, 81, 0.08), transparent 55%), var(--surface);
-  border: 1px solid var(--line);
+  padding: 36px 0 8px;
+  border-top: 1px solid var(--line);
 }
 .couch-idle {
   display: flex;

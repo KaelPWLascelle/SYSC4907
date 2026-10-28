@@ -225,3 +225,40 @@ describe('when a film ends', () => {
     expect(screen.queryByRole('region', { name: 'Finished' })).not.toBeInTheDocument();
   });
 });
+
+test('starting from the beginning counts in with film leader, then plays', () => {
+  vi.useFakeTimers();
+  const play = vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue(undefined);
+  render(<Player item={item} startAt={0} leader directPlay remote={null} onProgress={() => {}} onClose={() => {}} />);
+  expect(video().autoplay).toBe(false); // nothing plays under the countdown
+  expect(document.querySelector('.leader')).toHaveTextContent('3');
+  act(() => vi.advanceTimersByTime(800));
+  expect(document.querySelector('.leader')).toHaveTextContent('2');
+  act(() => vi.advanceTimersByTime(800));
+  expect(document.querySelector('.leader')).toHaveTextContent('1');
+  act(() => vi.advanceTimersByTime(800));
+  expect(document.querySelector('.leader')).toBeNull();
+  expect(play).toHaveBeenCalled();
+  play.mockRestore();
+  vi.useRealTimers();
+});
+
+test('paused for five minutes, the screen becomes an intermission with what is left', () => {
+  vi.useFakeTimers();
+  const play = vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue(undefined);
+  render(<Player item={item} startAt={0} directPlay remote={null} onProgress={() => {}} onClose={() => {}} />);
+  const node = video();
+  setMedia(node, { duration: 6000, currentTime: 2400, paused: true });
+  fireEvent.pause(node);
+  act(() => vi.advanceTimersByTime(4 * 60_000));
+  expect(screen.queryByRole('region', { name: 'Intermission' })).toBeNull();
+  act(() => vi.advanceTimersByTime(60_000));
+  const card = screen.getByRole('region', { name: 'Intermission' });
+  expect(card).toHaveTextContent('Alpha has 1h left. Resume now and it ends at');
+  fireEvent.click(screen.getByRole('button', { name: 'Resume' }));
+  expect(play).toHaveBeenCalled();
+  fireEvent.play(node);
+  expect(screen.queryByRole('region', { name: 'Intermission' })).toBeNull();
+  play.mockRestore();
+  vi.useRealTimers();
+});

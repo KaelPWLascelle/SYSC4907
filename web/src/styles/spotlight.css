@@ -1,0 +1,608 @@
+/*
+ * Spotlight components: tonight's pick on its stage, the bulbs that carry runtime and scores, the house
+ * lights, ticket stubs, the film leader and the intermission card, and the taste web. Selectors start with
+ * `html` for the same reason as theme.css: they win over host.css's older rules for the same elements.
+ */
+
+/* ---------- Bulbs ---------- */
+html .bulbs {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+html .bulb {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--line-strong);
+}
+html .bulb.on {
+  background: var(--bulb);
+  box-shadow: 0 0 8px var(--bulb-glow);
+  animation: bulb-on 0.3s both;
+  animation-delay: calc(var(--i, 0) * 40ms);
+}
+/* Past the end of your evening, or already watched: an outline where a bulb would be. */
+html .bulb.over,
+html .bulb.seen {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--line-strong);
+}
+html .bulb.over {
+  box-shadow: inset 0 0 0 1.5px rgba(255, 226, 168, 0.55);
+}
+html .bulb-gap {
+  width: 6px;
+}
+@keyframes bulb-on {
+  from {
+    background: var(--line-strong);
+    box-shadow: none;
+  }
+}
+
+/* ---------- Tonight: the stage ---------- */
+html .hero {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 48px;
+  min-height: 0;
+  padding: 32px var(--gutter) 28px;
+  background: none;
+  /* The beam is wider than the stage; clip it sideways but let it rise to the top of the page. */
+  overflow-x: clip;
+  overflow-y: visible;
+}
+html .hero::after {
+  display: none;
+}
+/* A fixed stage on wide screens: whatever the title, the buttons and the rows below never move. The copy
+   stands on the stage floor, so a longer title grows upward into empty space instead of pushing down. */
+@media (min-width: 901px) {
+  html .hero {
+    height: clamp(560px, calc(100vh - 300px), 660px);
+  }
+}
+html .hero-copy {
+  position: relative;
+  z-index: 1;
+  max-width: 680px;
+  container-type: inline-size;
+}
+/* Sized to its length, so any title fits in two lines: short ones stay big, long ones step down. */
+html .hero h1 {
+  margin: 0;
+  font-size: clamp(40px, calc(330cqi / var(--chars, 12)), 96px);
+  font-weight: 700;
+  line-height: 0.98;
+  letter-spacing: -0.035em;
+  text-wrap: balance;
+}
+html .hero-word {
+  display: inline-block;
+  white-space: nowrap;
+}
+/* Letters are set one at a time, like changing a cinema's letterboard. */
+html .hero-letter {
+  display: inline-block;
+  animation: letter-set 0.5s var(--spring) both;
+  animation-delay: calc(var(--i) * 16ms);
+}
+@keyframes letter-set {
+  from {
+    opacity: 0;
+    transform: translateY(0.12em);
+    filter: blur(6px);
+  }
+}
+html .hero-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 22px;
+  margin-top: 18px;
+  font-size: 17px;
+  color: var(--muted);
+  opacity: 1;
+  font-variant-numeric: tabular-nums;
+}
+html .meter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin-top: 16px;
+  font-size: 16px;
+  color: var(--muted);
+}
+html .hero .reasons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 22px;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+html .hero .reasons li {
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--text);
+  font-size: 18px;
+  font-weight: 400;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+html .hero .reasons li + li {
+  color: var(--muted);
+}
+html .hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 28px;
+}
+html .hero-actions .button {
+  min-height: 56px;
+  padding: 0 28px;
+  font-size: 17px;
+}
+html .hero-actions .rate {
+  position: static;
+  opacity: 1;
+  gap: 10px;
+}
+html .hero-actions .rate-button {
+  width: 56px;
+  height: 56px;
+  background: var(--fill);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+html .hero-actions .rate-button:hover:not(:disabled) {
+  background: var(--fill-strong);
+}
+html .hero-actions .rate-button svg {
+  font-size: 20px;
+}
+html .hero-pitch {
+  margin-top: 18px;
+  font-size: 20px;
+  color: var(--muted);
+}
+html .hero-empty {
+  align-items: center;
+}
+
+/* ---------- The spotlight ---------- */
+html .hero-art {
+  position: relative;
+  height: clamp(260px, calc(100vh - 440px), 500px);
+  aspect-ratio: 2 / 3;
+}
+html .poster-hero {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  aspect-ratio: auto;
+  border-radius: 14px;
+  transform: none;
+  box-shadow: 0 50px 90px -30px rgba(0, 0, 0, 0.95);
+  animation: fade-in 0.7s var(--spring);
+}
+/* A cone of light from above, tinted by the film and as wide as the film is gentle. */
+html .beam,
+html .motes {
+  position: absolute;
+  left: 50%;
+  bottom: -12%;
+  width: calc(100% * (0.9 + var(--spread) * 1.5));
+  height: calc(100% + 560px);
+  transform: translateX(-50%);
+  clip-path: polygon(46% 0, 54% 0, 100% 100%, 0 100%);
+  pointer-events: none;
+  transition: width 1.2s var(--spring);
+}
+html .beam {
+  z-index: 0;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in oklab, var(--ambient) 30%, rgba(255, 255, 255, 0.5)) 0%,
+    color-mix(in oklab, var(--ambient) 50%, rgba(255, 255, 255, 0.14)) 55%,
+    transparent 100%
+  );
+  filter: blur(18px);
+  mix-blend-mode: screen;
+  opacity: 0.5;
+  transition:
+    width 1.2s var(--spring),
+    opacity 1.2s;
+}
+/* Where the light lands. */
+html .hero-art::after {
+  content: '';
+  position: absolute;
+  z-index: 0;
+  left: 50%;
+  bottom: -11%;
+  width: calc(100% * (0.9 + var(--spread) * 1.5));
+  height: 22%;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(
+    closest-side,
+    color-mix(in oklab, var(--ambient) 40%, rgba(255, 255, 255, 0.26)),
+    transparent
+  );
+  filter: blur(10px);
+  transition: width 1.2s var(--spring);
+}
+html .motes {
+  z-index: 2;
+}
+html .motes i {
+  position: absolute;
+  left: var(--x);
+  top: var(--y);
+  width: var(--s);
+  height: var(--s);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.7);
+  opacity: 0;
+  animation: mote var(--t) linear var(--d) infinite;
+}
+@keyframes mote {
+  20%,
+  70% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--dx), -60px);
+  }
+}
+/* Like: the footlights come up under the poster for a beat. */
+html .uplight {
+  position: absolute;
+  z-index: 2;
+  left: -20%;
+  right: -20%;
+  bottom: -8%;
+  height: 75%;
+  pointer-events: none;
+  background: radial-gradient(55% 100% at 50% 100%, rgba(255, 226, 168, 0.55), transparent 70%);
+  mix-blend-mode: screen;
+  opacity: 0;
+}
+html .hero-art.is-liked .uplight {
+  animation: footlights 1.8s var(--spring);
+}
+html .hero-art.is-liked .poster-hero {
+  animation: footlit 1.8s var(--spring);
+}
+@keyframes footlights {
+  18% {
+    opacity: 1;
+  }
+}
+@keyframes footlit {
+  18% {
+    transform: translateY(-6px);
+    box-shadow:
+      0 50px 90px -30px rgba(0, 0, 0, 0.95),
+      0 30px 60px -10px rgba(255, 226, 168, 0.5);
+  }
+}
+/* Not for me: the poster steps down out of the light until the next pick takes its place. */
+html .hero-art.is-passed .poster-hero {
+  transform: translateY(70px) rotate(2deg);
+  opacity: 0;
+  transition:
+    transform 0.45s ease-in,
+    opacity 0.45s ease-in;
+}
+
+/* ---------- House lights ---------- */
+/* Down, everything but the spotlit poster fades, and the pointer carries a faint torch. The mask is always
+   there; only its two alphas change (on <html>), so the fade can ease. useHouseLights sets --tx and --ty. */
+html .topbar,
+html .hero-copy,
+html main > :not(.hero),
+html .footer {
+  --tx: -999px;
+  --ty: -999px;
+  -webkit-mask-image: radial-gradient(
+    circle 260px at var(--tx) var(--ty),
+    rgb(0 0 0 / var(--inner)),
+    rgb(0 0 0 / var(--outer))
+  );
+  mask-image: radial-gradient(
+    circle 260px at var(--tx) var(--ty),
+    rgb(0 0 0 / var(--inner)),
+    rgb(0 0 0 / var(--outer))
+  );
+}
+html.is-dim {
+  --outer: 0.07;
+  --inner: 0.45;
+}
+html.is-dim body::before {
+  opacity: 0.35;
+}
+html.is-dim .beam {
+  opacity: 0.95;
+}
+html.is-dim .logo-bulb {
+  background: #6b6258;
+  box-shadow: none;
+}
+
+/* ---------- Pick up where you left off: ticket stubs, torn where you stopped ---------- */
+html .rail-stubs {
+  grid-auto-columns: minmax(280px, 340px);
+}
+html .rail-stubs .tile {
+  flex-direction: row;
+  align-items: center;
+  gap: 16px;
+  height: 116px;
+  padding: 12px 18px 12px 12px;
+  border-radius: 12px;
+  background: linear-gradient(
+    90deg,
+    color-mix(in oklab, var(--ambient) 55%, #2a2a2a) var(--torn, 0%),
+    rgba(255, 255, 255, 0.07) var(--torn, 0%)
+  );
+  /* The notches top and bottom mark the tear. */
+  -webkit-mask:
+    radial-gradient(circle 9px at var(--torn, 0%) 0, transparent 97%, #000) top / 100% 51% no-repeat,
+    radial-gradient(circle 9px at var(--torn, 0%) 100%, transparent 97%, #000) bottom / 100% 51% no-repeat;
+  mask:
+    radial-gradient(circle 9px at var(--torn, 0%) 0, transparent 97%, #000) top / 100% 51% no-repeat,
+    radial-gradient(circle 9px at var(--torn, 0%) 100%, transparent 97%, #000) bottom / 100% 51% no-repeat;
+  transition: transform 0.3s var(--spring);
+}
+html .rail-stubs .tile:hover,
+html .rail-stubs .tile:focus-within {
+  transform: translateY(-3px) rotate(-0.6deg);
+}
+html .rail-stubs .tile-open {
+  flex: none;
+  width: 61px;
+}
+html .rail-stubs .tile-open:hover,
+html .rail-stubs .tile-open:focus-visible {
+  transform: none;
+}
+html .rail-stubs .tile-badge,
+html .rail-stubs .tile-progress,
+html .rail-stubs .tile > .rate {
+  display: none;
+}
+html .rail-stubs .tile-info {
+  padding-right: 0;
+}
+html .rail-stubs .tile-title {
+  white-space: normal;
+  font-size: 16px;
+  line-height: 1.25;
+}
+
+/* ---------- Film leader ---------- */
+html .leader {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 40px;
+  background: radial-gradient(circle, #2a2a2a, #000 75%);
+  pointer-events: none;
+}
+html .leader-pop {
+  animation: two-pop 0.8s steps(1);
+}
+@keyframes two-pop {
+  0% {
+    background: #fff;
+  }
+  8% {
+    background: radial-gradient(circle, #2a2a2a, #000 75%);
+  }
+}
+html .leader-reel {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: min(56vmin, 400px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  box-shadow:
+    inset 0 0 0 3px rgba(255, 255, 255, 0.75),
+    inset 0 0 0 22px rgba(0, 0, 0, 0.5),
+    inset 0 0 0 25px rgba(255, 255, 255, 0.75);
+  background: conic-gradient(rgba(255, 255, 255, 0.18) var(--sweep), transparent 0);
+  animation: sweep 0.8s linear infinite;
+}
+@property --sweep {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+@keyframes sweep {
+  to {
+    --sweep: 360deg;
+  }
+}
+html .leader-reel::before,
+html .leader-reel::after {
+  content: '';
+  position: absolute;
+  background: rgba(255, 255, 255, 0.5);
+}
+html .leader-reel::before {
+  left: -20%;
+  right: -20%;
+  top: 50%;
+  height: 2px;
+}
+html .leader-reel::after {
+  top: -20%;
+  bottom: -20%;
+  left: 50%;
+  width: 2px;
+}
+html .leader-reel span {
+  position: relative;
+  z-index: 1;
+  font: 600 min(30vmin, 210px) / 1 var(--sans);
+  font-variant-numeric: tabular-nums;
+}
+html .leader p {
+  color: var(--muted);
+}
+
+/* ---------- Intermission ---------- */
+html .intermission {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 16px;
+  padding: 24px;
+  text-align: center;
+  background: rgba(0, 0, 0, 0.78);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  animation: fade-in 0.8s var(--spring);
+}
+html .intermission h2 {
+  font-size: clamp(48px, 8vw, 104px);
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+html .intermission p {
+  max-width: 36ch;
+  font-size: 20px;
+  color: var(--muted);
+}
+html .intermission .bulbs {
+  margin: 6px 0 12px;
+}
+/* While you're away, the bulbs for what's left chase slowly, like a marquee between shows. */
+html .intermission .bulb.on {
+  animation: bulb-chase 2.4s ease-in-out infinite;
+  animation-delay: calc(var(--i) * 0.12s);
+}
+@keyframes bulb-chase {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/* ---------- Your taste: the web ---------- */
+html .taste-web {
+  display: block;
+  width: 100%;
+  max-width: 460px;
+  height: auto;
+  margin: 4px auto 18px;
+  overflow: visible;
+}
+html .web-ring {
+  fill: none;
+  stroke: var(--line);
+}
+html .web-zero {
+  stroke: var(--line-strong);
+  stroke-dasharray: 2 5;
+}
+html .web-thread line {
+  stroke: var(--line-strong);
+}
+html .web-thread text {
+  fill: var(--muted);
+  font: 500 13px var(--sans);
+}
+html .web-thread.is-pass text {
+  fill: var(--faint);
+}
+html .web-shape {
+  fill: rgba(255, 226, 168, 0.1);
+  stroke: var(--bulb);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+  transform-origin: 160px 160px;
+  animation: web-grow 0.9s var(--spring) 0.2s both;
+}
+html .web-knot {
+  fill: var(--bulb);
+  filter: drop-shadow(0 0 4px var(--bulb-glow));
+  animation: fade-in 0.4s 0.8s both;
+}
+@keyframes web-grow {
+  from {
+    opacity: 0;
+    transform: scale(0.2);
+  }
+}
+
+@media (max-width: 900px) {
+  /* host.css hides the first nav link on phones; here it is Tonight, the current page. */
+  html .nav a:first-child {
+    display: inline-block;
+  }
+  html .hero {
+    grid-template-columns: 1fr;
+    padding-top: 20px;
+  }
+  /* No room for the poster: the spotlight falls on the title instead. */
+  html .hero-art {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 62%;
+    height: auto;
+    aspect-ratio: auto;
+    pointer-events: none;
+  }
+  html .hero-art .poster-hero,
+  html .hero-art .uplight {
+    display: none;
+  }
+  html .hero-art .beam {
+    opacity: 0.35;
+  }
+  html .hero h1 {
+    font-size: clamp(36px, calc(330cqi / var(--chars, 12)), 64px);
+  }
+  html .hero .reasons li {
+    font-size: 16px;
+    white-space: normal;
+  }
+  html .hero-actions .button {
+    min-height: 50px;
+    padding: 0 20px;
+  }
+  html .hero-actions .rate-button {
+    width: 50px;
+    height: 50px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  html .motes {
+    display: none;
+  }
+}

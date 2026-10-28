@@ -21,6 +21,7 @@ import { Tile } from './components/Tile';
 import { Footer, TopBar } from './components/TopBar';
 import { useCouchHost } from './hooks/useCouchHost';
 import { useHistory } from './hooks/useHistory';
+import { useHouseLights } from './hooks/useHouseLights';
 import { useRecommendations } from './hooks/useRecommendations';
 import { type Library, LibraryContext } from './library';
 import { DEFAULT_SESSION } from './session';
@@ -166,6 +167,9 @@ function Home({ initial, onProfile }: { initial: AppState; onProfile?: () => voi
   const ready = useRecommendations(readyScene, mode, feedback);
   const history = useHistory();
   const couch = useCouchHost(initial.couch);
+  const lights = useHouseLights();
+  // The pick under the spotlight: the one you last pointed at or focused in the row, else the top pick.
+  const [featuredId, setFeaturedId] = useState<string | null>(null);
 
   const posters = useMemo(() => new Set(initial.posters), [initial.posters]);
   // Everything playable, from the server: local files and public-domain streams.
@@ -331,6 +335,7 @@ function Home({ initial, onProfile }: { initial: AppState; onProfile?: () => voi
   // ---------- render ----------
   const continueWatching = history.items.filter(p => p.resumable && media.has(p.content_id)).map(p => p.content);
   const { picks, coldStart, loading, error } = recommendations;
+  const featured = picks.find(row => row.content.id === featuredId) ?? picks[0];
   const status = error
     ? `Could not load picks: ${error}`
     : !picks.length && !loading
@@ -347,6 +352,8 @@ function Home({ initial, onProfile }: { initial: AppState; onProfile?: () => voi
         Skip to your picks
       </a>
       <TopBar
+        dim={lights.dim}
+        onLights={lights.toggle}
         couch={initial.couch}
         onAsk={() => askInput.current?.focus()}
         profile={initial.profile?.name}
@@ -355,13 +362,7 @@ function Home({ initial, onProfile }: { initial: AppState; onProfile?: () => voi
         onDiscover={() => setDiscoverOpen(true)}
       />
       <main id="top">
-        <Hero
-          pick={picks[0]}
-          session={session}
-          mode={mode}
-          loading={loading && !picks.length}
-          onPick={() => pickForMe(false)}
-        />
+        <Hero pick={featured} session={session} loading={loading && !picks.length} onPick={() => pickForMe(false)} />
         <AskBar controller={controller} voice={initial.voice} inputRef={askInput} />
         <SceneBar
           session={session}
@@ -378,7 +379,7 @@ function Home({ initial, onProfile }: { initial: AppState; onProfile?: () => voi
           </p>
         )}
         {continueWatching.length > 0 && (
-          <Rail id="continue" title="Continue watching">
+          <Rail id="continue" title="Pick up where you left off" variant="stubs">
             {continueWatching.map(item => (
               <Tile key={item.id} item={item} resume />
             ))}
@@ -392,7 +393,12 @@ function Home({ initial, onProfile }: { initial: AppState; onProfile?: () => voi
           badge={picks.length ? `${picks.length} picks` : undefined}
         >
           {picks.map((row, index) => (
-            <Tile key={row.content.id} item={row.content} rank={index + 1} />
+            <Tile
+              key={row.content.id}
+              item={row.content}
+              rank={index + 1}
+              onFeature={() => setFeaturedId(row.content.id)}
+            />
           ))}
         </Rail>
         {!session.playable && ready.picks.length > 0 && (
@@ -415,7 +421,12 @@ function Home({ initial, onProfile }: { initial: AppState; onProfile?: () => voi
           onClearSimilar={() => setBrowse({ query: '', similar: null })}
         />
       </main>
-      <Footer titles={initial.catalog_size} posters={posters.size > 0} playable={media.size} />
+      <Footer
+        titles={initial.catalog_size}
+        posters={posters.size > 0}
+        playable={media.size}
+        profile={initial.profile?.name}
+      />
       <TasteSheet
         open={tasteOpen}
         session={session}
@@ -466,6 +477,7 @@ function Home({ initial, onProfile }: { initial: AppState; onProfile?: () => voi
           key={playing.item.id}
           item={playing.item}
           startAt={playing.startAt}
+          leader={playing.startAt === 0}
           directPlay={media.get(playing.item.id)?.direct_play ?? true}
           streamedFrom={
             media.get(playing.item.id)?.remote ? (media.get(playing.item.id)?.source ?? 'the internet') : null
