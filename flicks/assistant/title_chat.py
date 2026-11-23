@@ -181,12 +181,12 @@ def why_sentence(given):
         lead = f"it shares {' and '.join(themes)} with titles you liked"
     else:
         lead = ''
-    rest = [r for r in reasons if r != 'matches your ratings' and 'widely liked' not in r]
+    # "Matches your ratings" is what a liked title or shared theme already says; alone, it is the reason.
+    rest = [r for r in reasons if 'widely liked' not in r and not (r == 'matches your ratings' and (liked or themes))]
     if themes and liked:
         rest.insert(0, f"shares {' and '.join(themes)} with titles you liked")
-    if not lead:
-        lead = f'it {rest.pop(0)}' if rest else 'it matches the scene you set'
-
+    if not lead:  # the reasons themselves are the answer: "it matches your ratings and fits the mood…"
+        return f"Flicks picked it because it {' and '.join(rest) if rest else 'matches the scene you set'}."
     return f"Flicks picked it because {lead}" + (f", and it {' and '.join(rest)}" if rest else '') + '.'
 
 

@@ -54,7 +54,9 @@ def invented_names(answer, given, question):
         words = run.split()
         while words and words[0] in COMMON:
             words = words[1:]
-        if len(words) >= 2 and norm(' '.join(words)) not in known:
+        # "Finding Nemo and Up" is two names: each part must be in the facts.
+        parts = [p.strip() for p in re.split(r'\band\b', ' '.join(words)) if p.strip()]
+        if len(words) >= 2 and any(norm(p) not in known for p in parts):
             bad.append(' '.join(words))
     return bad
 

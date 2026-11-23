@@ -182,6 +182,9 @@ class TitleChatTests(unittest.TestCase):
         self.assertNotIn('white', sentence)  # a raw term that is not one of the title's genres or tags
         given['why Flicks picked it']['because you liked'] = []
         self.assertIn('science fiction and space', why_sentence(given))
+        given['why Flicks picked it']['themes shared with what you liked'] = ['white']
+        self.assertEqual(why_sentence(given),
+                         'Flicks picked it because it matches your ratings and fits the mood you asked for.')
 
     def test_when_tonight_does_not_fit_flicks_says_so_whatever_the_model_said(self):
         given = dict(self.given, minutes=153, **{'your evening': {'mood': 'relaxing', 'minutes available': 100,
