@@ -12,6 +12,7 @@ import time
 from .llm import THINKING, LLMError
 
 IDLE_SECONDS = 5 * 60
+CLOSE = '</think>'
 
 
 def _runtime():
@@ -67,9 +68,18 @@ class EmbeddedChat:
                     if '</think>' not in buffer:
                         continue
                     buffer, thinking = THINKING.sub('', buffer).lstrip(), False
-                if buffer:
-                    yield buffer
-                buffer = ''
+                # A "</think>" with no opening tag closes a block the chat template opened itself (LFM3); what
+                # follows is a second go at the answer, so the answer ends here.
+                if CLOSE in buffer:
+                    head = buffer.split(CLOSE, 1)[0]
+                    if head:
+                        yield head
+                    buffer = ''
+                    break
+                held = next((n for n in range(len(CLOSE) - 1, 0, -1) if buffer.endswith(CLOSE[:n])), 0)
+                if len(buffer) > held:  # hold back what could be the start of "</think>"
+                    yield buffer[:len(buffer) - held]
+                buffer = buffer[len(buffer) - held:]
             if buffer and not thinking:
                 yield buffer  # a reply too short to tell from "<think>", e.g. "<3"
         except LLMError:

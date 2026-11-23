@@ -89,6 +89,14 @@ class EmbeddedChatTests(unittest.TestCase):
             self.assertEqual(chat.status()['message'], 'Loaded')
             chat._timer.cancel()
 
+    def test_a_closing_think_tag_with_no_opening_ends_the_answer(self):
+        # Templates that open the thinking block themselves (LFM3) can leave "</think>" and a second answer.
+        with tempfile.NamedTemporaryFile(suffix='.gguf') as model:
+            llama = FakeLlama('It runs 81 minutes.</think>It is 81 minutes long.')
+            chat = EmbeddedChat(model.name, runtime=lambda: llama, idle_seconds=60)
+            self.assertEqual(chat.complete([{'role': 'user', 'content': 'How long?'}]), 'It runs 81 minutes.')
+            chat._timer.cancel()
+
     def test_reports_what_is_missing(self):
         self.assertIn('llama-cpp-python', EmbeddedChat('x.gguf', runtime=lambda: None).status()['message'])
         missing = EmbeddedChat('/nowhere/x.gguf', runtime=lambda: FakeLlama(''))

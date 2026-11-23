@@ -180,7 +180,14 @@ class Concierge:
         fallback = f"{lead}: {', '.join(names[:-1])} and {names[-1]}." if len(names) > 1 else f'{lead}: {names[0]}.'
         facts = {'what the viewer wants': wish.labels() or ['anything good'],
                  'picks': [self._pick_facts(p) for p in picks]}
-        yield from self._words(PITCH, facts, fallback, 'picks', allowed={normalize(n) for n in names})
+        # The pitch may also name what the picks are like: a title the viewer liked ("because you liked")
+        # or one they named themselves ("like The Martian"). Both are in the facts or the conversation.
+        allowed = {normalize(n) for n in names + [t for p in picks for t in p.get('because', [])]}
+        if wish.like is not None:  # read from the conversation even when typed in lower case
+            allowed.add(normalize(wish.like.title))
+        if self.checker is not None:
+            allowed |= self.checker.named_titles(' '.join(texts))
+        yield from self._words(PITCH, facts, fallback, 'picks', allowed=allowed)
 
     @staticmethod
     def _pick_facts(pick):
