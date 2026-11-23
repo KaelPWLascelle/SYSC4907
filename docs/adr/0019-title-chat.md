@@ -90,6 +90,20 @@ Same machine; scored by hand as above.
 low-memory machines (`--llm-file`). Twenty-four questions are too few to claim the proposal's 95%
 groundedness target.
 
+### Granite 4.0 1B (2026-11-23)
+[docs/llm-benchmark.md](../llm-benchmark.md) tested nine models on 270 questions across 30 titles, with an
+independent blind grader. IBM Granite 4.0 1B, run on the CPU, came first on both title sets and with both
+graders (95% and 89% by the rules, 77% blind, against Qwen3.5 2B's 91%, 86% and 66%). It is also the
+fastest on the CPU (0.6 s typical) and a 1.0 GB file.
+
+**Choice now: Granite 4.0 1B** (Apache 2.0, from IBM's own repository), with two changes it needs:
+- It always runs on the CPU (`embedded.CPU_ONLY`), because on Metal llama.cpp makes it print only "@".
+- An answer that calls a title fine for children while its age rating is unknown is replaced with
+  Flicks' own sentence, built from the title's intensity and genres (`title_chat.claims_fine_for_kids`).
+  Granite said "suitable for all ages" of The Godfather.
+
+An earlier download of Qwen3.5 2B is still used until `flicks setup --model` fetches Granite.
+
 ## Next
 - Answer the predictable questions in code (fits tonight, why this pick, who directed it, when the
   description says), like the Ask rules, and keep the model for open questions.
@@ -103,5 +117,5 @@ groundedness target.
 ## Consequences
 - `pip install 'flicks[llm]'` builds or downloads llama.cpp (prebuilt Metal wheels were corrupt on
   2026-10-22; building from source needs CMake, installable with pip). Model files are downloaded by the
-  user, about 1.4 GB, and are not redistributed by Flicks.
+  user, about 1 GB, and are not redistributed by Flicks.
 - Without `--llm-file` nothing changes: no panel, no extra memory.

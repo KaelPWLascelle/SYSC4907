@@ -1,6 +1,6 @@
 """Title chat check: the app's own prompt and answer check on 3 titles x 8 questions, for one GGUF model.
 
-    python -m flicks.assistant.title_chat_eval ~/.flicks/models/Qwen3.5-2B-Q4_K_M.gguf
+    python -m flicks.assistant.title_chat_eval ~/.flicks/models/granite-4.0-1b-Q4_K_M.gguf
     python -m flicks.assistant.title_chat_eval MODEL.gguf --cpu --out results.json   # no Metal or CUDA
 
 Needs the imported catalogue (`flicks setup`) and llama-cpp-python. Prints every answer with its timing, then

@@ -35,13 +35,25 @@ class DefaultsTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             model = Path(temp)/'model.gguf'
             model.write_bytes(b'x')
-            with mock.patch.object(cli, 'DEFAULT_MODEL', model):
+            with mock.patch.object(config, 'DEFAULT_MODEL', model), mock.patch.object(config, 'EARLIER_MODELS', ()):
                 with mock.patch.object(cli.importlib.util, 'find_spec', return_value=None):
                     self.assertIsNone(cli.parse_args([]).llm_file)
                 with mock.patch.object(cli.importlib.util, 'find_spec', return_value=object()):
                     self.assertEqual(cli.parse_args([]).llm_file, model)
                     self.assertIsNone(cli.parse_args(['--no-llm']).llm_file)
                     self.assertIsNone(cli.parse_args(['--llm-url', 'http://127.0.0.1:11434']).llm_file)
+
+    def test_the_default_model_is_granite_and_an_earlier_download_still_works(self):
+        self.assertEqual(config.DEFAULT_MODEL.name, 'granite-4.0-1b-Q4_K_M.gguf')
+        self.assertIn('granite-4.0-1b-Q4_K_M.gguf', setup.MODEL_URL)
+        with tempfile.TemporaryDirectory() as temp:
+            new, old = Path(temp)/'granite.gguf', Path(temp)/'qwen.gguf'
+            with mock.patch.object(config, 'DEFAULT_MODEL', new), mock.patch.object(config, 'EARLIER_MODELS', (old,)):
+                self.assertIsNone(config.installed_model())
+                old.write_bytes(b'x')
+                self.assertEqual(config.installed_model(), old)  # downloaded by an earlier `flicks setup --model`
+                new.write_bytes(b'x')
+                self.assertEqual(config.installed_model(), new)
 
     def test_a_port_in_use_is_reported_instead_of_a_traceback(self):
         with socket.socket() as busy:

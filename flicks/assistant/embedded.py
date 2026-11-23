@@ -12,6 +12,11 @@ import time
 from .llm import THINKING, LLMError
 
 IDLE_SECONDS = 5 * 60
+TEMPERATURE = 0.0  # greedy, as IBM recommends for Granite 4 (docs/llm-benchmark.md); repeat penalty stays 1.0
+# Models whose output is garbage with GPU layers in llama.cpp (Granite 4.0 prints only "@" on Metal), so
+# they always run on the CPU, whatever --llm-cpu says (docs/llm-benchmark.md).
+CPU_ONLY = ('granite-4.0',)
+CLOSE = '</think>'
 
 
 def _runtime():
@@ -30,6 +35,8 @@ class EmbeddedChat:
         self.path = Path(path)
         self.model = self.path.stem
         self.name = f'built-in model ({self.model})'
+        if any(name in self.model.lower() for name in CPU_ONLY):
+            gpu_layers = 0
         self.threads, self.gpu_layers, self.context, self.idle_seconds = threads, gpu_layers, context, idle_seconds
         self.runtime = runtime
         self.lock = threading.Lock()
@@ -48,7 +55,7 @@ class EmbeddedChat:
             raise LLMError('The built-in model is busy; try again in a moment')
         try:
             llm = self._load()
-            options = {'stream': True, 'max_tokens': max_tokens, 'temperature': 0.2}
+            options = {'stream': True, 'max_tokens': max_tokens, 'temperature': TEMPERATURE}
             if json_mode:
                 options['response_format'] = {'type': 'json_object'}
             buffer, thinking, started = '', False, False
@@ -67,9 +74,18 @@ class EmbeddedChat:
                     if '</think>' not in buffer:
                         continue
                     buffer, thinking = THINKING.sub('', buffer).lstrip(), False
-                if buffer:
-                    yield buffer
-                buffer = ''
+                # A "</think>" with no opening tag closes a block the chat template opened itself (LFM3); what
+                # follows is a second go at the answer, so the answer ends here.
+                if CLOSE in buffer:
+                    head = buffer.split(CLOSE, 1)[0]
+                    if head:
+                        yield head
+                    buffer = ''
+                    break
+                held = next((n for n in range(len(CLOSE) - 1, 0, -1) if buffer.endswith(CLOSE[:n])), 0)
+                if len(buffer) > held:  # hold back what could be the start of "</think>"
+                    yield buffer[:len(buffer) - held]
+                buffer = buffer[len(buffer) - held:]
             if buffer and not thinking:
                 yield buffer  # a reply too short to tell from "<think>", e.g. "<3"
         except LLMError:

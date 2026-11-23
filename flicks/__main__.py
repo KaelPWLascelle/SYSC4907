@@ -10,9 +10,10 @@ import webbrowser
 
 import uvicorn
 
+from . import config
 from .api.app import create_app
 from .assistant.voice import LocalWhisper
-from .config import DEFAULT_CATALOG, DEFAULT_DB, DEFAULT_MODEL, DEFAULT_POSTERS, DEFAULT_SERIES, Settings, default_films
+from .config import DEFAULT_CATALOG, DEFAULT_DB, DEFAULT_POSTERS, DEFAULT_SERIES, Settings, default_films
 from .services import build_services
 from .systemone import DecisionClient, HttpBackend, LexicalBackend
 
@@ -56,9 +57,9 @@ def parse_args(argv=None):
     parser.add_argument('--no-browser', action='store_true', help='Do not open the browser when Flicks starts')
     args = parser.parse_args(argv)
     args.catalog = args.catalog or default_films()
-    if args.llm_file is None and not (args.no_llm or args.llm_url) and DEFAULT_MODEL.is_file() \
+    if args.llm_file is None and not (args.no_llm or args.llm_url) and config.installed_model() \
             and importlib.util.find_spec('llama_cpp') is not None:
-        args.llm_file = DEFAULT_MODEL  # installed by `flicks setup --model`
+        args.llm_file = config.installed_model()  # installed by `flicks setup --model`
     if args.no_llm:
         args.llm_file = args.llm_url = None
     return args

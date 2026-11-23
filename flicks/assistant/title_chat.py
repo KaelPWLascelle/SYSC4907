@@ -21,6 +21,34 @@ SYSTEM = ("You are Flicks, a movie assistant inside a video player. Answer the v
 MAX_QUESTION = 300
 MAX_TURNS = 3          # earlier questions and answers kept for follow-ups ("and who else is in it?")
 MAX_TOKENS = 120     # about 90 words: a cap, not a target (the prompt asks for 60)
+UNKNOWN_RATING = 'not known to Flicks'
+# "Suitable for all ages", "fine for kids", "kid-friendly", "not … inappropriate for children": a claim that
+# a title is fine for children, which Flicks can't back without an age rating.
+YOUNG = r"(kids?|children|child|all ages|famil(y|ies)|young (viewers|audiences|children)|everyone|all audiences|(a )?(wide|general) audiences?)"
+FINE_FOR_KIDS = re.compile(rf"\b(suitable|appropriate|fine|ok|okay|safe|good|great|perfect|ideal|suited)\b[\w\s'-]{{0,25}}\b{YOUNG}\b"
+                           rf"|\b(kid|family|child)-friendly\b|\bnot\b[\w\s'-]{{0,40}}\binappropriate\b[\w\s'-]{{0,15}}\b{YOUNG}\b")
+# A hedge in the same clause ("unclear if it is suitable", "may not be suitable") keeps the answer.
+HEDGE = re.compile(r"\b(not|no|never|unclear|unsure|whether|if|might|may|check|depends|doesn'?t know|don'?t know)\b|n['’]t\b")
+CLAUSES = re.compile(r"[.;,!?]|\b(and|but|so|though|although|while)\b")
+MATURE = ('horror', 'thriller', 'crime', 'war')  # genres that suggest older viewers
+# "Does it fit tonight?": the answer must agree with the code's own yes/no for the time and the mood.
+ABOUT_FIT = re.compile(r"\b(fit|fits|tonight|evening|enough time|time i have|time we have|right now)\b")
+FITS_NO = re.compile(r"\b(doesn'?t|does not|won'?t|will not|not|may not|might not|isn'?t|is not)\b[\w\s'-]{0,20}"
+                     r"\b(fit|match|suit|work)|too long|longer than|more than (the|your)|exceeds|runs over|over your|"
+                     r"rather than|not enough time|not quite|instead of", re.I)
+FITS_YES = re.compile(r"^\W*(yes|absolutely|sure)\b|\bfits?\b|\bwithin\b|enough time|\bperfect|\bmatch(es)?\b|\bsuits?\b", re.I)
+# Questions code answers outright, before the model is asked: "Does it fit tonight?", "Why this pick?".
+FIT_QUESTION = re.compile(r"\b(does|will|would|can|could) (it|this|that)\b[^?]{0,20}\bfit\b|\bfit (in )?(tonight|my evening)\b"
+                          r"|\benough time\b|\bhave time (for|to watch) (it|this)\b")
+WHY_QUESTION = re.compile(r"\bwhy\b[^?]{0,30}\b(pick\w*|recommend\w*|suggest\w*|chos\w*|choose|show\w*)\b"
+                          r"|\bwhat made (you|flicks)\b|\bwhy (this|it) one\b")
+KIDS_QUESTION = re.compile(r"\b(ok|okay|suitable|safe|appropriate|fine|good|alright|right)\b[^?]{0,25}"
+                           r"\b(kids?|children|child|my son|my daughter|family|young)\b|\b(kid|family|child)[- ]friendly\b"
+                           r"|\bage rating\b|\bwhat is it rated\b|\bwhat'?s it rated\b")
+ABOUT_DIRECTOR = re.compile(r"\bdirect|\bdirector|\bwho made\b|\bfilmmaker")
+SENTENCE_END = re.compile(r'(?<=[a-z0-9)"”\'][.!?])\s+')
+MAX_SENTENCES = 3
+ABOUT_KIDS = re.compile(r"\b(kids?|children|child|family|famil(y|ies)|age|ages|young|scary|suitable|appropriate|rated|rating)\b")
 
 
 def facts(item, pick=None, session=None):
@@ -35,6 +63,8 @@ def facts(item, pick=None, session=None):
         given.update(seasons=series['seasons'], episodes=series['episodes'], network=series.get('network'),
                      **({'ended': series['ended']} if series.get('ended') else {'still running': True}))
     given['description'] = item['description']
+    if names := directors(item['description']):
+        given['directed by'] = names  # said outright: small models miss it inside a long description
     # Said outright, because small models otherwise invent one ("rated PG-13") when asked about children.
     given['age rating'] = 'not known to Flicks'
     if pick:
@@ -48,10 +78,12 @@ def facts(item, pick=None, session=None):
                              for k in strongest if k in FACTOR_WORDS],
         }
     if session is not None:
-        # Worked out here rather than left to the model: small models get arithmetic wrong.
+        # Worked out here rather than left to the model: small models get arithmetic wrong, and say a horror
+        # film "fits your relaxing evening". The mood test is the recommender's own (core.Recommender).
         fits = item['minutes'] <= session.minutes
         given['your evening'] = {'mood': session.mood, 'minutes available': session.minutes,
-                                 ('one episode fits' if series else 'fits the time you have'): fits}
+                                 ('one episode fits' if series else 'fits the time you have'): fits,
+                                 'matches the mood you asked for': session.mood == 'any' or session.mood in item.get('moods', [])}
     return given
 
 
@@ -76,6 +108,10 @@ class TitleChat:
         """Yield {"delta"} events, then one {"done", "ok", "answer"|"note"}. Raises LLMError before any text."""
         stream = getattr(self.chat, 'stream', None)
         messages = self.messages(given, question, history)
+        if (answer := answer_in_code(given, question)) is not None:  # nothing for the model to add
+            yield {'delta': answer}
+            yield {'done': True, 'ok': True, 'answer': answer}
+            return
         if stream is None:  # a loopback server client: one piece
             pieces = iter([self.chat.complete(messages, max_tokens=MAX_TOKENS)])
         else:
@@ -108,4 +144,134 @@ class TitleChat:
             if title not in allowed and f' {title} ' not in description:
                 raise LLMError(f'This answer was hidden because it mentioned {self.checker.titles[title]}, '
                                'which Flicks didn’t give the model. Try asking another way.')
-        return text
+        asked = str(question).lower()
+        # Flicks' own sentence replaces an answer that contradicts what Flicks knows for certain.
+        if given.get('age rating') == UNKNOWN_RATING and ABOUT_KIDS.search(asked) and claims_fine_for_kids(text):
+            return kids_sentence(given)
+        named = given.get('directed by')
+        if named and ABOUT_DIRECTOR.search(asked) and not any(n.split()[-1].lower() in text.lower() for n in named):
+            return f'It was directed by {" and ".join(named)}.'
+        if 'your evening' in given and ABOUT_FIT.search(asked) and (not all(_evening(given))
+                                                                     or contradicts_evening(text, given)):
+            return evening_sentence(given)  # when tonight doesn't fit, Flicks says why, whatever the model said
+        return ' '.join(SENTENCE_END.split(text)[:MAX_SENTENCES])
+
+
+def answer_in_code(given, question):
+    """Flicks' own answer when the question is one the facts settle completely, else None."""
+    asked = ' '.join(str(question).lower().split())
+    if 'your evening' in given and FIT_QUESTION.search(asked):
+        return evening_sentence(given)
+    if 'why Flicks picked it' in given and WHY_QUESTION.search(asked):
+        return why_sentence(given)
+    if given.get('age rating') == UNKNOWN_RATING and KIDS_QUESTION.search(asked):
+        return kids_sentence(given)
+    return None
+
+
+def why_sentence(given):
+    """Why this pick, from the recommender's own reasons (as the interface's template words them)."""
+    why = given['why Flicks picked it']
+    liked = why.get('because you liked', [])[:2]
+    # Only themes that are the title's own genres or tags: other evidence terms ("white", "wife") read as noise.
+    own = {t.replace('-', ' ') for t in [*given.get('genres', []), *given.get('tags', [])]}
+    themes = [t.replace('-', ' ') for t in why.get('themes shared with what you liked', [])
+              if t.replace('-', ' ') in own][:2]
+    reasons = why.get('main reasons', [])
+    if liked:
+        lead = f"people who liked {' and '.join(liked)} also rated it highly"
+    elif any('widely liked' in r for r in reasons):
+        lead = 'it is widely liked, while Flicks is still learning your taste'
+    elif themes:
+        lead = f"it shares {' and '.join(themes)} with titles you liked"
+    else:
+        lead = ''
+    # "Matches your ratings" is what a liked title or shared theme already says; alone, it is the reason.
+    rest = [r for r in reasons if 'widely liked' not in r and not (r == 'matches your ratings' and (liked or themes))]
+    if themes and liked:
+        rest.insert(0, f"shares {' and '.join(themes)} with titles you liked")
+    if not lead:  # the reasons themselves are the answer: "it matches your ratings and fits the mood…"
+        return f"Flicks picked it because it {' and '.join(rest) if rest else 'matches the scene you set'}."
+    return f"Flicks picked it because {lead}" + (f", and it {' and '.join(rest)}" if rest else '') + '.'
+
+
+def directors(description):
+    """The names after "directed by" in a description: ["Roger Allers", "Rob Minkoff"], or []."""
+    found = re.search(r'\bdirected by ', description)
+    if not found:
+        return []
+    names, current = [], []
+    for token in re.findall(r"[\w.'’-]+|,", description[found.end():]):
+        if token in (',', 'and'):
+            if current:
+                names.append(' '.join(current))
+                current = []
+            continue
+        if not token[0].isupper() or len(current) == 4:
+            break
+        ends = token.endswith('.') and len(token) > 2  # "Brooks." ends the sentence; "L." is an initial
+        current.append(token.rstrip('.') if ends else token)
+        if ends:
+            break
+    if current:
+        names.append(' '.join(current))
+    return names[:3]
+
+
+def _evening(given):
+    evening = given['your evening']
+    time_ok = next((v for k, v in evening.items() if 'fit' in k), True)
+    return time_ok, evening.get('matches the mood you asked for', True)
+
+
+def contradicts_evening(text, given):
+    """True when the answer says the opposite of the code's yes/no for tonight."""
+    time_ok, mood_ok = _evening(given)
+    text = text.replace('’', "'")
+    says_no = bool(FITS_NO.search(text))
+    says_yes = bool(FITS_YES.search(text)) and not says_no
+    return says_no if time_ok and mood_ok else says_yes
+
+
+def evening_sentence(given):
+    """Flicks' own answer to "does it fit tonight?", from the time and mood it worked out."""
+    evening = given['your evening']
+    time_ok, mood_ok = _evening(given)
+    series = 'minutes per episode' in given
+    minutes = given.get('minutes per episode') if series else given.get('minutes')
+    text = (f"{'Each episode runs' if series else 'It runs'} {minutes} minutes, "
+            f"{'within' if time_ok else 'more than'} the {evening['minutes available']} you have")
+    mood = evening.get('mood', 'any')
+    if mood != 'any':
+        moods = ' and '.join(given.get('moods', [])) or 'a different mood'
+        text += f', and it is {mood}, as you asked' if mood_ok else f', and it is {moods} rather than {mood}'
+    return text + ('. It fits tonight.' if time_ok and mood_ok else '. It may not suit tonight.')
+
+
+def claims_fine_for_kids(text):
+    """True when some clause says the title is fine for children without hedging."""
+    sentences = re.split(r'(?<=[.!?])\s+', text.lower().replace('’', "'"))
+    statements = ' '.join(s for s in sentences if not s.endswith('?'))  # an echoed "Is it OK for kids?" claims nothing
+    # The double negative ("not … inappropriate") is itself the claim; elsewhere a "not" is a hedge.
+    return any(clause and FINE_FOR_KIDS.search(clause) and ('inappropriate' in clause or not HEDGE.search(clause))
+               for clause in CLAUSES.split(statements))
+
+
+def kids_sentence(given):
+    """Flicks' own answer to "is it scary? is it OK for kids?", from its intensity, genres and moods."""
+    what = 'series' if given.get('kind') == 'TV series' else 'film'
+    intensity = given.get('intensity', 'balanced')
+    mature = [g for g in given.get('genres', []) if g in MATURE]
+    tense = 'tense' in given.get('moods', [])
+    text = 'Flicks doesn’t know its age rating, so check one before watching with children. '
+    if intensity == 'intense' or mature or tense:
+        how = f'an intense {what}' if intensity == 'intense' else f'a {intensity} {what}'
+        details = [f"{', '.join(mature)} in its genres"] if mature else []
+        details += ['a tense mood'] if tense else []
+        detail = f" with {' and '.join(details)}" if details else ''
+        return text + f'It is {how}{detail}, so it may be scary or too much for young viewers.'
+    if intensity == 'gentle' or 'family' in given.get('genres', []):
+        family = f' and listed as a family {what}' if 'family' in given.get('genres', []) else ''
+        return text + f'It is {intensity} in intensity{family}, so it is unlikely to be scary.'
+    # "Balanced" alone can't settle it: the catalogue rates Game of Thrones balanced too.
+    return text + 'It is balanced in intensity, so preview it before showing it to young children.'
