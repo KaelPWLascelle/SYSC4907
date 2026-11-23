@@ -208,6 +208,30 @@ was regenerated in the recorded runs after a wording fix rather than rerunning t
   know the rating", and it penalizes "not described as scary" for violent titles.
 - **Answers got faster.** Those two questions no longer wait for the model at all.
 
+### Third step: Flicks answers "Is it OK for kids?" itself
+
+Kids questions now get Flicks' own sentence, which also says whether the title may be scary:
+- intense, a horror, thriller, crime or war genre, or a tense mood: "may be scary or too much for young
+  viewers";
+- gentle, or a family title: "unlikely to be scary";
+- otherwise "balanced": "preview it before showing it to young children", because the catalogue rates Game
+  of Thrones "balanced" too.
+
+The recorded runs' kids answers were regenerated with this code (the model plays no part).
+
+| Model (set 2) | Blind: start → step 1 → step 2 → **step 3** | Kids (of 5) |
+|---|---|---:|
+| Granite 4.0 1B, CPU | 77% → 78% → 83% → **89%** | 2 → 4.5 |
+| Qwen3.5 2B, Metal | 66% → 78% → 84% → **89%** | 2 → 4.5 |
+| LFM2.5 1.2B, Metal | 71% → 73% → 83% → **89%** | 2 → 4.5 |
+
+- **The only kids answer the grader marked down is Game of Thrones.** The catalogue gives it no mature
+  genre or tense mood, so Flicks' sentence is mild. Better catalogue data (a content-advisory field)
+  would fix it, not a better model.
+- **What the model still answers:** cast, plot, director (with a check), composer, comparisons and
+  follow-ups. The weakest left are "Is it better than Alien?" (a flat "Flicks has no details about Alien",
+  which the grader wants related to the viewer) and Granite's cast answers.
+
 ## Bugs this found in Flicks
 
 1. **The corner chat threw away good pitches (fixed).** The pitch check allowed only the three picks' names,
@@ -226,8 +250,10 @@ was regenerated in the recorded runs after a wording fix rather than rerunning t
 
 ## Next
 
-- Answer "Is it OK for kids?" in code as well: Flicks' kids sentence already weighs intensity and the
-  mature genres. That is the weakest question left for every model.
+- Add a content-advisory field to the catalogue (from TVmaze or Wikipedia), so the kids sentence can
+  warn about titles like Game of Thrones.
+- Have the comparison answer say what Flicks does know about this title and the viewer, instead of only
+  declining.
 - If the blind gap stays, try LoRA fine-tuning on catalogue Q&A written by a larger teacher model (MLX on
   the M2, merged into one GGUF), measured against these two title sets.
 - Retest Granite on Metal with a newer llama.cpp before treating CPU-only as permanent.
