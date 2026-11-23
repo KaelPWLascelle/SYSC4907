@@ -141,6 +141,52 @@ all), and six new corner-chat conversations. Each configuration ran three times.
   genres. On the second title set, that check caught all 8 of Granite's claims and none of its 12
   hedged answers.
 
+## Customization round (code checks, greedy decoding)
+
+A review of customization options (sampling, constrained decoding, Granite's prompt features, LoRA
+fine-tuning, activation steering, guard models, hallucination checkers) found the cheapest fix for these
+failures: let code work out what it can know for certain, and let the model only word it. This round
+added:
+- **Facts:** whether the title matches the mood asked for (the recommender's own test), and the
+  director's name when the description gives one.
+- **Checks that put Flicks' own sentence in place of the model's:** an answer that contradicts the code's
+  yes/no for tonight ("fits your relaxing evening perfectly" about a horror film), or misses a director the
+  description names ("Flicks only has details about this one"), now gets Flicks' own sentence. This joins
+  the kids check.
+- **Decoding and length:** temperature 0 (greedy, as IBM recommends for Granite 4), repeat penalty
+  unchanged at 1.0, and answers cut to three sentences.
+- **Granite's "documents" mode**, tried as a benchmark variant (`--documents`).
+
+Scored with the stricter rules (the fits rule now includes the mood; the director rule reads names as
+the app does, which also changes the earlier rows):
+
+| Model | Set 2 before | Set 2 after | Blind before | Blind after | Set 1 after |
+|---|---:|---:|---:|---:|---:|
+| Granite 4.0 1B, CPU | 88% | **96%** | 77% | 78% | 98% (87% before) |
+| Qwen3.5 2B, Metal | 84% | **97%** | 66% | 78% | |
+| LFM2.5 1.2B, Metal | 86% | 91% | 71% | 73% | |
+| Granite 4.0 1B, documents mode | | 90% | | | |
+
+- **By the rules, the checks lift every model**, mostly on "fits tonight" (Granite went from 45% to
+  100%, Qwen from 35% to 100%) and on directors (Qwen went from 55% to 95%). The rules and the checks
+  share their logic, so the blind grader is the fairer measure.
+- **Blind, the gain is real for Qwen and small for Granite.** Qwen gained 12 points, because its two
+  failures were exactly the ones the checks catch. Granite gained 1 point, because its remaining
+  mistakes are ones no check catches:
+  - weak "why" answers that list raw theme tags;
+  - declining the comparison without relating it to the viewer;
+  - "may not match your mood", left in place without mentioning the runtime;
+  - and twice, "not described as scary" for Pulp Fiction and Game of Thrones.
+  With 5 titles per question in the blind sample, a 1-point gap is noise: Granite and Qwen are now
+  tied.
+- **Documents mode is worse** (90% against 96%). It cost cast and "fits" answers, and one answer took
+  11.5 s. It is not adopted.
+- **Speed is unchanged:** Granite typically answers in 0.6 s, and the checks cost nothing measurable.
+
+**What this means for the default:** Granite 4.0 1B on the CPU stays the default. It ties Qwen3.5 2B on
+quality, but it is 1.0 GB instead of 1.4 GB, the same on every platform, and 6× faster on the CPU. On a
+Mac, Qwen3.5 2B on Metal is now an equally good choice.
+
 ## Bugs this found in Flicks
 
 1. **The corner chat threw away good pitches (fixed).** The pitch check allowed only the three picks' names,
@@ -159,6 +205,12 @@ all), and six new corner-chat conversations. Each configuration ran three times.
 
 ## Next
 
-- Make "fits tonight" use the mood as well as the time, in code, as Flicks already does for the time.
+- For "fits tonight", always answer with Flicks' own sentence when the code says no. The model's "may not
+  match your mood" passes the check but leaves out the runtime.
+- Build Flicks' own "why this pick" sentence from the reasons, as the narrator does, instead of letting the
+  model list raw theme tags.
+- If the blind gap stays, try LoRA fine-tuning on catalogue Q&A written by a larger teacher model (MLX on
+  the M2, merged into one GGUF), measured against these two title sets.
+- Retest Granite on Metal with a newer llama.cpp before treating CPU-only as permanent.
 - Not tested: Gemma 4 E2B and Qwen3.5 4B (3 GB files, left out on this machine), Granite 4.0 H 1B (the
   hybrid version), and Inkling, which needs two data-centre GPUs and can't run locally.
