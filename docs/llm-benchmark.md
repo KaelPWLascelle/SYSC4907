@@ -178,7 +178,7 @@ the app does, which also changes the earlier rows):
   - "may not match your mood", left in place without mentioning the runtime;
   - and twice, "not described as scary" for Pulp Fiction and Game of Thrones.
   With 5 titles per question in the blind sample, a 1-point gap is noise: Granite and Qwen are now
-  tied.
+  tied. The second step below closes most of Granite's remaining gap.
 - **Documents mode is worse** (90% against 96%). It cost cast and "fits" answers, and one answer took
   11.5 s. It is not adopted.
 - **Speed is unchanged:** Granite typically answers in 0.6 s, and the checks cost nothing measurable.
@@ -186,6 +186,27 @@ the app does, which also changes the earlier rows):
 **What this means for the default:** Granite 4.0 1B on the CPU stays the default. It ties Qwen3.5 2B on
 quality, but it is 1.0 GB instead of 1.4 GB, the same on every platform, and 6× faster on the CPU. On a
 Mac, Qwen3.5 2B on Metal is now an equally good choice.
+
+### Second step: Flicks answers "why" and "fits tonight" itself
+
+"Why did Flicks pick this?" and "Does it fit tonight?" are now answered from the recommender's reasons and
+the evening, without asking the model. The "why" sentence names only themes that are the title's own
+genres or tags, so it drops stray evidence terms such as "white" and "wife". Any other question about
+tonight gets Flicks' sentence whenever tonight doesn't fit. Because the "why" sentence is pure code, it
+was regenerated in the recorded runs after a wording fix rather than rerunning the models.
+
+| Model (set 2) | Rules | Blind: start → first step → this step |
+|---|---:|---|
+| Granite 4.0 1B, CPU | 96% | 77% → 78% → **83%** |
+| Qwen3.5 2B, Metal | 98% | 66% → 78% → **84%** |
+| LFM2.5 1.2B, Metal | 96% | 71% → 73% → **83%** |
+
+- **The model hardly matters now.** All three are within a point of each other blind, and all got 5 of
+  5 on "why" and "fits" in the sample. The rules can no longer tell them apart (96 to 98%).
+- **What's left is in "Is it OK for kids?"** (2 of 5 for all three) and "Is it better than Alien?". The
+  blind grader wants the kids answer to weigh intensity and genres rather than only say "Flicks doesn't
+  know the rating", and it penalizes "not described as scary" for violent titles.
+- **Answers got faster.** Those two questions no longer wait for the model at all.
 
 ## Bugs this found in Flicks
 
@@ -205,10 +226,8 @@ Mac, Qwen3.5 2B on Metal is now an equally good choice.
 
 ## Next
 
-- For "fits tonight", always answer with Flicks' own sentence when the code says no. The model's "may not
-  match your mood" passes the check but leaves out the runtime.
-- Build Flicks' own "why this pick" sentence from the reasons, as the narrator does, instead of letting the
-  model list raw theme tags.
+- Answer "Is it OK for kids?" in code as well: Flicks' kids sentence already weighs intensity and the
+  mature genres. That is the weakest question left for every model.
 - If the blind gap stays, try LoRA fine-tuning on catalogue Q&A written by a larger teacher model (MLX on
   the M2, merged into one GGUF), measured against these two title sets.
 - Retest Granite on Metal with a newer llama.cpp before treating CPU-only as permanent.
