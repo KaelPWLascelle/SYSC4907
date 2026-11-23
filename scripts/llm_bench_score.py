@@ -5,7 +5,7 @@ Rules per question (the "facts" are what TitleChat sent the model):
   plot            overlaps the description and invents no names
   why             cites a liked title, a shared theme or a ranking reason from the facts
   kids            no invented age rating; asserting "fine for kids" without one is only partly right
-  fits            agrees with the code's own yes/no for tonight
+  fits            agrees with the code's own yes/no for tonight: the time, and the mood (the recommender's test)
   composer        "doesn't know" (no title's facts name a composer)
   compare         declines to compare (Flicks only has this title's details)
   length          gives the runtime (or episode length) from the facts
@@ -32,7 +32,8 @@ KID_CLAIM = re.compile(r'(suitable|appropriate|fine|great|good|perfect|safe|ok|o
 YES = re.compile(r"^\W*(yes|yep|it does|it fits|absolutely|sure)\b|\b(can|could) (watch|fit|finish) it|\bfitting\b|\bfits (?:well |nicely |comfortably |easily )?"
                  r"(?:in|within|into)|\b(?:it )?fits\b(?!.*\bnot\b)|enough time|\bwithin\b", re.I)
 NO = re.compile(r"^\W*no\b|doesn'?t fit|does not fit|won'?t fit|will not fit|not fit|too long|longer than|"
-                r"exceeds|more than (?:the|your)|not enough time|over your|runs over", re.I)
+                r"exceeds|more than (?:the|your)|not enough time|over your|runs over|rather than|may not suit|"
+                r"(?:doesn'?t|does not|may not|might not|isn'?t|is not)\b[\w\s'-]{0,20}\b(?:match|suit)", re.I)
 VERDICT = re.compile(r"^\W*(yes|no)\b|\bis (better|worse|superior) than(?! the other)|\b(more|less) (enjoyable|impressive) than",
                      re.I)
 # Capitalised runs that are not names.
@@ -59,8 +60,12 @@ def invented_names(answer, given, question):
 
 
 def directors(description):
-    m = re.search(r'directed by ((?:[A-Z][\w\.\'\-]+\s?){1,4})', description)
-    return [m.group(1).split()[-1]] if m else []
+    """Surnames after "directed by", read as the app reads them (title_chat.directors); "the Wachowskis" too."""
+    from flicks.assistant.title_chat import directors as named
+    names = [n.split()[-1] for n in named(description)]
+    if not names and (m := re.search(r'directed by the ([A-Z][\w\'-]+)', description)):
+        names = [m.group(1)]
+    return names
 
 
 def cast_names(description):
@@ -112,10 +117,14 @@ def grade(row):
             return 'partly', 'asserts kid suitability without a rating'
         why = 'should talk about intensity or age'
     elif q == 'fits':
-        fits = next(v for k, v in given['your evening'].items() if 'fit' in k)
-        says_no, says_yes = bool(NO.search(answer)), bool(YES.search(answer))
+        evening = given['your evening']
+        time_ok = next(v for k, v in evening.items() if 'fit' in k)
+        mood_ok = evening['mood'] == 'any' or evening['mood'] in given.get('moods', [])
+        fits = time_ok and mood_ok
+        text = answer.replace('\u2019', "'")
+        says_no, says_yes = bool(NO.search(text)), bool(YES.search(text))
         ok = (says_yes and not says_no) if fits else says_no
-        why = f'code says fits={fits}'
+        why = f'code says time fits={time_ok}, mood matches={mood_ok}'
     elif q == 'composer':
         ok = abstains and not names
         why = 'composer is not in the facts'

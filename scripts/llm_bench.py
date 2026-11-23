@@ -80,13 +80,40 @@ def services():
     return build_services(settings)
 
 
-def child(path, gpu, threads, title_set=1):
+DOCUMENTS_PREFIX = ('You are a helpful assistant with access to the following documents. You may use one or more '
+                    'documents to assist with the user query.\n\nYou are given a list of documents within '
+                    '<documents></documents> XML tags:\n<documents>\n')
+DOCUMENTS_SUFFIX = ("\n</documents>\n\nWrite the response to the user's input by strictly aligning with the facts in "
+                    'the provided documents. If the information needed to answer the question is not available in the '
+                    'documents, inform the user that the question cannot be answered based on the available data.')
+
+
+def use_documents(title_chat_class):
+    """Granite's "documents" mode: its chat template puts documents in the system turn with this wording
+    (ibm-granite/granite-4.0-1b chat_template.jinja). The facts move there; Flicks' rules stay first."""
+    from flicks.assistant import title_chat
+    original = title_chat_class.messages
+
+    def messages(self, given, question, history=()):
+        out = original(self, given, question, history)
+        rules = out[0]['content'].split('\n\nFacts:\n')[0]
+        out[0] = {'role': 'system', 'content': rules + '\n\n' + DOCUMENTS_PREFIX
+                  + json.dumps({'doc_id': 1, 'title': given['title'], 'text': json.dumps(given)}) + DOCUMENTS_SUFFIX}
+        return out
+    title_chat_class.messages = messages
+    return title_chat
+
+
+def child(path, gpu, threads, title_set=1, documents=False):
     """Run every task against one model; print one JSON line per answer."""
     from flicks.assistant.concierge import Concierge
     from flicks.assistant.embedded import EmbeddedChat
     from flicks.assistant.narrator import Narrator
     from flicks.assistant.title_chat import TitleChat, facts
     from flicks.core import Session
+
+    if documents:
+        use_documents(TitleChat)
 
     svc = services()
     chat = EmbeddedChat(path, gpu_layers=-1 if gpu else 0, threads=threads, idle_seconds=3600)
@@ -193,15 +220,15 @@ def rss_mb(pid):
     return int(out or 0) / 1024
 
 
-def run(path, gpu, threads, ceiling_mb, title_set=1, tag=''):
+def run(path, gpu, threads, ceiling_mb, title_set=1, tag='', documents=False):
     label = f"{Path(path).stem}.{'metal' if gpu else 'cpu'}" + (f'.set{title_set}' if title_set != 1 else '') + \
-        (f'.{tag}' if tag else '')
+        ('.docs' if documents else '') + (f'.{tag}' if tag else '')
     OUT.mkdir(parents=True, exist_ok=True)
     target = OUT/f'{label}.jsonl'
     before = swap_used_mb()
     errors = open(OUT/f'{label}.stderr', 'w')  # noqa: SIM115 - the child writes to it until it exits
     proc = subprocess.Popen([sys.executable, __file__, '--child', str(path), '--threads', str(threads),
-                             '--set', str(title_set),
+                             '--set', str(title_set), *(['--documents'] if documents else []),
                              *(['--cpu'] if not gpu else [])], stdout=subprocess.PIPE, stderr=errors,
                             text=True, cwd=ROOT)
     lines = []
@@ -243,13 +270,16 @@ def main(argv=None):
     parser.add_argument('--ceiling-mb', type=float, default=3500)
     parser.add_argument('--set', type=int, choices=sorted(SETS), default=1, help='which title set (2: confirmatory)')
     parser.add_argument('--repeats', type=int, default=1, help='run each model this many times (r1, r2, ...)')
+    parser.add_argument('--documents', action='store_true', help="title chat in Granite's documents mode")
+    parser.add_argument('--tag', default='', help='added to the output label, e.g. a code version')
     parser.add_argument('--child', action='store_true', help=argparse.SUPPRESS)
     args = parser.parse_args(argv)
     if args.child:
-        return child(args.models[0], not args.cpu, args.threads, args.set)
+        return child(args.models[0], not args.cpu, args.threads, args.set, args.documents)
     for model in args.models:
         for n in range(1, args.repeats + 1):
-            run(model, not args.cpu, args.threads, args.ceiling_mb, args.set, f'r{n}' if args.repeats > 1 else '')
+            tag = '.'.join(t for t in (args.tag, f'r{n}' if args.repeats > 1 else '') if t)
+            run(model, not args.cpu, args.threads, args.ceiling_mb, args.set, tag, args.documents)
             time.sleep(5)   # let memory settle between runs
 
 

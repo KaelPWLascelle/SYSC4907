@@ -31,6 +31,15 @@ FINE_FOR_KIDS = re.compile(rf"\b(suitable|appropriate|fine|ok|okay|safe|good|gre
 HEDGE = re.compile(r"\b(not|no|never|unclear|unsure|whether|if|might|may|check|depends|doesn'?t know|don'?t know)\b|n['’]t\b")
 CLAUSES = re.compile(r"[.;,!?]|\b(and|but|so|though|although|while)\b")
 MATURE = ('horror', 'thriller', 'crime', 'war')  # genres that suggest older viewers
+# "Does it fit tonight?": the answer must agree with the code's own yes/no for the time and the mood.
+ABOUT_FIT = re.compile(r"\b(fit|fits|tonight|evening|enough time|time i have|time we have|right now)\b")
+FITS_NO = re.compile(r"\b(doesn'?t|does not|won'?t|will not|not|may not|might not|isn'?t|is not)\b[\w\s'-]{0,20}"
+                     r"\b(fit|match|suit|work)|too long|longer than|more than (the|your)|exceeds|runs over|over your|"
+                     r"rather than|not enough time|not quite|instead of", re.I)
+FITS_YES = re.compile(r"^\W*(yes|absolutely|sure)\b|\bfits?\b|\bwithin\b|enough time|\bperfect|\bmatch(es)?\b|\bsuits?\b", re.I)
+ABOUT_DIRECTOR = re.compile(r"\bdirect|\bdirector|\bwho made\b|\bfilmmaker")
+SENTENCE_END = re.compile(r'(?<=[a-z0-9)"”\'][.!?])\s+')
+MAX_SENTENCES = 3
 ABOUT_KIDS = re.compile(r"\b(kids?|children|child|family|famil(y|ies)|age|ages|young|scary|suitable|appropriate|rated|rating)\b")
 
 
@@ -46,6 +55,8 @@ def facts(item, pick=None, session=None):
         given.update(seasons=series['seasons'], episodes=series['episodes'], network=series.get('network'),
                      **({'ended': series['ended']} if series.get('ended') else {'still running': True}))
     given['description'] = item['description']
+    if names := directors(item['description']):
+        given['directed by'] = names  # said outright: small models miss it inside a long description
     # Said outright, because small models otherwise invent one ("rated PG-13") when asked about children.
     given['age rating'] = 'not known to Flicks'
     if pick:
@@ -59,10 +70,12 @@ def facts(item, pick=None, session=None):
                              for k in strongest if k in FACTOR_WORDS],
         }
     if session is not None:
-        # Worked out here rather than left to the model: small models get arithmetic wrong.
+        # Worked out here rather than left to the model: small models get arithmetic wrong, and say a horror
+        # film "fits your relaxing evening". The mood test is the recommender's own (core.Recommender).
         fits = item['minutes'] <= session.minutes
         given['your evening'] = {'mood': session.mood, 'minutes available': session.minutes,
-                                 ('one episode fits' if series else 'fits the time you have'): fits}
+                                 ('one episode fits' if series else 'fits the time you have'): fits,
+                                 'matches the mood you asked for': session.mood == 'any' or session.mood in item.get('moods', [])}
     return given
 
 
@@ -119,10 +132,69 @@ class TitleChat:
             if title not in allowed and f' {title} ' not in description:
                 raise LLMError(f'This answer was hidden because it mentioned {self.checker.titles[title]}, '
                                'which Flicks didn’t give the model. Try asking another way.')
-        if (given.get('age rating') == UNKNOWN_RATING and ABOUT_KIDS.search(str(question).lower())
-                and claims_fine_for_kids(text)):
+        asked = str(question).lower()
+        # Flicks' own sentence replaces an answer that contradicts what Flicks knows for certain.
+        if given.get('age rating') == UNKNOWN_RATING and ABOUT_KIDS.search(asked) and claims_fine_for_kids(text):
             return kids_sentence(given)
-        return text
+        named = given.get('directed by')
+        if named and ABOUT_DIRECTOR.search(asked) and not any(n.split()[-1].lower() in text.lower() for n in named):
+            return f'It was directed by {" and ".join(named)}.'
+        if 'your evening' in given and ABOUT_FIT.search(asked) and contradicts_evening(text, given):
+            return evening_sentence(given)
+        return ' '.join(SENTENCE_END.split(text)[:MAX_SENTENCES])
+
+
+def directors(description):
+    """The names after "directed by" in a description: ["Roger Allers", "Rob Minkoff"], or []."""
+    found = re.search(r'\bdirected by ', description)
+    if not found:
+        return []
+    names, current = [], []
+    for token in re.findall(r"[\w.'’-]+|,", description[found.end():]):
+        if token in (',', 'and'):
+            if current:
+                names.append(' '.join(current))
+                current = []
+            continue
+        if not token[0].isupper() or len(current) == 4:
+            break
+        ends = token.endswith('.') and len(token) > 2  # "Brooks." ends the sentence; "L." is an initial
+        current.append(token.rstrip('.') if ends else token)
+        if ends:
+            break
+    if current:
+        names.append(' '.join(current))
+    return names[:3]
+
+
+def _evening(given):
+    evening = given['your evening']
+    time_ok = next((v for k, v in evening.items() if 'fit' in k), True)
+    return time_ok, evening.get('matches the mood you asked for', True)
+
+
+def contradicts_evening(text, given):
+    """True when the answer says the opposite of the code's yes/no for tonight."""
+    time_ok, mood_ok = _evening(given)
+    text = text.replace('’', "'")
+    says_no = bool(FITS_NO.search(text))
+    says_yes = bool(FITS_YES.search(text)) and not says_no
+    return says_no if time_ok and mood_ok else says_yes
+
+
+def evening_sentence(given):
+    """Flicks' own answer to "does it fit tonight?", from the time and mood it worked out."""
+    evening = given['your evening']
+    time_ok, mood_ok = _evening(given)
+    series = 'minutes per episode' in given
+    minutes = given.get('minutes per episode') if series else given.get('minutes')
+    text = (f"{'Each episode runs' if series else 'It runs'} {minutes} minutes, "
+            f"{'within' if time_ok else 'more than'} the {evening['minutes available']} you have")
+    mood = evening.get('mood', 'any')
+    if mood != 'any':
+        moods = ' and '.join(given.get('moods', [])) or 'a different mood'
+        text += f', and it is {mood}, as you asked' if mood_ok else f', and it is {moods} rather than {mood}'
+    return text + ('. It fits tonight.' if time_ok and mood_ok else '. It may not suit tonight.')
 
 
 def claims_fine_for_kids(text):

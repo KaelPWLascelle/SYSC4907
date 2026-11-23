@@ -12,6 +12,7 @@ import time
 from .llm import THINKING, LLMError
 
 IDLE_SECONDS = 5 * 60
+TEMPERATURE = 0.0  # greedy, as IBM recommends for Granite 4 (docs/llm-benchmark.md); repeat penalty stays 1.0
 # Models whose output is garbage with GPU layers in llama.cpp (Granite 4.0 prints only "@" on Metal), so
 # they always run on the CPU, whatever --llm-cpu says (docs/llm-benchmark.md).
 CPU_ONLY = ('granite-4.0',)
@@ -54,7 +55,7 @@ class EmbeddedChat:
             raise LLMError('The built-in model is busy; try again in a moment')
         try:
             llm = self._load()
-            options = {'stream': True, 'max_tokens': max_tokens, 'temperature': 0.2}
+            options = {'stream': True, 'max_tokens': max_tokens, 'temperature': TEMPERATURE}
             if json_mode:
                 options['response_format'] = {'type': 'json_object'}
             buffer, thinking, started = '', False, False

@@ -5,7 +5,7 @@ import unittest
 
 from flicks.assistant.embedded import EmbeddedChat
 from flicks.assistant.llm import LLMError
-from flicks.assistant.title_chat import TitleChat, facts
+from flicks.assistant.title_chat import TitleChat, directors, facts
 from flicks.core import Recommender, Session, load_catalog
 from helpers import CATALOG, FakeChat, app_client
 
@@ -25,7 +25,7 @@ class FakeLlama:
         return self
 
     def create_chat_completion(self, messages, **options):
-        self.messages = messages
+        self.messages, self.sampling = messages, options
         for i in range(0, len(self.reply), 2):
             yield {'choices': [{'delta': {'content': self.reply[i:i + 2]}}]}
 
@@ -40,7 +40,8 @@ class TitleChatTests(unittest.TestCase):
         self.assertEqual(self.given['title'], 'Moon')
         self.assertEqual(self.given['kind'], 'film')
         self.assertIn('description', self.given)
-        self.assertEqual(self.given['your evening'], {'mood': 'curious', 'minutes available': 100, 'fits the time you have': True})
+        self.assertEqual(self.given['your evening'], {'mood': 'curious', 'minutes available': 100,
+                                                      'fits the time you have': True, 'matches the mood you asked for': True})
         self.assertIn('main reasons', self.given['why Flicks picked it'])
         self.assertNotIn('score', json.dumps(self.given))
 
@@ -102,6 +103,66 @@ class TitleChatTests(unittest.TestCase):
         self.assertIn('intense', answer)
         self.assertIn('horror', answer)
 
+    def test_facts_say_when_the_mood_does_not_match(self):
+        given = facts(self.pick['content'], self.pick, Session(mood='relaxing', minutes=100))
+        self.assertFalse(given['your evening']['matches the mood you asked for'])  # Moon is reflective and curious
+        given = facts(self.pick['content'], self.pick, Session(mood='any', minutes=100))
+        self.assertTrue(given['your evening']['matches the mood you asked for'])
+
+    def test_directors_are_read_from_the_description(self):
+        cases = {
+            'Toy Story is a 1995 film directed by John Lasseter, and written by Joss Whedon.': ['John Lasseter'],
+            'It was directed by Roger Allers and Rob Minkoff and written by Irene Mecchi.': ['Roger Allers', 'Rob Minkoff'],
+            'A 1987 comedy directed by James L. Brooks. The film stars Holly Hunter.': ['James L. Brooks'],
+            'Directed by the Wachowskis.': [],
+            'A linguist meets visitors.': [],
+        }
+        for description, names in cases.items():
+            with self.subTest(description=description):
+                self.assertEqual(directors(description), names)
+
+    def test_facts_name_the_director_when_the_description_does(self):
+        item = dict(self.pick['content'], description='Moon is a 2009 film directed by Duncan Jones.')
+        self.assertEqual(facts(item)['directed by'], ['Duncan Jones'])
+        self.assertNotIn('directed by', self.given)
+
+    def test_an_answer_that_misses_the_director_gets_flicks_own(self):
+        given = dict(self.given, **{'directed by': ['Duncan Jones']})
+        talker = TitleChat(FakeChat(), CATALOGUE)
+        self.assertEqual(talker.check('Flicks only has details about this one.', given, 'Who directed it?'),
+                         'It was directed by Duncan Jones.')
+        self.assertEqual(talker.check('Duncan Jones directed it.', given, 'Who directed it?'), 'Duncan Jones directed it.')
+        self.assertEqual(talker.check('It is a quiet mystery.', given, 'What is it about?'), 'It is a quiet mystery.')
+
+    def test_an_answer_that_contradicts_tonight_gets_flicks_own(self):
+        talker = TitleChat(FakeChat(), CATALOGUE)
+        evening = {'mood': 'relaxing', 'minutes available': 100}
+        too_long = dict(self.given, minutes=153, **{'your evening': {**evening, 'fits the time you have': False,
+                                                                     'matches the mood you asked for': True}})
+        answer = talker.check('Yes, it fits your evening perfectly.', too_long, 'Does it fit tonight?')
+        self.assertIn('153 minutes', answer)
+        self.assertIn('100', answer)
+        self.assertNotRegex(answer, r'^Yes')
+        wrong_mood = dict(self.given, moods=['tense'], **{'your evening': {**evening, 'fits the time you have': True,
+                                                                           'matches the mood you asked for': False}})
+        answer = talker.check('Yes, it fits perfectly for a relaxing evening.', wrong_mood, 'Does it fit tonight?')
+        self.assertIn('tense', answer)
+        self.assertIn('relaxing', answer)
+        fits = dict(self.given, **{'your evening': {**evening, 'fits the time you have': True,
+                                                    'matches the mood you asked for': True}})
+        answer = talker.check('It does not fit your evening.', fits, 'Does it fit tonight?')
+        self.assertIn('fits', answer)
+        for reply, given in (('It runs over your 100 minutes, so it does not fit.', too_long),
+                             ('It is 153 minutes long and doesn’t fit the time you have.', too_long),
+                             ('It fits the time, but it is tense rather than relaxing.', wrong_mood),
+                             ('Yes, it fits nicely.', fits)):
+            with self.subTest(reply=reply):
+                self.assertEqual(talker.check(reply, given, 'Does it fit tonight?'), reply)
+
+    def test_answers_are_cut_to_three_sentences(self):
+        reply = 'One. Two. Three. Four.'
+        self.assertEqual(TitleChat(FakeChat(), CATALOGUE).check(reply, self.given, 'Tell me more'), 'One. Two. Three.')
+
     def test_follow_ups_keep_the_last_turns_only(self):
         chat = FakeChat('Sam Rockwell stars.')
         history = [{'question': f'q{i}', 'answer': f'a{i}'} for i in range(5)]
@@ -145,6 +206,16 @@ class EmbeddedChatTests(unittest.TestCase):
                     chat.complete([{'role': 'user', 'content': 'Hi'}])
                     self.assertEqual(llama.options['n_gpu_layers'], layers)
                     chat._timer.cancel()
+
+    def test_answers_are_greedy(self):
+        # IBM recommends temperature 0 for Granite 4; the same question always gets the same answer.
+        with tempfile.NamedTemporaryFile(suffix='.gguf') as model:
+            llama = FakeLlama('Hi.')
+            chat = EmbeddedChat(model.name, runtime=lambda: llama, idle_seconds=60)
+            chat.complete([{'role': 'user', 'content': 'Hi'}])
+            self.assertEqual(llama.sampling['temperature'], 0.0)
+            self.assertEqual(llama.sampling.get('repeat_penalty', 1.0), 1.0)
+            chat._timer.cancel()
 
     def test_reports_what_is_missing(self):
         self.assertIn('llama-cpp-python', EmbeddedChat('x.gguf', runtime=lambda: None).status()['message'])
