@@ -25,9 +25,37 @@ import time
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT/'work'/'llm-bench'
 
-TITLES = ['ml164179', 'ml1', 'tv169', 'ml1258', 'ml178827', 'ml79132', 'ml5618', 'tv526', 'ml122882', 'ml168250']
-LIKED = ['ml109487', 'ml134130', 'ml68954', 'ml6377', 'tv335', 'ml109374']   # Interstellar, The Martian, Up,
-DISLIKED = ['tv44458']                                                          # Finding Nemo, Sherlock, Budapest; Ted Lasso
+# Two title sets with their own viewer and evening. Set 2 is the larger confirmatory set; its catalogue
+# "Parasite" (1982) and "Frozen" (2010) are not the famous films, so memory instead of facts shows up.
+SETS = {
+    1: {'titles': ['ml164179', 'ml1', 'tv169', 'ml1258', 'ml178827', 'ml79132', 'ml5618', 'tv526', 'ml122882',
+                   'ml168250'],
+        # Interstellar, The Martian, Up, Finding Nemo, Sherlock, The Grand Budapest Hotel; Ted Lasso
+        'liked': ['ml109487', 'ml134130', 'ml68954', 'ml6377', 'tv335', 'ml109374'], 'disliked': ['tv44458'],
+        'mood': 'curious', 'minutes': 120,
+        'conversations': [
+            ['something funny and light'],
+            ['something funny and light', 'about 90 minutes'],
+            ["I'm exhausted, nothing scary"],
+            ['a mind-bending sci-fi film', 'I have all night'],
+            ['a series to binge with my partner', 'an hour or so'],
+            ['something like The Martian but lighter', 'two hours'],
+        ]},
+    2: {'titles': ['ml2571', 'ml1721', 'ml364', 'ml296', 'ml177765', 'ml2256', 'ml858', 'ml1387', 'ml75395',
+                   'ml112552', 'ml106920', 'ml164909', 'ml58559', 'ml50872', 'ml1197', 'tv431', 'tv82', 'tv41821',
+                   'tv16149', 'tv30770'],
+        # Toy Story, Inception, Spirited Away, Breaking Bad, Arrival; The Office
+        'liked': ['ml1', 'ml79132', 'ml5618', 'tv169', 'ml164179'], 'disliked': ['tv526'],
+        'mood': 'relaxing', 'minutes': 100,
+        'conversations': [
+            ['a cosy animated film for the family'],
+            ['a cosy animated film for the family', 'about 100 minutes'],
+            ['something scary'],
+            ['a gripping crime series', 'a couple of hours'],
+            ['something like Spirited Away', 'two hours'],
+            ['an old classic', 'all evening'],
+        ]},
+}
 QUESTIONS = [
     ('director', 'Who directed it?'),
     ('cast', "Who's in it?"),
@@ -39,14 +67,6 @@ QUESTIONS = [
     ('compare', 'Is it better than Alien?'),
 ]
 FOLLOW_UP = ('length', 'And how long is it?')   # asked after "Who directed it?", with that turn as history
-CONVERSATIONS = [
-    ['something funny and light'],
-    ['something funny and light', 'about 90 minutes'],
-    ["I'm exhausted, nothing scary"],
-    ['a mind-bending sci-fi film', 'I have all night'],
-    ['a series to binge with my partner', 'an hour or so'],
-    ['something like The Martian but lighter', 'two hours'],
-]
 
 
 def services():
@@ -60,7 +80,7 @@ def services():
     return build_services(settings)
 
 
-def child(path, gpu, threads):
+def child(path, gpu, threads, title_set=1):
     """Run every task against one model; print one JSON line per answer."""
     from flicks.assistant.concierge import Concierge
     from flicks.assistant.embedded import EmbeddedChat
@@ -91,8 +111,9 @@ def child(path, gpu, threads):
     llm.create_chat_completion = recording
     emit({'kind': 'load', 'seconds': chat.load_seconds})
 
-    feedback = {**{i: 1 for i in LIKED}, **{i: -1 for i in DISLIKED}}
-    session = Session(mood='curious', minutes=120)
+    chosen = SETS[title_set]
+    feedback = {**{i: 1 for i in chosen['liked']}, **{i: -1 for i in chosen['disliked']}}
+    session = Session(mood=chosen['mood'], minutes=chosen['minutes'])
     title_chat = TitleChat(chat, svc.catalog)
 
     def ask(given, question, history=()):
@@ -108,7 +129,7 @@ def child(path, gpu, threads):
         return {'first': first and first - start, 'total': end - start, 'text': text, 'raw': ''.join(raw),
                 'ok': final['ok'], 'answer': final.get('answer'), 'note': final.get('note')}
 
-    for content_id in TITLES:
+    for content_id in chosen['titles']:
         pick = svc.recommender.explain_item(feedback, session, content_id)
         given = facts(pick['content'], pick, session)
         for key, question in QUESTIONS:
@@ -121,7 +142,7 @@ def child(path, gpu, threads):
 
     concierge = Concierge(svc.recommender, svc.titles, svc.interpreter, svc.similar, chat,
                           Narrator(chat, svc.catalog))
-    for texts in CONVERSATIONS:
+    for texts in chosen['conversations']:
         messages = []
         for i, t in enumerate(texts):
             if i:
@@ -172,13 +193,15 @@ def rss_mb(pid):
     return int(out or 0) / 1024
 
 
-def run(path, gpu, threads, ceiling_mb):
-    label = f"{Path(path).stem}.{'metal' if gpu else 'cpu'}"
+def run(path, gpu, threads, ceiling_mb, title_set=1, tag=''):
+    label = f"{Path(path).stem}.{'metal' if gpu else 'cpu'}" + (f'.set{title_set}' if title_set != 1 else '') + \
+        (f'.{tag}' if tag else '')
     OUT.mkdir(parents=True, exist_ok=True)
     target = OUT/f'{label}.jsonl'
     before = swap_used_mb()
     errors = open(OUT/f'{label}.stderr', 'w')  # noqa: SIM115 - the child writes to it until it exits
     proc = subprocess.Popen([sys.executable, __file__, '--child', str(path), '--threads', str(threads),
+                             '--set', str(title_set),
                              *(['--cpu'] if not gpu else [])], stdout=subprocess.PIPE, stderr=errors,
                             text=True, cwd=ROOT)
     lines = []
@@ -218,13 +241,16 @@ def main(argv=None):
     parser.add_argument('--cpu', action='store_true', help='CPU only (no Metal)')
     parser.add_argument('--threads', type=int, default=4)
     parser.add_argument('--ceiling-mb', type=float, default=3500)
+    parser.add_argument('--set', type=int, choices=sorted(SETS), default=1, help='which title set (2: confirmatory)')
+    parser.add_argument('--repeats', type=int, default=1, help='run each model this many times (r1, r2, ...)')
     parser.add_argument('--child', action='store_true', help=argparse.SUPPRESS)
     args = parser.parse_args(argv)
     if args.child:
-        return child(args.models[0], not args.cpu, args.threads)
+        return child(args.models[0], not args.cpu, args.threads, args.set)
     for model in args.models:
-        run(model, not args.cpu, args.threads, args.ceiling_mb)
-        time.sleep(5)   # let memory settle between models
+        for n in range(1, args.repeats + 1):
+            run(model, not args.cpu, args.threads, args.ceiling_mb, args.set, f'r{n}' if args.repeats > 1 else '')
+            time.sleep(5)   # let memory settle between runs
 
 
 if __name__ == '__main__':

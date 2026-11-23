@@ -220,11 +220,11 @@ def main(argv=None):
               f"{s['total_med_s']:.2f} / {s['total_p90_s']:.2f} / {s['total_max_s']:.1f} s | {s['load_s'] or 0:.1f} s | "
               f"{s['peak_rss_mb']:.0f} MB | {s['peak_pressure']} | {s['thinking']} |")
     qs = list(results[0]['by_q']) if results else []
-    print('\nRight answers per question type (of 10):\n')
+    print('\nRight answers per question type (share of titles):\n')
     print('| Model | ' + ' | '.join(qs) + ' |')
     print('|---|' + '---:|' * len(qs))
     for s in [s for s in results if s['n']]:
-        print(f"| {s['label']} | " + ' | '.join(str(s['by_q'][q].count('right')) for q in qs) + ' |')
+        print(f"| {s['label']} | " + ' | '.join(f"{s['by_q'][q].count('right') / max(1, len(s['by_q'][q])):.0%}" for q in qs) + ' |')
     if args.json:
         Path(args.json).write_text(json.dumps([{k: v for k, v in s.items() if k not in ('graded', 'concierge')}
                                                for s in results], indent=1))

@@ -30,7 +30,7 @@ scores them. Raw answers are in `work/llm-bench/` (not committed).
   Treat differences under about 5 points as noise.
 - **Safety:** one model at a time, each in its own process. A watchdog kills it if memory pressure stays
   critical for 2 s or it passes 3.5 GB. All files are 4-bit GGUFs, loaded text-only, checked against
-  Hugging Face's SHA-256. Each configuration ran once at temperature 0.2.
+  Hugging Face's SHA-256. Each configuration ran once at temperature 0.2 (the confirmatory run below: three times).
 - **Runtime:** llama-cpp-python 0.3.36 (the project's), except LFM3, which needs 0.3.37.
 
 ## Results
@@ -88,6 +88,58 @@ Right answers out of 10, per question (top models):
   pressure to "critical". The same run then passed cleanly. A 1 to 2 GB model is fine. The October freeze
   came from a 4B model plus its vision file on a machine already this full.
 
+## Confirmatory run (second title set)
+
+The three leaders, run again on 20 new titles (12 films, 5 series and two traps: *Parasite* (1982), a horror
+film that shares a name with the 2019 one, and *Frozen* (2010), a survival horror film that shares a name
+with the Disney one), with a different viewer (mood "relaxing", 100 minutes), the same 9 questions (180 in
+all), and six new corner-chat conversations. Each configuration ran three times.
+
+| Model (4-bit) | Rules score | Blind grader | Corner chat (kept) | Full answer: median / p90 / worst | Peak memory |
+|---|---:|---:|---:|---|---:|
+| **Granite 4.0 1B, CPU** | **89%** | **77%** | 6/6 (5) | 0.6 / 1.6 / 3.3 s | 1.6 to 2.0 GB |
+| Qwen3.5 2B, CPU | 87% | | 6/6 (6) | 3.6 to 6.8 / 6 to 8 / 10 s | 1.9 to 2.4 GB |
+| Qwen3.5 2B, Metal | 86% | 66% | 6/6 (5) | 1.3 / 1.7 / 2.1 s | 1.0 to 1.7 GB |
+| LFM2.5 1.2B, Metal | 82% | 71% | 6/6 (5) | 0.6 / 0.8 / 0.9 s | 0.8 to 1.1 GB |
+| LFM2.5 1.2B, CPU | 81% | | 6/6 (6) | 1.8 / 2.1 / 2.5 s | 1.6 to 1.7 GB |
+
+- **Repeats only test speed.** The three runs of each configuration gave the same answers word for word, so
+  the score has no run-to-run spread at temperature 0.2. Speed was steady too. One exception: Qwen on the
+  CPU varied from 3.6 to 6.8 s median between runs, because other apps were busy. A 25.8 s answer in its
+  third run came when the laptop went to sleep, and is left out above.
+- **Blind check, now including Granite.** An independent grader, not told which model wrote what, graded 45
+  answers from each of the three (the same 5 titles per question for each). It ranked Granite first (77%),
+  then LFM2.5 (71%), then Qwen3.5 2B (66%). It agreed exactly with the rules on 87 of 135. It was stricter
+  than the rules in two places:
+  - It counts Qwen's cautious "Flicks doesn't know if it's OK for kids" as wrong when the facts plainly say
+    "intense crime" or "horror".
+  - It counts "Flicks only has details about this one" as wrong when the description names the director.
+- **Granite's lead held on both sets and with both graders.** It was 95% on the first set and 89% on the
+  second. Per question, it was weak on kids (12 of 20 right) and fits (14 of 20). It is the only one of the
+  three that
+  claims a film is fine for children without a rating: "The Godfather … suitable for all ages", and
+  "Fleabag … not inappropriate for kids". Qwen3.5 2B instead declines (20 of 20 kids answers right by the
+  rules), but answered "Who directed it?" correctly only 10 times out of 20.
+- **"Does it fit tonight?" is weak for all three.** All three said the horror *Parasite* or *Frozen* "fits
+  your relaxing evening perfectly". Qwen and LFM2.5 also miscounted runtimes against the 100 minutes. The
+  answer to this question already exists in code (`fits the time you have`), but no model reliably uses
+  the mood half.
+- **Neither trap fooled the facts.** No model described the Disney *Frozen* or the 2019 *Parasite*. The
+  facts won over what the models remember.
+
+## Recommendation
+
+- **Plugin default (`flicks setup --model`): Granite 4.0 1B, run on the CPU.** It is the best on both title
+  sets and with both graders, the fastest on the CPU (0.6 s typical, under 5.5 s at worst), Apache 2.0, a
+  1.0 GB file, and one setting for every platform. On a Mac it must have `gpu_layers=0`, because it is
+  broken on Metal.
+- **What to tell users on most computers:** Granite 4.0 1B. On a Mac with 8 GB or less and other apps
+  open, LFM2.5 1.2B on Metal is the lighter choice (0.8 to 1.1 GB, under 1 s per answer, 82%), but its
+  license is free only under US$10M a year in revenue.
+- **Before switching**, guard the "OK for kids" answer: when the age rating is unknown, the answer must not
+  say "suitable", or Flicks should fall back to its own sentence built from intensity and genres. This is
+  Granite's one risky failure.
+
 ## Bugs this found in Flicks
 
 1. **The corner chat threw away good pitches (fixed).** The pitch check allowed only the three picks' names,
@@ -106,10 +158,8 @@ Right answers out of 10, per question (top models):
 
 ## Next
 
-- Rerun Granite 4.0 1B (CPU), Qwen3.5 2B (Metal) and LFM2.5 1.2B on a second, larger set of titles, each
-  three times. A 4-point lead on one run is not settled.
-- Then decide the default in an ADR 0019 amendment. On this evidence: Granite 4.0 1B on the CPU everywhere
-  (one setting for Mac, Windows and Linux, Apache 2.0, no answer over 5 s), with Qwen3.5 0.8B as the
-  low-memory fallback.
+- ADR 0019 amendment: make Granite 4.0 1B (CPU) the `flicks setup --model` default. This needs a per-model
+  CPU setting (bug 3) and the kids guard above.
+- Make "fits tonight" use the mood as well as the time, in code, as Flicks already does for the time.
 - Not tested: Gemma 4 E2B and Qwen3.5 4B (3 GB files, left out on this machine), Granite 4.0 H 1B (the
   hybrid version), and Inkling, which needs two data-centre GPUs and can't run locally.
