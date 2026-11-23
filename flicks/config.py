@@ -12,7 +12,15 @@ DEFAULT_POSTERS = HOME/'posters'
 DEFAULT_SERIES = HOME/'catalogs'/'series.json'
 DEFAULT_MOVIELENS = HOME/'catalogs'/'movielens-small.json'  # written by `flicks setup` (flicks.datasets.movielens)
 # The small language model `flicks setup --model` downloads; used automatically when present (flicks/setup.py).
-DEFAULT_MODEL = HOME/'models'/'Qwen3.5-2B-Q4_K_M.gguf'
+# Granite 4.0 1B since the November 2026 benchmark (docs/llm-benchmark.md).
+DEFAULT_MODEL = HOME/'models'/'granite-4.0-1b-Q4_K_M.gguf'
+# Defaults an earlier `flicks setup --model` downloaded, still used until the new one is installed.
+EARLIER_MODELS = (HOME/'models'/'Qwen3.5-2B-Q4_K_M.gguf',)
+
+
+def installed_model():
+    """The model file `flicks setup --model` installed: the current default, else an earlier one, else None."""
+    return next((path for path in (DEFAULT_MODEL, *EARLIER_MODELS) if path.is_file()), None)
 
 
 def default_films():

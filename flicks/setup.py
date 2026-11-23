@@ -2,7 +2,7 @@
 
     flicks setup               # films, public-domain streams, trailers, TV series and posters
     flicks setup --no-series   # skip TV series, the slowest step (about half an hour the first time)
-    flicks setup --model       # also the small language model for the chats (about 1.4 GB)
+    flicks setup --model       # also the small language model for the chats (about 1 GB)
     flicks setup --check       # show what is installed, without downloading anything
 
 Each step is one of the import commands the README documents, run in order. They cache what they
@@ -19,14 +19,22 @@ import time
 from urllib import request
 
 from . import net
-from .config import DEFAULT_CATALOG, DEFAULT_MODEL, DEFAULT_MOVIELENS, DEFAULT_POSTERS, DEFAULT_SERIES, DEFAULT_STATIC
+from .config import (
+    DEFAULT_CATALOG,
+    DEFAULT_MODEL,
+    DEFAULT_MOVIELENS,
+    DEFAULT_POSTERS,
+    DEFAULT_SERIES,
+    DEFAULT_STATIC,
+    installed_model,
+)
 
-# Qwen3.5 2B, 4-bit (Apache 2.0), pinned to one revision and checked by its SHA-256, so the file
-# Flicks runs is exactly the one the team evaluated (docs/adr/0019-title-chat.md).
-MODEL_URL = ('https://huggingface.co/bartowski/Qwen_Qwen3.5-2B-GGUF/resolve/'
-             '7d26695454df6de5fbcce2e58681e62dae06ce43/Qwen_Qwen3.5-2B-Q4_K_M.gguf')
-MODEL_SHA256 = '57a1085840f497d764a7fc5d346922dbde961efb54cc792ea81d694fd846a1d8'
-MODEL_BYTES = 1_396_198_496
+# IBM Granite 4.0 1B, 4-bit (Apache 2.0), from IBM's own repository, pinned to one revision and checked by
+# its SHA-256, so the file Flicks runs is exactly the one the team evaluated (docs/llm-benchmark.md).
+MODEL_URL = ('https://huggingface.co/ibm-granite/granite-4.0-1b-GGUF/resolve/'
+             '638f3dd95f5183fadecdc7b57064b5f7eb6f8b87/granite-4.0-1b-Q4_K_M.gguf')
+MODEL_SHA256 = '22ec0f9cc99a90185312de3c882c84e7bd6789bdd050389844380a01a831d7f1'
+MODEL_BYTES = 1_023_645_440
 RUNTIME_HINT = ("The chats also need llama.cpp's Python package: run `pipx inject flicks llama-cpp-python` if "
                 "you installed Flicks with pipx, or `pip install \"flicks[llm]\"` otherwise.")
 
@@ -72,7 +80,7 @@ STEPS = [  # (name, what it adds, function, needs the films first)
     ('trailers', 'Trailer IDs for Discover (videos are never downloaded)', _trailers, True),
     ('series', 'About 1,000 TV series from TVmaze (slow the first time: about half an hour)', _series, False),
     ('posters', 'Posters and covers for the most popular titles', _posters, False),
-    ('model', 'The small language model for the chats (about 1.4 GB)', _model, False),
+    ('model', 'The small language model for the chats (about 1 GB)', _model, False),
 ]
 
 
@@ -142,10 +150,17 @@ def status():
         ('Trailers', f"{_count(sidecar('.trailers.json')):,} films" if sidecar('.trailers.json').is_file() else 'missing'),
         ('TV series', f'{_count(DEFAULT_SERIES):,}' if DEFAULT_SERIES.is_file() else 'missing'),
         ('Posters', f'{_posters_cached():,}' if _posters_cached() else 'missing (title cards are drawn instead)'),
-        ('Language model', ('ready' if runtime_installed() else 'downloaded; runtime not installed')
-         if DEFAULT_MODEL.is_file() else 'not installed (optional: flicks setup --model)'),
+        ('Language model', _model_state()),
     ]
     return rows
+
+
+def _model_state():
+    model = installed_model()
+    if model is None:
+        return 'not installed (optional: flicks setup --model)'
+    state = 'ready' if runtime_installed() else 'downloaded; runtime not installed'
+    return state if model == DEFAULT_MODEL else f'{state} ({model.stem}; run flicks setup --model for the newer default)'
 
 
 def print_status(out=None):
@@ -158,7 +173,7 @@ def print_status(out=None):
 def main(argv=None):
     parser = argparse.ArgumentParser(prog='flicks setup', description='Download the catalogues, posters and, optionally, '
                                      'the language model Flicks uses. Safe to stop and run again.')
-    parser.add_argument('--model', action='store_true', help='Also download the small language model (about 1.4 GB)')
+    parser.add_argument('--model', action='store_true', help='Also download the small language model (about 1 GB)')
     parser.add_argument('--no-series', action='store_true', help='Skip TV series (the slowest step)')
     parser.add_argument('--no-posters', action='store_true', help='Skip posters (Flicks draws title cards instead)')
     parser.add_argument('--only', choices=[name for name, *_ in STEPS], action='append',

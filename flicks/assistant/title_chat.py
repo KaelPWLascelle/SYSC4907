@@ -21,6 +21,17 @@ SYSTEM = ("You are Flicks, a movie assistant inside a video player. Answer the v
 MAX_QUESTION = 300
 MAX_TURNS = 3          # earlier questions and answers kept for follow-ups ("and who else is in it?")
 MAX_TOKENS = 120     # about 90 words: a cap, not a target (the prompt asks for 60)
+UNKNOWN_RATING = 'not known to Flicks'
+# "Suitable for all ages", "fine for kids", "kid-friendly", "not … inappropriate for children": a claim that
+# a title is fine for children, which Flicks can't back without an age rating.
+YOUNG = r"(kids?|children|child|all ages|famil(y|ies)|young (viewers|audiences|children)|everyone|all audiences|(a )?(wide|general) audiences?)"
+FINE_FOR_KIDS = re.compile(rf"\b(suitable|appropriate|fine|ok|okay|safe|good|great|perfect|ideal|suited)\b[\w\s'-]{{0,25}}\b{YOUNG}\b"
+                           rf"|\b(kid|family|child)-friendly\b|\bnot\b[\w\s'-]{{0,40}}\binappropriate\b[\w\s'-]{{0,15}}\b{YOUNG}\b")
+# A hedge in the same clause ("unclear if it is suitable", "may not be suitable") keeps the answer.
+HEDGE = re.compile(r"\b(not|no|never|unclear|unsure|whether|if|might|may|check|depends|doesn'?t know|don'?t know)\b|n['’]t\b")
+CLAUSES = re.compile(r"[.;,!?]|\b(and|but|so|though|although|while)\b")
+MATURE = ('horror', 'thriller', 'crime', 'war')  # genres that suggest older viewers
+ABOUT_KIDS = re.compile(r"\b(kids?|children|child|family|famil(y|ies)|age|ages|young|scary|suitable|appropriate|rated|rating)\b")
 
 
 def facts(item, pick=None, session=None):
@@ -108,4 +119,29 @@ class TitleChat:
             if title not in allowed and f' {title} ' not in description:
                 raise LLMError(f'This answer was hidden because it mentioned {self.checker.titles[title]}, '
                                'which Flicks didn’t give the model. Try asking another way.')
+        if (given.get('age rating') == UNKNOWN_RATING and ABOUT_KIDS.search(str(question).lower())
+                and claims_fine_for_kids(text)):
+            return kids_sentence(given)
         return text
+
+
+def claims_fine_for_kids(text):
+    """True when some clause says the title is fine for children without hedging."""
+    sentences = re.split(r'(?<=[.!?])\s+', text.lower().replace('’', "'"))
+    statements = ' '.join(s for s in sentences if not s.endswith('?'))  # an echoed "Is it OK for kids?" claims nothing
+    # The double negative ("not … inappropriate") is itself the claim; elsewhere a "not" is a hedge.
+    return any(clause and FINE_FOR_KIDS.search(clause) and ('inappropriate' in clause or not HEDGE.search(clause))
+               for clause in CLAUSES.split(statements))
+
+
+def kids_sentence(given):
+    """Flicks' own answer to "is it OK for kids?", from facts it has, for when the model claimed more."""
+    what = 'series' if given.get('kind') == 'TV series' else 'film'
+    mature = [g for g in given.get('genres', []) if g in MATURE]
+    text = 'Flicks doesn’t know its age rating, so check one before watching with children. '
+    if given.get('intensity') == 'intense' or mature:
+        how = f"an intense {what}" if given.get('intensity') == 'intense' else f"a {given.get('intensity', 'balanced')} {what}"
+        genres = f" with {', '.join(mature)} in its genres" if mature else ''
+        return text + f"It is {how}{genres}, which may be too much for young viewers."
+    family = ' and listed as a family ' + what if 'family' in given.get('genres', []) else ''
+    return text + f"It is {given.get('intensity', 'balanced')} in intensity{family}."

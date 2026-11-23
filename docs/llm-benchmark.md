@@ -1,7 +1,7 @@
 # Small language models for the title chat and corner chat (November 2026)
 
 A follow-up to [ADR 0019](adr/0019-title-chat.md), which picked Qwen2.5 1.5B and then Qwen3.5 2B (the
-current default) from 24 hand-scored questions (`python -m flicks.assistant.title_chat_eval`).
+default before this benchmark) from 24 hand-scored questions (`python -m flicks.assistant.title_chat_eval`).
 This round tests nine models on 90 questions and six corner-chat conversations, on the team's
 8 GB Apple M2, through Flicks' own code (`TitleChat`, `Concierge`, `EmbeddedChat`): same prompts, same
 `/no_think`, same checks that withdraw an answer.
@@ -38,12 +38,12 @@ scores them. Raw answers are in `work/llm-bench/` (not committed).
 | Model (4-bit) | File | License | Score | Corner chat (kept) | Full answer: median / p90 / worst | First words, first question | Peak memory |
 |---|---:|---|---:|---:|---|---:|---:|
 | **Granite 4.0 1B, CPU only** | 1.0 GB | Apache 2.0 | **95%** | 6/6 (5) | 0.8 / 1.8 / 3.7 s | 1.8 s | 1.8 GB |
-| Qwen3.5 2B, Metal (current default) | 1.4 GB | Apache 2.0 | 91% | 6/6 (3; 5 after fix 1) | 1.4 / 1.9 / 2.3 s | 0.7 s | 1.5 GB |
+| Qwen3.5 2B, Metal (previous default) | 1.4 GB | Apache 2.0 | 91% | 6/6 (3; 5 after fix 1) | 1.4 / 1.9 / 2.3 s | 0.7 s | 1.5 GB |
 | Qwen3.5 2B, CPU | | | 91% | 6/6 (5) | 3.9 / 5.2 / 13.4 s | 3.0 s | 2.1 GB |
 | LFM2.5 1.2B, CPU | 0.7 GB | LFM Open License | 90% | 6/6 (6) | 2.1 / 2.6 / 5.3 s | 1.8 s | 1.6 GB |
 | LFM2.5 1.2B, Metal | | | 88% | 5/6 (6) | 0.6 / 0.8 / 1.2 s | 0.4 s | 0.9 GB |
-| Qwen2.5 1.5B, CPU (previous default) | 1.0 GB | Apache 2.0 | 86% | 3/6 (3) | 0.8 / 1.8 / 2.6 s | 1.4 s | 1.7 GB |
-| Qwen2.5 1.5B, Metal (previous default) | | | 85% | 3/6 (4) | 0.7 / 1.7 / 2.8 s | 0.4 s | 1.1 GB |
+| Qwen2.5 1.5B, CPU (older default) | 1.0 GB | Apache 2.0 | 86% | 3/6 (3) | 0.8 / 1.8 / 2.6 s | 1.4 s | 1.7 GB |
+| Qwen2.5 1.5B, Metal (older default) | | | 85% | 3/6 (4) | 0.7 / 1.7 / 2.8 s | 0.4 s | 1.1 GB |
 | Qwen3.5 0.8B, CPU | 0.6 GB | Apache 2.0 | 85% | 0/6 (5) | 1.3 / 1.9 / 3.9 s | 1.0 s | 1.4 GB |
 | Qwen3.5 0.8B, Metal | | | 81% | 1/6 (5) | 0.5 / 0.8 / 1.3 s | 0.3 s | 0.8 GB |
 | LFM3 1.7B, Metal (thinking off) | 1.1 GB | LFM Open License | 76% | 5/6 (4) | 1.5 / 2.6 / 2.8 s | 0.6 s | 1.3 GB |
@@ -136,9 +136,10 @@ all), and six new corner-chat conversations. Each configuration ran three times.
 - **What to tell users on most computers:** Granite 4.0 1B. On a Mac with 8 GB or less and other apps
   open, LFM2.5 1.2B on Metal is the lighter choice (0.8 to 1.1 GB, under 1 s per answer, 82%), but its
   license is free only under US$10M a year in revenue.
-- **Before switching**, guard the "OK for kids" answer: when the age rating is unknown, the answer must not
-  say "suitable", or Flicks should fall back to its own sentence built from intensity and genres. This is
-  Granite's one risky failure.
+- **Done (same PR):** Granite is now the `flicks setup --model` download. It always runs on the CPU, and a
+  "fine for kids" claim with no age rating is replaced with Flicks' own sentence built from intensity and
+  genres. On the second title set, that check caught all 8 of Granite's claims and none of its 12
+  hedged answers.
 
 ## Bugs this found in Flicks
 
@@ -158,8 +159,6 @@ all), and six new corner-chat conversations. Each configuration ran three times.
 
 ## Next
 
-- ADR 0019 amendment: make Granite 4.0 1B (CPU) the `flicks setup --model` default. This needs a per-model
-  CPU setting (bug 3) and the kids guard above.
 - Make "fits tonight" use the mood as well as the time, in code, as Flicks already does for the time.
 - Not tested: Gemma 4 E2B and Qwen3.5 4B (3 GB files, left out on this machine), Granite 4.0 H 1B (the
   hybrid version), and Inkling, which needs two data-centre GPUs and can't run locally.

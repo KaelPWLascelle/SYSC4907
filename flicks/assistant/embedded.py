@@ -12,6 +12,9 @@ import time
 from .llm import THINKING, LLMError
 
 IDLE_SECONDS = 5 * 60
+# Models whose output is garbage with GPU layers in llama.cpp (Granite 4.0 prints only "@" on Metal), so
+# they always run on the CPU, whatever --llm-cpu says (docs/llm-benchmark.md).
+CPU_ONLY = ('granite-4.0',)
 CLOSE = '</think>'
 
 
@@ -31,6 +34,8 @@ class EmbeddedChat:
         self.path = Path(path)
         self.model = self.path.stem
         self.name = f'built-in model ({self.model})'
+        if any(name in self.model.lower() for name in CPU_ONLY):
+            gpu_layers = 0
         self.threads, self.gpu_layers, self.context, self.idle_seconds = threads, gpu_layers, context, idle_seconds
         self.runtime = runtime
         self.lock = threading.Lock()

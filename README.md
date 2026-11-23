@@ -45,8 +45,8 @@ remove Flicks, run `pipx uninstall flicks`, and delete `~/.flicks` if you also w
 
 ### Optional: the chats' language model
 
-The corner chat works without it. With it, a small language model inside Flicks (Qwen3.5 2B, about
-1.4 GB) answers questions about any title and words the corner chat's replies:
+The corner chat works without it. With it, a small language model inside Flicks (IBM Granite 4.0 1B, about
+1 GB, run on the CPU) answers questions about any title and words the corner chat's replies:
 
 ```sh
 flicks setup --model
@@ -107,7 +107,7 @@ instead of failing silently.
 | `trailers` | Trailer IDs for Discover; videos are never downloaded | MovieLens YouTube Trailers dataset; see [ADR 0016](docs/adr/0016-discover.md) |
 | `series` | The 1,000 most-voted TV series | TVmaze (CC BY-SA) and IMDb vote counts (non-commercial); see [ADR 0018](docs/adr/0018-tv-series.md) |
 | `posters` | Posters for the 3,000 most popular films and every series | Wikipedia and TVmaze; copyrighted, so they stay on your computer |
-| `model` (opt-in) | The chats' language model | Qwen3.5 2B (Apache 2.0) |
+| `model` (opt-in) | The chats' language model | IBM Granite 4.0 1B (Apache 2.0) |
 
 Only public identifiers (titles, years, IMDb IDs) are sent while importing, and nothing is sent while you
 use the app, except when you play a public-domain film or turn on trailers. `flicks setup --only posters`
@@ -153,7 +153,7 @@ names and votes are forgotten when the session ends. See [how couch mode works](
 | `--no-series` | series on when installed | Films only |
 | `--no-couch` | couch on | Hide couch mode |
 | `--no-llm` | model on when installed | Don't load the language model |
-| `--llm-cpu` | GPU when available | Run the language model on the CPU only |
+| `--llm-cpu` | GPU when available (Granite: always CPU) | Run the language model on the CPU only |
 | `--catalog FILE` | the imported films, else the demo | Your own catalogue ([format](flicks/data/README.md)) |
 | `--voice-model DIR` | none | Local Whisper model for speech ([voice setup](docs/voice.md)) |
 | `--llm-url URL` | none | Experimental: a local model server instead of the built-in model ([ADR 0013](docs/adr/0013-local-llm.md)) |
@@ -228,7 +228,7 @@ Measurements (not run in CI; results are in [docs/test-report.md](docs/test-repo
 .venv/bin/python -m flicks.datasets.evaluation           # recommendation quality on held-out MovieLens ratings
 .venv/bin/python -m flicks.datasets.ask --evaluate-only  # the Ask student on its held-out test set
 .venv/bin/python -m flicks.assistant.agent_eval --no-llm # the Ask pipeline on hard cases
-.venv/bin/python -m flicks.assistant.title_chat_eval ~/.flicks/models/Qwen3.5-2B-Q4_K_M.gguf  # the title chat, scored by hand
+.venv/bin/python -m flicks.assistant.title_chat_eval ~/.flicks/models/granite-4.0-1b-Q4_K_M.gguf  # the title chat, scored by hand
 ```
 
 **Releasing.** Bump `version` in `pyproject.toml`, merge, then tag the merge commit `v<version>` and push the
