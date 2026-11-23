@@ -152,12 +152,44 @@ class TitleChatTests(unittest.TestCase):
                                                     'matches the mood you asked for': True}})
         answer = talker.check('It does not fit your evening.', fits, 'Does it fit tonight?')
         self.assertIn('fits', answer)
+        # When tonight doesn't fit, Flicks' sentence is shown even if the model said so too: it names both reasons.
         for reply, given in (('It runs over your 100 minutes, so it does not fit.', too_long),
                              ('It is 153 minutes long and doesn’t fit the time you have.', too_long),
-                             ('It fits the time, but it is tense rather than relaxing.', wrong_mood),
-                             ('Yes, it fits nicely.', fits)):
+                             ('It fits the time, but it is tense rather than relaxing.', wrong_mood)):
             with self.subTest(reply=reply):
-                self.assertEqual(talker.check(reply, given, 'Does it fit tonight?'), reply)
+                self.assertIn('may not suit tonight', talker.check(reply, given, 'Is it right for tonight?'))
+        self.assertEqual(talker.check('Yes, it fits nicely.', fits, 'Is it right for tonight?'), 'Yes, it fits nicely.')
+
+    def test_why_and_fit_questions_are_answered_by_flicks_without_the_model(self):
+        chat = FakeChat('The model should not be asked.')
+        for question, words in (('Why did Flicks pick this for me?', 'Flicks picked it because'),
+                                ('Does it fit tonight?', '97 minutes')):
+            with self.subTest(question=question):
+                done = list(TitleChat(chat, CATALOGUE).stream(self.given, question))[-1]
+                self.assertTrue(done['ok'])
+                self.assertIn(words, done['answer'])
+        self.assertEqual(chat.requests, [])
+
+    def test_the_why_sentence_uses_the_reasons_and_only_real_themes(self):
+        from flicks.assistant.title_chat import why_sentence
+        given = dict(self.given, genres=['science-fiction', 'drama'], tags=['space'],
+                     **{'why Flicks picked it': {'because you liked': ['Arrival'],
+                                                 'themes shared with what you liked': ['white', 'science-fiction', 'space'],
+                                                 'main reasons': ['matches your ratings', 'fits the mood you asked for']}})
+        sentence = why_sentence(given)
+        self.assertIn('Arrival', sentence)
+        self.assertIn('fits the mood you asked for', sentence)
+        self.assertNotIn('white', sentence)  # a raw term that is not one of the title's genres or tags
+        given['why Flicks picked it']['because you liked'] = []
+        self.assertIn('science fiction and space', why_sentence(given))
+
+    def test_when_tonight_does_not_fit_flicks_says_so_whatever_the_model_said(self):
+        given = dict(self.given, minutes=153, **{'your evening': {'mood': 'relaxing', 'minutes available': 100,
+                                                                  'fits the time you have': False,
+                                                                  'matches the mood you asked for': False}})
+        answer = TitleChat(FakeChat(), CATALOGUE).check('It may not match your relaxing mood.', given,
+                                                        'Is it a good one for tonight?')
+        self.assertIn('153 minutes', answer)
 
     def test_answers_are_cut_to_three_sentences(self):
         reply = 'One. Two. Three. Four.'

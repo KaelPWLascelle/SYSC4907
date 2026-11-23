@@ -37,6 +37,11 @@ FITS_NO = re.compile(r"\b(doesn'?t|does not|won'?t|will not|not|may not|might no
                      r"\b(fit|match|suit|work)|too long|longer than|more than (the|your)|exceeds|runs over|over your|"
                      r"rather than|not enough time|not quite|instead of", re.I)
 FITS_YES = re.compile(r"^\W*(yes|absolutely|sure)\b|\bfits?\b|\bwithin\b|enough time|\bperfect|\bmatch(es)?\b|\bsuits?\b", re.I)
+# Questions code answers outright, before the model is asked: "Does it fit tonight?", "Why this pick?".
+FIT_QUESTION = re.compile(r"\b(does|will|would|can|could) (it|this|that)\b[^?]{0,20}\bfit\b|\bfit (in )?(tonight|my evening)\b"
+                          r"|\benough time\b|\bhave time (for|to watch) (it|this)\b")
+WHY_QUESTION = re.compile(r"\bwhy\b[^?]{0,30}\b(pick\w*|recommend\w*|suggest\w*|chos\w*|choose|show\w*)\b"
+                          r"|\bwhat made (you|flicks)\b|\bwhy (this|it) one\b")
 ABOUT_DIRECTOR = re.compile(r"\bdirect|\bdirector|\bwho made\b|\bfilmmaker")
 SENTENCE_END = re.compile(r'(?<=[a-z0-9)"”\'][.!?])\s+')
 MAX_SENTENCES = 3
@@ -100,6 +105,10 @@ class TitleChat:
         """Yield {"delta"} events, then one {"done", "ok", "answer"|"note"}. Raises LLMError before any text."""
         stream = getattr(self.chat, 'stream', None)
         messages = self.messages(given, question, history)
+        if (answer := answer_in_code(given, question)) is not None:  # nothing for the model to add
+            yield {'delta': answer}
+            yield {'done': True, 'ok': True, 'answer': answer}
+            return
         if stream is None:  # a loopback server client: one piece
             pieces = iter([self.chat.complete(messages, max_tokens=MAX_TOKENS)])
         else:
@@ -139,9 +148,46 @@ class TitleChat:
         named = given.get('directed by')
         if named and ABOUT_DIRECTOR.search(asked) and not any(n.split()[-1].lower() in text.lower() for n in named):
             return f'It was directed by {" and ".join(named)}.'
-        if 'your evening' in given and ABOUT_FIT.search(asked) and contradicts_evening(text, given):
-            return evening_sentence(given)
+        if 'your evening' in given and ABOUT_FIT.search(asked) and (not all(_evening(given))
+                                                                     or contradicts_evening(text, given)):
+            return evening_sentence(given)  # when tonight doesn't fit, Flicks says why, whatever the model said
         return ' '.join(SENTENCE_END.split(text)[:MAX_SENTENCES])
+
+
+def answer_in_code(given, question):
+    """Flicks' own answer when the question is one the facts settle completely, else None."""
+    asked = ' '.join(str(question).lower().split())
+    if 'your evening' in given and FIT_QUESTION.search(asked):
+        return evening_sentence(given)
+    if 'why Flicks picked it' in given and WHY_QUESTION.search(asked):
+        return why_sentence(given)
+    return None
+
+
+def why_sentence(given):
+    """Why this pick, from the recommender's own reasons (as the interface's template words them)."""
+    why = given['why Flicks picked it']
+    liked = why.get('because you liked', [])[:2]
+    # Only themes that are the title's own genres or tags: other evidence terms ("white", "wife") read as noise.
+    own = {t.replace('-', ' ') for t in [*given.get('genres', []), *given.get('tags', [])]}
+    themes = [t.replace('-', ' ') for t in why.get('themes shared with what you liked', [])
+              if t.replace('-', ' ') in own][:2]
+    reasons = why.get('main reasons', [])
+    if liked:
+        lead = f"people who liked {' and '.join(liked)} also rated it highly"
+    elif any('widely liked' in r for r in reasons):
+        lead = 'it is widely liked, while Flicks is still learning your taste'
+    elif themes:
+        lead = f"it shares {' and '.join(themes)} with titles you liked"
+    else:
+        lead = ''
+    rest = [r for r in reasons if r != 'matches your ratings' and 'widely liked' not in r]
+    if themes and liked:
+        rest.insert(0, f"shares {' and '.join(themes)} with titles you liked")
+    if not lead:
+        lead = f'it {rest.pop(0)}' if rest else 'it matches the scene you set'
+
+    return f"Flicks picked it because {lead}" + (f", and it {' and '.join(rest)}" if rest else '') + '.'
 
 
 def directors(description):
