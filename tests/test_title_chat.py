@@ -103,6 +103,27 @@ class TitleChatTests(unittest.TestCase):
         self.assertIn('intense', answer)
         self.assertIn('horror', answer)
 
+    def test_the_kids_sentence_says_whether_it_may_be_scary(self):
+        from flicks.assistant.title_chat import kids_sentence
+        base = {'kind': 'film', 'age rating': 'not known to Flicks'}
+        cases = (({'intensity': 'gentle', 'genres': ['animation', 'family'], 'moods': ['uplifting']},
+                  ['unlikely to be scary', 'family film']),
+                 ({'intensity': 'balanced', 'genres': ['crime', 'drama'], 'moods': ['reflective']},
+                  ['may be scary or too much for young viewers', 'crime']),
+                 ({'intensity': 'balanced', 'genres': ['drama'], 'moods': ['tense']},
+                  ['may be scary or too much for young viewers', 'tense']),
+                 ({'intensity': 'intense', 'genres': ['action'], 'moods': []},
+                  ['an intense film', 'may be scary']),
+                 # Balanced and not a family title: the catalogue can't say (Game of Thrones is "balanced" too).
+                 ({'intensity': 'balanced', 'genres': ['drama', 'fantasy'], 'moods': ['reflective']},
+                  ['balanced in intensity', 'preview it before showing it to young children']))
+        for facts_, words in cases:
+            with self.subTest(facts=facts_):
+                sentence = kids_sentence({**base, **facts_})
+                self.assertTrue(sentence.startswith('Flicks doesn’t know its age rating'))
+                for word in words:
+                    self.assertIn(word, sentence)
+
     def test_facts_say_when_the_mood_does_not_match(self):
         given = facts(self.pick['content'], self.pick, Session(mood='relaxing', minutes=100))
         self.assertFalse(given['your evening']['matches the mood you asked for'])  # Moon is reflective and curious
@@ -163,7 +184,8 @@ class TitleChatTests(unittest.TestCase):
     def test_why_and_fit_questions_are_answered_by_flicks_without_the_model(self):
         chat = FakeChat('The model should not be asked.')
         for question, words in (('Why did Flicks pick this for me?', 'Flicks picked it because'),
-                                ('Does it fit tonight?', '97 minutes')):
+                                ('Does it fit tonight?', '97 minutes'),
+                                ('Is it scary? Is it OK for my kids?', 'age rating')):
             with self.subTest(question=question):
                 done = list(TitleChat(chat, CATALOGUE).stream(self.given, question))[-1]
                 self.assertTrue(done['ok'])

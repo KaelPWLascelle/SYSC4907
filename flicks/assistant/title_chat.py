@@ -42,6 +42,9 @@ FIT_QUESTION = re.compile(r"\b(does|will|would|can|could) (it|this|that)\b[^?]{0
                           r"|\benough time\b|\bhave time (for|to watch) (it|this)\b")
 WHY_QUESTION = re.compile(r"\bwhy\b[^?]{0,30}\b(pick\w*|recommend\w*|suggest\w*|chos\w*|choose|show\w*)\b"
                           r"|\bwhat made (you|flicks)\b|\bwhy (this|it) one\b")
+KIDS_QUESTION = re.compile(r"\b(ok|okay|suitable|safe|appropriate|fine|good|alright|right)\b[^?]{0,25}"
+                           r"\b(kids?|children|child|my son|my daughter|family|young)\b|\b(kid|family|child)[- ]friendly\b"
+                           r"|\bage rating\b|\bwhat is it rated\b|\bwhat'?s it rated\b")
 ABOUT_DIRECTOR = re.compile(r"\bdirect|\bdirector|\bwho made\b|\bfilmmaker")
 SENTENCE_END = re.compile(r'(?<=[a-z0-9)"”\'][.!?])\s+')
 MAX_SENTENCES = 3
@@ -161,6 +164,8 @@ def answer_in_code(given, question):
         return evening_sentence(given)
     if 'why Flicks picked it' in given and WHY_QUESTION.search(asked):
         return why_sentence(given)
+    if given.get('age rating') == UNKNOWN_RATING and KIDS_QUESTION.search(asked):
+        return kids_sentence(given)
     return None
 
 
@@ -253,13 +258,20 @@ def claims_fine_for_kids(text):
 
 
 def kids_sentence(given):
-    """Flicks' own answer to "is it OK for kids?", from facts it has, for when the model claimed more."""
+    """Flicks' own answer to "is it scary? is it OK for kids?", from its intensity, genres and moods."""
     what = 'series' if given.get('kind') == 'TV series' else 'film'
+    intensity = given.get('intensity', 'balanced')
     mature = [g for g in given.get('genres', []) if g in MATURE]
+    tense = 'tense' in given.get('moods', [])
     text = 'Flicks doesn’t know its age rating, so check one before watching with children. '
-    if given.get('intensity') == 'intense' or mature:
-        how = f"an intense {what}" if given.get('intensity') == 'intense' else f"a {given.get('intensity', 'balanced')} {what}"
-        genres = f" with {', '.join(mature)} in its genres" if mature else ''
-        return text + f"It is {how}{genres}, which may be too much for young viewers."
-    family = ' and listed as a family ' + what if 'family' in given.get('genres', []) else ''
-    return text + f"It is {given.get('intensity', 'balanced')} in intensity{family}."
+    if intensity == 'intense' or mature or tense:
+        how = f'an intense {what}' if intensity == 'intense' else f'a {intensity} {what}'
+        details = [f"{', '.join(mature)} in its genres"] if mature else []
+        details += ['a tense mood'] if tense else []
+        detail = f" with {' and '.join(details)}" if details else ''
+        return text + f'It is {how}{detail}, so it may be scary or too much for young viewers.'
+    if intensity == 'gentle' or 'family' in given.get('genres', []):
+        family = f' and listed as a family {what}' if 'family' in given.get('genres', []) else ''
+        return text + f'It is {intensity} in intensity{family}, so it is unlikely to be scary.'
+    # "Balanced" alone can't settle it: the catalogue rates Game of Thrones balanced too.
+    return text + 'It is balanced in intensity, so preview it before showing it to young children.'
