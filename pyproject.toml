@@ -19,7 +19,7 @@ dependencies = [
 [project.optional-dependencies]
 voice = ["faster-whisper==1.2.1"]
 # The small language model inside Flicks, for the chats (`flicks setup --model` downloads the model itself).
-llm = ["llama-cpp-python==0.3.36"]
+llm = ["llama-cpp-python==0.3.37"]
 # Optional for `flicks setup`: Pillow shrinks full-size series covers (without it, TVmaze's smaller ones are used).
 datasets = ["pillow>=11"]
 dev = [
